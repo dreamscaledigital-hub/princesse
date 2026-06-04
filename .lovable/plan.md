@@ -1,106 +1,92 @@
-# Plan : Jeu romantique "À quel point tu me connais ?"
+# Plan : jeu de couple complet (jauge, gages 3 niveaux, mini-jeux, grand défi)
 
-Quiz mobile pour deux joueurs, synchronisé en temps réel via Lovable Cloud (Supabase Realtime), entièrement en français, avec ton tendre et joueur.
+On garde TOUT l'existant (lobby, phase secrète, QCM "deviner l'autre", design, synchro Supabase). On ajoute la structure ci-dessous.
 
-## Activation backend
+## 1. Schéma BDD (migration)
 
-Activer Lovable Cloud pour bénéficier de Postgres + Realtime (synchro entre les deux téléphones).
+**`rooms`** — colonnes ajoutées :
+- `complicity` (int, 0-100) — jauge partagée
+- `stage` (text) : `round1` | `round2` | `finale` | `done` (sous-phase de phase2)
+- `minigame_id` (text nullable) : `tap` | `green` | `culture` | `rps`
+- `minigame_state` (jsonb) — état temps réel du mini-jeu en cours (compteurs, timestamps, choix)
+- `minigame_round` (int) — pour best-of dans la finale
+- `finale_scores` (jsonb) — `{"1": n, "2": n}` pour le grand défi
 
-## Schéma base de données
+**`custom_dares`** — colonne ajoutée :
+- `level` (text) : `simple` | `medium` | `ultra` (défaut `simple`)
 
-**`rooms`**
-- `id` (uuid, PK)
-- `code` (text, unique, 6 caractères ex: `ABCD12`) — utilisé dans le lien `?room=ABCD12`
-- `phase` (text) : `lobby` | `phase1` | `phase2` | `dare` | `done`
-- `current_turn` (int) — index de la question en Phase 2
-- `current_player` (int 1 ou 2) — qui doit deviner
-- `current_dare` (text nullable) — gage en cours
-- `score_1`, `score_2` (int)
-- `created_at`
+Realtime déjà actif sur `rooms` (les updates de `minigame_state` se propageront).
 
-**`players`**
-- `id` (uuid, PK)
-- `room_id` (FK)
-- `slot` (int 1 ou 2)
-- `name` (text, défaut "Toi" / "Eloise")
-- `client_id` (text) — identifiant local stocké en localStorage pour reconnexion
-- `joined_at`
+## 2. Contenu (`src/lib/game-content.ts`)
 
-**`answers`** (réponses Phase 1)
-- `id`, `room_id`, `player_slot`, `question_index`, `answer_text`
+Variables ajoutées en haut du fichier :
+- `GAGES_SIMPLE[]`, `GAGES_MEDIUM[]`, `GAGES_ULTRA[]` (remplace l'actuel `GAGES`)
+- `LEVEL_LABELS = { simple: "Simple 🟢", medium: "Moyen 🟡", ultra: "Ultra 🔴" }`
+- `SURPRISE_FINALE` (texte libre modifiable, ex. "Bon pour une soirée surprise…")
+- `CULTURE_QUESTIONS[]` (banque QCM culture générale, ~10 questions)
+- `NB_MINIGAMES_ROUND2 = 2`, `NB_MINIGAMES_FINALE = 3`
+- `COMPLICITY_GAINS = { correct: 8, dare_done: 5, minigame: 10 }`
 
-**`guesses`** (réponses Phase 2)
-- `id`, `room_id`, `question_index`, `guesser_slot`, `chosen_text`, `is_correct`
+## 3. Flux de partie
 
-RLS ouverte en lecture/écriture sur ces tables (jeu éphémère sans auth — accès par connaissance du code de room). Realtime activé sur les 4 tables.
+```
+lobby → secrets → phase1 (réponses) → phase2 :
+   stage=round1  : QCM existant (rater = gage SIMPLE)
+   stage=round2  : 2 mini-jeux (perdre = gage MEDIUM)
+   stage=finale  : 3 mini-jeux + 1 question bonus (perdre = gage ULTRA)
+→ done (verdict + surprise si jauge ≥ 100)
+```
 
-## Flux applicatif
+La jauge `complicity` monte à chaque bonne réponse, gage validé, mini-jeu terminé. Affichée en permanence en haut avec les 2 avatars qui avancent.
 
-### 1. Accueil (`/`)
-- Si `?room=XXX` dans l'URL → écran "Rejoindre"
-- Sinon → bouton "Créer une partie" + champ "Rejoindre avec un code"
-- Création : génère un code, insère `rooms` + `players` (slot 1), redirige vers `/?room=XXX`
+## 4. Mini-jeux (composants dans `src/routes/room.$code.tsx`)
 
-### 2. Lobby
-- Affiche les deux slots (avec prénom éditable)
-- Lien d'invitation copiable + bouton "Partager" (Web Share API sur mobile)
-- Subscribe au canal Realtime `room:{code}` → quand slot 2 rejoint, les deux écrans s'actualisent
-- Bouton "Commencer 💕" actif uniquement quand 2 joueurs présents ; un clic met `phase = 'phase1'`
+Protocole commun : `rooms.minigame_state` = `{ phase: "countdown"|"play"|"result", started_at, ...specific }`.
 
-### 3. Phase 1 — Questionnaire sur soi
-- 8 questions affichées une par une, champ texte court
-- Insère dans `answers` au fur et à mesure
-- Barre de progression + indicateur "Eloise a répondu à 5/8"
-- Si on finit avant l'autre : écran d'attente animé ("On attend que Eloise finisse… 🥰")
-- Quand les 16 réponses sont là → passage auto à `phase2`
+- **TapBattle** : 5s, chacun incrémente `taps_1`/`taps_2` via update local + sync 200ms. Vainqueur = plus de taps.
+- **GreenLight** : délai aléatoire (2-6s) écrit par le slot 1, écran vert, premier `tap_at` gagne. Tap avant le vert = défaite.
+- **CultureFlash** : question tirée, 4 choix, premier à cliquer juste gagne (`winner_slot`).
+- **RPS** : best-of-3, chacun écrit `choice_1`/`choice_2` ; résolution quand les deux sont remplis.
 
-### 4. Phase 2 — Devine l'autre
-- 10 questions au total, alternance des tours (joueur 1, 2, 1, 2…)
-- Le joueur actif voit la question + 4 propositions (vraie réponse de l'autre + 3 leurres tirés de la banque, mélangés)
-- L'autre joueur voit "C'est au tour de [prénom]…" avec animation
-- **Bonne réponse** : +1 point, animation confettis/cœurs, message tendre, passage au tour suivant
-- **Mauvaise réponse** : `phase = 'dare'`, `current_dare = null`
-  - Le partenaire reçoit 3 gages aléatoires et en choisit un → écrit dans `current_dare`
-  - Le joueur fautif voit "Gage : …" + bouton "C'est fait ! ✅" → retour à `phase2`, tour suivant
+Chaque mini-jeu : écran "Prêt ? 3-2-1" → jeu → écran "[prénom] gagne ! 🎉" → gage si pertinent → tour suivant.
 
-### 5. Écran final
-- Scores des deux joueurs
-- Verdict mignon selon écart de score
-- Phrase manuscrite "Peu importe le score, je t'aime Eloise ❤️"
-- Boutons "Rejouer 🔁" (reset scores/réponses, retour phase1) et "Nouvelle partie" (retour accueil)
+## 5. Gages 3 niveaux
 
-## Contenu (en haut de `src/lib/game-content.ts`, facilement modifiable)
+- `DareScreen` reçoit un `level`. Pool = `GAGES_{LEVEL}` + `customDares.filter(d => d.level === level && d.author_slot === partner)`.
+- L'auteur tire 3 propositions au hasard, badge niveau visible.
+- Phase secrète : chaque gage perso a un sélecteur de niveau (simple/medium/ultra).
+- Validation du gage ("C'est fait ✅") → +5 à la jauge.
 
-- `QUESTIONS_PHASE1` : 8 questions ("Ton film préféré ?", "Ton plat préféré ?", etc.)
-- `LEURRES` : tableau parallèle, 4-5 leurres drôles par question
-- `GAGES` : 12+ gages tendres ("Câlin de 20 secondes", "Vocal mignon", "Imite l'autre"…)
+## 6. UI jauge & avatars
 
-## Design
+Composant `<ComplicityBar />` collé en haut, sticky :
+- barre dégradée rose→vert sauge, % affiché
+- chemin SVG avec 2 avatars (blonde Eloise, brun Toi) qui glissent selon `complicity`
+- petite animation pulse + cœur volant quand la jauge monte (framer-motion)
+- à 100 % : confettis + déblocage du bouton "Découvrir la surprise 💌" à l'écran final
 
-- Tokens dans `src/styles.css` : dégradé crème → rose poudré → vert sauge
-- Polices Google Fonts : **Quicksand** (UI), **Caveat** (titres manuscrits, phrases d'amour)
-- Petits cœurs/étoiles SVG flottants en arrière-plan (animation CSS subtile)
-- Animations via `framer-motion` : fondus, scale doux, micro-rebonds sur boutons
-- `canvas-confetti` (ou équivalent léger) pour les bonnes réponses
-- Mobile-first : gros boutons, marges généreuses, une seule étape par écran
+## 7. Écran final
 
-## Routes TanStack
+- Scores Toi / Eloise
+- Verdict mignon (gagnant ou ex-aequo)
+- Jauge finale ; si ≥ 100 : carte dépliable révélant `SURPRISE_FINALE`
+- Boutons "Rejouer 🔁" (reset complet) et "Nouvelle partie"
 
-- `src/routes/index.tsx` : accueil / création / lien d'invitation
-- `src/routes/room.$code.tsx` : écran de jeu unique qui rend lobby / phase1 / phase2 / dare / done selon `rooms.phase`
+## 8. Étapes d'implémentation
 
-## Détails techniques
+1. Migration BDD (nouvelles colonnes + level sur custom_dares)
+2. Mise à jour `types.ts`, `use-room-state.ts`, `game-content.ts`
+3. Composant `ComplicityBar` + intégration en haut de toutes les phases
+4. Refonte de `DareScreen` pour 3 niveaux + ajout du sélecteur de niveau dans la phase secrète
+5. Logique de progression `round1 → round2 → finale → done` + transitions
+6. Implémentation des 4 mini-jeux (composants + synchro `minigame_state`)
+7. Grand défi : enchaînement best-of + question bonus
+8. Écran final avec surprise déblocable
+9. Test mobile
 
-- Identité du joueur : `client_id` UUID stocké en `localStorage` → permet de retrouver son slot après rechargement
-- Subscriptions Realtime sur `rooms`, `players`, `answers`, `guesses` filtrées par `room_id`
-- Génération du code : 6 caractères alphanumériques (sans caractères ambigus)
-- Web Share API pour le partage du lien, fallback "Copier le lien" avec toast
-- Lecture/écriture directe depuis le client Supabase (pas de serverFn nécessaire — jeu ouvert sans auth)
+## Notes techniques
 
-## Livrables
-
-1. Activation Lovable Cloud + migrations (4 tables, RLS, Realtime)
-2. Fichier de contenu modifiable (questions/leurres/gages)
-3. Hooks : `useRoom`, `usePlayers`, `useRealtimeRoom`
-4. Écrans : Home, Lobby, Phase1, Phase2, DareScreen, Final
-5. Tokens design + composants animés
+- Toute la logique reste dans `src/routes/room.$code.tsx` + `game-content.ts` + `use-room-state.ts` pour cohérence avec l'existant. Mini-jeux extraits en sous-composants dans le même fichier ou un nouveau `src/components/minigames.tsx` selon la taille.
+- Pas de serverFn : écritures directes Supabase (jeu sans auth, RLS publique déjà en place).
+- Les updates fréquentes (TapBattle) sont throttlées (~200ms) pour ne pas saturer Realtime.
+- Valeurs par défaut : si pas de gages perso, on tire dans les pools classiques ; si pas de questions perso, le plan de tours utilise uniquement les classiques.
