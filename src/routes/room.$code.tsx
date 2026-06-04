@@ -311,6 +311,23 @@ async function bumpComplicity(room: Room, gain: number) {
   await supabase.from("rooms").update({ complicity: next }).eq("id", room.id);
 }
 
+function buildQuizPlan(customQuestions: CustomQuestion[]): TurnPlanEntry[] {
+  const customs: TurnPlanEntry[] = customQuestions.map((q) => ({
+    kind: "custom" as const,
+    guesser: q.author_slot === 1 ? 2 : 1,
+    custom_id: q.id,
+  }));
+  const classics: TurnPlanEntry[] = [];
+  let next = 1;
+  const target = Math.max(NB_TOURS_PHASE2, QUESTIONS_PHASE1.length * 2);
+  for (let i = 0; i < target; i++) {
+    classics.push({ kind: "classic" as const, guesser: next, qi: i % QUESTIONS_PHASE1.length });
+    next = next === 1 ? 2 : 1;
+  }
+  return shuffle([...customs, ...classics]);
+}
+
+
 // ───────────────────────────────────────────── LOBBY ─────
 
 function Lobby({ room, players, mySlot }: Ctx) {
