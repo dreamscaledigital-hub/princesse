@@ -264,7 +264,7 @@ function GamePage() {
         {room.phase === "secrets" && <Secrets {...ctx} onDone={backToMenu} />}
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
-        {room.phase === "minigames" && <MinigamesMode {...ctx} onBack={backToMenu} />}
+        {room.phase === "minigames" && <MinigamesMode ctx={ctx} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
         {room.phase === "done" && <Final {...ctx} onMenu={backToMenu} />}
       </div>
