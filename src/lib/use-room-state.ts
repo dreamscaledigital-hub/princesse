@@ -1,17 +1,23 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export type TurnPlanEntry =
+  | { kind: "classic"; guesser: number; qi: number }
+  | { kind: "custom"; guesser: number; custom_id: string };
+
 export type Room = {
   id: string;
   code: string;
-  phase: "lobby" | "phase1" | "phase2" | "dare" | "done";
+  phase: "lobby" | "secrets" | "phase1" | "phase2" | "dare" | "done";
   current_turn: number;
   current_player: number;
   current_dare: string | null;
   current_dare_for: number | null;
   score_1: number;
   score_2: number;
-  turn_order: number[]; // jsonb array, ex [1,2,1,2,...]
+  turn_order: number[];
+  turn_plan: TurnPlanEntry[];
+  secrets_ready: number[];
   created_at: string;
 };
 
@@ -40,11 +46,29 @@ export type Guess = {
   is_correct: boolean;
 };
 
+export type CustomQuestion = {
+  id: string;
+  room_id: string;
+  author_slot: number;
+  text: string;
+  correct_answer: string;
+  wrongs: string[];
+};
+
+export type CustomDare = {
+  id: string;
+  room_id: string;
+  author_slot: number;
+  text: string;
+};
+
 export function useRoomState(code: string | undefined) {
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [guesses, setGuesses] = useState<Guess[]>([]);
+  const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>([]);
+  const [customDares, setCustomDares] = useState<CustomDare[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,15 +94,19 @@ export function useRoomState(code: string | undefined) {
       const r = roomData as unknown as Room;
       setRoom(r);
 
-      const [pRes, aRes, gRes] = await Promise.all([
+      const [pRes, aRes, gRes, cqRes, cdRes] = await Promise.all([
         supabase.from("players").select("*").eq("room_id", r.id),
         supabase.from("answers").select("*").eq("room_id", r.id),
         supabase.from("guesses").select("*").eq("room_id", r.id),
+        supabase.from("custom_questions").select("*").eq("room_id", r.id),
+        supabase.from("custom_dares").select("*").eq("room_id", r.id),
       ]);
       if (cancelled) return;
       setPlayers((pRes.data ?? []) as unknown as Player[]);
       setAnswers((aRes.data ?? []) as unknown as Answer[]);
       setGuesses((gRes.data ?? []) as unknown as Guess[]);
+      setCustomQuestions((cqRes.data ?? []) as unknown as CustomQuestion[]);
+      setCustomDares((cdRes.data ?? []) as unknown as CustomDare[]);
       setLoading(false);
 
       channel = supabase
@@ -113,6 +141,8 @@ export function useRoomState(code: string | undefined) {
               if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Answer];
               if (payload.eventType === "UPDATE")
                 return prev.map((a) => (a.id === (payload.new as Answer).id ? (payload.new as unknown as Answer) : a));
+              if (payload.eventType === "DELETE")
+                return prev.filter((a) => a.id !== (payload.old as Answer).id);
               return prev;
             });
           },
@@ -123,6 +153,36 @@ export function useRoomState(code: string | undefined) {
           (payload) => {
             setGuesses((prev) => {
               if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Guess];
+              if (payload.eventType === "DELETE")
+                return prev.filter((g) => g.id !== (payload.old as Guess).id);
+              return prev;
+            });
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "custom_questions", filter: `room_id=eq.${r.id}` },
+          (payload) => {
+            setCustomQuestions((prev) => {
+              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as CustomQuestion];
+              if (payload.eventType === "UPDATE")
+                return prev.map((q) => (q.id === (payload.new as CustomQuestion).id ? (payload.new as unknown as CustomQuestion) : q));
+              if (payload.eventType === "DELETE")
+                return prev.filter((q) => q.id !== (payload.old as CustomQuestion).id);
+              return prev;
+            });
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "custom_dares", filter: `room_id=eq.${r.id}` },
+          (payload) => {
+            setCustomDares((prev) => {
+              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as CustomDare];
+              if (payload.eventType === "UPDATE")
+                return prev.map((d) => (d.id === (payload.new as CustomDare).id ? (payload.new as unknown as CustomDare) : d));
+              if (payload.eventType === "DELETE")
+                return prev.filter((d) => d.id !== (payload.old as CustomDare).id);
               return prev;
             });
           },
@@ -136,5 +196,5 @@ export function useRoomState(code: string | undefined) {
     };
   }, [code]);
 
-  return { room, players, answers, guesses, loading, error };
+  return { room, players, answers, guesses, customQuestions, customDares, loading, error };
 }
