@@ -486,7 +486,7 @@ function AttemptsList({ attempts, size, palettes }: { attempts: Attempt[]; size:
 
 function GuesserView({ level, round, size, palettes, maxAttempts, attempts, otherName, onSubmit }: {
   level: Level; round: number; size: number; palettes: typeof COLORS; maxAttempts: number;
-  code: string[]; attempts: Attempt[]; otherName: string; myName: string;
+  attempts: Attempt[]; otherName: string;
   onSubmit: (guess: string[]) => void | Promise<void>;
 }) {
   const [slots, setSlots] = useState<(string | null)[]>(() => Array(size).fill(null));
