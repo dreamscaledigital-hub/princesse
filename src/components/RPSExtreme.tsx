@@ -255,7 +255,9 @@ function PlayRound({
     if (mySent) return;
     setPicking(c);
     const p: State = mySlot === 1 ? { choice_1: c } : { choice_2: c };
-    await patch(room.id, p);
+    console.log("[RPS] pick", { mySlot, choice: c });
+    const { error } = await patch(room.id, p);
+    if (error) console.error("[RPS] pick error", error);
   };
 
   const send = async () => {
@@ -263,17 +265,47 @@ function PlayRound({
     const p: State = mySlot === 1
       ? { choice_1: picking, sent_1: true }
       : { choice_2: picking, sent_2: true };
-    await patch(room.id, p);
+    console.log("[RPS] send", { mySlot, choice: picking });
+    const { error } = await patch(room.id, p);
+    if (error) console.error("[RPS] send error", error);
   };
 
+  // Diagnostic
+  console.log("[RPS] render", {
+    mySlot, phase, mySent, otherSent, bothSent,
+    choice_1: state.choice_1, choice_2: state.choice_2,
+  });
+
   // Quand les deux sont envoyés et qu'on est encore en "play", passer en "reveal".
-  // Les deux joueurs peuvent piloter : la fonction SQL `minigame_patch` fusionne,
-  // donc deux écritures identiques ne se gênent pas.
   useEffect(() => {
     if (!bothSent) return;
     if (phase !== "play") return;
+    console.log("[RPS] -> reveal (bothSent)");
     void patch(room.id, { phase: "reveal" });
   }, [bothSent, phase, room.id]);
+
+  // Filet de sécurité : si moi j'ai envoyé mais que Realtime n'a pas livré
+  // sent_X de l'autre, on re-lit la BDD pour confirmer et forcer la transition.
+  useEffect(() => {
+    if (phase !== "play" || !mySent) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase
+        .from("rooms")
+        .select("minigame_state")
+        .eq("id", room.id)
+        .maybeSingle();
+      const ms = (data?.minigame_state ?? {}) as State;
+      console.log("[RPS] poll-fallback", ms);
+      if (ms.sent_1 && ms.sent_2 && (ms.phase === "play" || !ms.phase)) {
+        console.log("[RPS] fallback -> reveal");
+        void patch(room.id, { phase: "reveal" });
+        clearInterval(t);
+      } else if (ms.phase && ms.phase !== "play") {
+        clearInterval(t);
+      }
+    }, 1500);
+    return () => clearInterval(t);
+  }, [phase, mySent, room.id]);
 
   // Reveal → résolution (les deux joueurs pilotent : opérations idempotentes)
   useEffect(() => {
@@ -282,9 +314,9 @@ function PlayRound({
     const c2 = state.choice_2 as Choice | null;
     if (!c1 || !c2) return;
     const w = rpsWinner(c1, c2);
+    console.log("[RPS] reveal resolved", { c1, c2, winner: w });
     const t = setTimeout(() => {
       if (w === 0) {
-        // Égalité → on relance la manche
         void patch(room.id, {
           phase: "play",
           choice_1: null, choice_2: null, sent_1: false, sent_2: false,
