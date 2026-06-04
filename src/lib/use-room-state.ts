@@ -8,10 +8,13 @@ export type TurnPlanEntry =
 
 export type Stage = "round1" | "round2" | "finale" | "done";
 
+export type GameMode = "full" | "quiz" | "minigames" | "edit_secrets";
+
 export type Room = {
   id: string;
   code: string;
-  phase: "lobby" | "secrets" | "phase1" | "phase2" | "dare" | "done";
+  phase: "lobby" | "menu" | "secrets" | "phase1" | "phase2" | "dare" | "done" | "minigames";
+  mode: GameMode | null;
   stage: Stage;
   current_turn: number;
   current_player: number;
