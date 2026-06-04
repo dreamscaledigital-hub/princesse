@@ -38,7 +38,7 @@ export function Minigame(props: Props) {
       void supabase
         .from("rooms")
         .update({
-          minigame_state: { phase: "countdown", countdown_start: Date.now() },
+          minigame_state: ( { phase: "countdown", countdown_start: Date.now() },
         })
         .eq("id", room.id);
     }
@@ -53,7 +53,7 @@ export function Minigame(props: Props) {
     const id = setTimeout(() => {
       void supabase
         .from("rooms")
-        .update({ minigame_state: initialPlayState(room.minigame_id as MinigameId) })
+        .update({ minigame_state: ( initialPlayState(room.minigame_id as MinigameId) })
         .eq("id", room.id);
     }, Math.max(0, remaining));
     return () => clearTimeout(id);
@@ -198,7 +198,7 @@ function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: 
     const patch = mySlot === 1 ? { taps_1: count } : { taps_2: count };
     void supabase
       .from("rooms")
-      .update({ minigame_state: { ...state, ...patch } })
+      .update({ minigame_state: ( { ...state, ...patch } })
       .eq("id", room.id);
   };
 
@@ -220,7 +220,7 @@ function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: 
     const finalState = { ...state, ...patch };
     void supabase
       .from("rooms")
-      .update({ minigame_state: finalState })
+      .update({ minigame_state: ( finalState })
       .eq("id", room.id)
       .then(() => {
         if (mySlot !== 1) return;
@@ -237,7 +237,7 @@ function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: 
           const winner = t1 === t2 ? 0 : t1 > t2 ? 1 : 2;
           await supabase
             .from("rooms")
-            .update({ minigame_state: { ...s, phase: "result", winner_slot: winner } })
+            .update({ minigame_state: ( { ...s, phase: "result", winner_slot: winner } })
             .eq("id", room.id);
         }, 600);
       });
@@ -293,7 +293,7 @@ function GreenLight({ room, mySlot, myName, otherName, state }: Props & { state:
     const winner = isGreen ? mySlot : otherSlot;
     await supabase
       .from("rooms")
-      .update({ minigame_state: { ...state, phase: "result", winner_slot: winner, early: !isGreen, by: mySlot } })
+      .update({ minigame_state: ( { ...state, phase: "result", winner_slot: winner, early: !isGreen, by: mySlot } })
       .eq("id", room.id);
   };
 
@@ -334,7 +334,7 @@ function CultureFlash({ room, mySlot, state }: Props & { state: Record<string, u
     if (i === q.correct) {
       await supabase
         .from("rooms")
-        .update({ minigame_state: { ...state, phase: "result", winner_slot: mySlot } })
+        .update({ minigame_state: ( { ...state, phase: "result", winner_slot: mySlot } })
         .eq("id", room.id);
     } else {
       const newLost = Array.from(new Set([...lost, mySlot]));
@@ -342,7 +342,7 @@ function CultureFlash({ room, mySlot, state }: Props & { state: Record<string, u
       if (newLost.length >= 2) {
         await supabase
           .from("rooms")
-          .update({ minigame_state: { ...state, phase: "result", winner_slot: 0, lost: newLost } })
+          .update({ minigame_state: ( { ...state, phase: "result", winner_slot: 0, lost: newLost } })
           .eq("id", room.id);
       } else {
         // other player still has a chance → wait. But mark them winner if they answer or after timeout.
@@ -350,7 +350,7 @@ function CultureFlash({ room, mySlot, state }: Props & { state: Record<string, u
         const otherSlot = mySlot === 1 ? 2 : 1;
         await supabase
           .from("rooms")
-          .update({ minigame_state: { ...state, phase: "result", winner_slot: otherSlot, lost: newLost } })
+          .update({ minigame_state: ( { ...state, phase: "result", winner_slot: otherSlot, lost: newLost } })
           .eq("id", room.id);
       }
     }
@@ -411,7 +411,7 @@ function RPS({ room, mySlot, myName, otherName, state }: Props & { state: Record
     const patch = mySlot === 1 ? { choice_1: id } : { choice_2: id };
     await supabase
       .from("rooms")
-      .update({ minigame_state: { ...state, ...patch } })
+      .update({ minigame_state: ( { ...state, ...patch } })
       .eq("id", room.id);
   };
 
@@ -427,7 +427,7 @@ function RPS({ room, mySlot, myName, otherName, state }: Props & { state: Record
         await supabase
           .from("rooms")
           .update({
-            minigame_state: {
+            minigame_state: ( {
               ...state,
               phase: "result",
               winner_slot: nw1 > nw2 ? 1 : 2,
@@ -440,7 +440,7 @@ function RPS({ room, mySlot, myName, otherName, state }: Props & { state: Record
         await supabase
           .from("rooms")
           .update({
-            minigame_state: {
+            minigame_state: ( {
               ...state,
               round: round + 1,
               wins_1: nw1,
