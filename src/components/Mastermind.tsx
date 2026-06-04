@@ -219,7 +219,7 @@ function LevelSelect({ state, room, mySlot, myName, otherName }: { state: MMStat
 }
 
 // ─────────── Étape 2/3 : manches ───────────
-function Round({ state, room, mySlot, myName, otherName }: { state: MMState; room: Room; mySlot: number; myName: string; otherName: string }) {
+function Round({ state, room, mySlot, otherName }: { state: MMState; room: Room; mySlot: number; myName: string; otherName: string }) {
   const level = (state.level ?? "easy") as Level;
   const { size, palette, maxAttempts } = LEVELS[level];
   const palettes = COLORS.slice(0, palette);
