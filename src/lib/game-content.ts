@@ -108,27 +108,48 @@ export const BADGE_GAGE_PERSO = (auteur: string) =>
   `💕 Gage spécial de ${auteur}`;
 
 // ── Mini-jeux ──
-export const MINIGAME_IDS = ["tap", "green", "culture", "rps"] as const;
-export type MinigameId = (typeof MINIGAME_IDS)[number];
+export const MINIGAME_IDS = ["green", "culture", "rps", "memory"] as const;
+export type MinigameId = (typeof MINIGAME_IDS)[number] | "tap"; // "tap" gardé seulement pour les anciennes parties en cours
 
 export const MINIGAME_LABELS: Record<MinigameId, string> = {
-  tap: "Tap Battle ⚡",
+  tap: "Mémoire des cœurs 💞",
   green: "Réflexe Feu Vert 🚦",
   culture: "Quiz Flash 🧠",
   rps: "Pierre-Feuille-Ciseaux ✌️",
+  memory: "Mémoire des cœurs 💞",
 };
 
 export const MINIGAME_DESCRIPTIONS: Record<MinigameId, string> = {
-  tap: "5 secondes pour taper l'écran un MAX de fois !",
+  tap: "Mémorise la suite d'émojis, puis retrouve-la avant l'autre.",
   green: "Attends que l'écran devienne vert. Premier à taper gagne !",
   culture: "Une question surprise. Premier à répondre juste gagne.",
   rps: "Best-of-3. Choix simultané, qui va gagner ?",
+  memory: "Mémorise la suite d'émojis, puis retrouve-la avant l'autre.",
 };
 
-export const TAP_DURATION_MS = 5000;
+export const HEART_MEMORY_SHOW_MS = 2600;
 export const GREEN_MIN_DELAY_MS = 2000;
 export const GREEN_MAX_DELAY_MS = 6000;
 export const RPS_WINS_NEEDED = 2;
+
+export const HEART_MEMORY_CARDS: { sequence: string[]; options: string[][] }[] = [
+  {
+    sequence: ["💋", "🌹", "🎵"],
+    options: [["🌹", "💋", "🎵"], ["💋", "🌹", "🎵"], ["🎵", "🌹", "💋"], ["💋", "🎵", "🌹"]],
+  },
+  {
+    sequence: ["🍓", "💌", "🌙"],
+    options: [["🍓", "🌙", "💌"], ["💌", "🍓", "🌙"], ["🍓", "💌", "🌙"], ["🌙", "💌", "🍓"]],
+  },
+  {
+    sequence: ["🧸", "✨", "☕"],
+    options: [["✨", "🧸", "☕"], ["🧸", "☕", "✨"], ["☕", "✨", "🧸"], ["🧸", "✨", "☕"]],
+  },
+  {
+    sequence: ["🌼", "🍿", "💕"],
+    options: [["🌼", "🍿", "💕"], ["🍿", "🌼", "💕"], ["💕", "🍿", "🌼"], ["🌼", "💕", "🍿"]],
+  },
+];
 
 export const CULTURE_QUESTIONS: { q: string; choices: string[]; correct: number }[] = [
   { q: "Combien de cœurs a une pieuvre ?", choices: ["1", "2", "3", "5"], correct: 2 },

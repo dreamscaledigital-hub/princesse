@@ -9,10 +9,11 @@ import {
   CULTURE_QUESTIONS,
   GREEN_MAX_DELAY_MS,
   GREEN_MIN_DELAY_MS,
+  HEART_MEMORY_CARDS,
+  HEART_MEMORY_SHOW_MS,
   MINIGAME_DESCRIPTIONS,
   MINIGAME_LABELS,
   RPS_WINS_NEEDED,
-  TAP_DURATION_MS,
   type MinigameId,
 } from "@/lib/game-content";
 import type { Room } from "@/lib/use-room-state";
@@ -85,7 +86,8 @@ export function Minigame(props: Props) {
   // play phase — dispatch
   switch (room.minigame_id) {
     case "tap":
-      return <TapBattle {...props} state={state} />;
+    case "memory":
+      return <HeartMemory {...props} state={state} />;
     case "green":
       return <GreenLight {...props} state={state} />;
     case "culture":
@@ -100,7 +102,10 @@ function initialPlayState(id: MinigameId): Record<string, unknown> {
   const now = Date.now();
   switch (id) {
     case "tap":
-      return { phase: "play", started_at: now, ends_at: now + TAP_DURATION_MS, taps_1: 0, taps_2: 0 };
+    case "memory": {
+      const cardIndex = Math.floor(Math.random() * HEART_MEMORY_CARDS.length);
+      return { phase: "play", started_at: now, reveal_until: now + HEART_MEMORY_SHOW_MS, card_index: cardIndex };
+    }
     case "green": {
       const delay = GREEN_MIN_DELAY_MS + Math.random() * (GREEN_MAX_DELAY_MS - GREEN_MIN_DELAY_MS);
       return { phase: "play", started_at: now, go_at: now + delay };
@@ -176,130 +181,74 @@ function ResultScreen({
   );
 }
 
-// ── TAP BATTLE ─────────────────────────────────
-function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: Record<string, unknown> }) {
-  const endsAt = (state.ends_at as number) ?? Date.now();
-  const startedAt = (state.started_at as number) ?? Date.now();
-  const taps1 = (state.taps_1 as number) ?? 0;
-  const taps2 = (state.taps_2 as number) ?? 0;
-  const [myExtra, setMyExtra] = useState(0); // unflushed local taps
+// ── HEART MEMORY ─────────────────────────────────
+function HeartMemory({ room, mySlot, myName, otherName, state }: Props & { state: Record<string, unknown> }) {
+  const revealUntil = (state.reveal_until as number) ?? Date.now();
+  const cardIndex = (state.card_index as number) ?? 0;
+  const card = HEART_MEMORY_CARDS[cardIndex % HEART_MEMORY_CARDS.length];
   const [now, setNow] = useState(Date.now());
-  const pendingRef = useRef(0);
-  const flushingRef = useRef(false);
-  const finishedRef = useRef(false);
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 80);
+    const t = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(t);
   }, []);
 
-  // Pre-game wait (in case the player loaded before the host wrote play state)
-  const preStart = now < startedAt;
-  const remaining = Math.max(0, endsAt - now);
-  const totalMs = Math.max(1, endsAt - startedAt);
-  const finished = !preStart && remaining === 0;
+  const revealing = now < revealUntil;
+  const remaining = Math.max(0, revealUntil - now);
 
-  const flush = async () => {
-    if (flushingRef.current) return;
-    const delta = pendingRef.current;
-    if (delta <= 0) return;
-    flushingRef.current = true;
-    pendingRef.current = 0;
-    try {
-      await supabase.rpc("increment_tap", {
-        _room_id: room.id,
-        _slot: mySlot,
-        _delta: delta,
-      });
-      setMyExtra((e) => Math.max(0, e - delta));
-    } catch {
-      // re-queue on failure
-      pendingRef.current += delta;
-    } finally {
-      flushingRef.current = false;
-    }
+  const pick = async (option: string[]) => {
+    if (revealing || picking) return;
+    setPicking(true);
+    const isCorrect = option.join("|") === card.sequence.join("|");
+    const winner = isCorrect ? mySlot : mySlot === 1 ? 2 : 1;
+    await supabase
+      .from("rooms")
+      .update({ minigame_state: { ...state, phase: "result", winner_slot: winner, by: mySlot, correct: isCorrect } })
+      .eq("id", room.id);
+    setPicking(false);
   };
-
-  // Periodic flush every 200ms during play
-  useEffect(() => {
-    if (preStart || finished) return;
-    const t = setInterval(() => {
-      void flush();
-    }, 200);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preStart, finished]);
-
-  const tap = () => {
-    if (preStart || finished) return;
-    pendingRef.current += 1;
-    setMyExtra((e) => e + 1);
-  };
-
-  // When finished: flush remaining, then host decides winner
-  useEffect(() => {
-    if (!finished || finishedRef.current) return;
-    finishedRef.current = true;
-    (async () => {
-      await flush();
-      // small delay so both clients flush
-      await new Promise((r) => setTimeout(r, 700));
-      if (mySlot !== 1) return;
-      const { data } = await supabase
-        .from("rooms")
-        .select("minigame_state")
-        .eq("id", room.id)
-        .maybeSingle();
-      const s = ((data?.minigame_state ?? {}) as Record<string, unknown>);
-      const t1 = (s.taps_1 as number) ?? 0;
-      const t2 = (s.taps_2 as number) ?? 0;
-      const winner = t1 === t2 ? 0 : t1 > t2 ? 1 : 2;
-      await supabase
-        .from("rooms")
-        .update({ minigame_state: { ...s, phase: "result", winner_slot: winner } })
-        .eq("id", room.id);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished]);
-
-  const myServer = mySlot === 1 ? taps1 : taps2;
-  const otherDisplay = mySlot === 1 ? taps2 : taps1;
-  const myDisplay = myServer + myExtra;
-  const pct = preStart ? 100 : (remaining / totalMs) * 100;
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Tap Battle ⚡</p>
-        <p className="mt-1 font-script text-5xl text-primary">
-          {preStart ? "..." : (remaining / 1000).toFixed(1) + "s"}
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Mémoire des cœurs 💞</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {myName} vs {otherName} — retiens la suite, puis retrouve-la.
         </p>
-        <div className="mx-auto mt-2 h-2 w-full max-w-xs overflow-hidden rounded-full bg-card/60">
-          <div
-            className="h-full bg-gradient-to-r from-primary to-primary/60 transition-[width] duration-100"
-            style={{ width: `${pct}%` }}
-          />
+      </div>
+
+      <div className="mt-6 rounded-3xl bg-card/80 p-5 text-center shadow-sm">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          {revealing ? `Mémorise encore ${(remaining / 1000).toFixed(1)}s` : "À toi de choisir"}
+        </p>
+        <div className="mt-4 flex justify-center gap-3 text-5xl">
+          {card.sequence.map((emoji, i) => (
+            <motion.span
+              key={`${emoji}-${i}`}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: revealing ? 1 : 0.25 }}
+              className={revealing ? "" : "blur-sm"}
+            >
+              {revealing ? emoji : "💗"}
+            </motion.span>
+          ))}
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-primary/15 p-4 text-center">
-          <p className="text-xs text-muted-foreground">{myName} (toi)</p>
-          <p className="font-script text-5xl text-primary">{myDisplay}</p>
-        </div>
-        <div className="rounded-2xl bg-card/80 p-4 text-center">
-          <p className="text-xs text-muted-foreground">{otherName}</p>
-          <p className="font-script text-5xl text-primary">{otherDisplay}</p>
-        </div>
+
+      <div className="mt-5 grid gap-3">
+        {card.options.map((option) => (
+          <motion.button
+            key={option.join("")}
+            whileTap={{ scale: 0.96 }}
+            disabled={revealing || picking}
+            onClick={() => pick(option)}
+            className="rounded-2xl border-2 border-border bg-card/80 p-4 text-center text-3xl shadow-sm transition hover:border-primary hover:bg-primary/10 disabled:opacity-45"
+          >
+            {option.join("  ")}
+          </motion.button>
+        ))}
       </div>
-      <motion.button
-        whileTap={{ scale: 0.92 }}
-        onClick={tap}
-        disabled={preStart || finished}
-        className="mt-6 flex-1 select-none rounded-3xl bg-gradient-to-br from-primary to-primary/70 text-2xl font-bold text-primary-foreground shadow-lg disabled:opacity-50"
-        style={{ minHeight: 240, touchAction: "manipulation" }}
-      >
-        {finished ? "Stop !" : preStart ? "Prêt·e ?" : "TAP ! TAP ! TAP !"}
-      </motion.button>
     </div>
   );
 }
