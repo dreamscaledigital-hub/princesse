@@ -273,6 +273,10 @@ export type Database = {
         Args: { _delta: number; _room_id: string; _slot: number }
         Returns: undefined
       }
+      minigame_patch: {
+        Args: { _patch: Json; _room_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
