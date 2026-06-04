@@ -76,3 +76,17 @@ export const GAGES: string[] = [
 ];
 
 export const NB_TOURS_PHASE2 = 10; // 5 questions chacun
+
+// ── Phase "Prépare tes pièges 🙈"
+export const NB_QUESTIONS_PERSO_MIN = 2;
+export const NB_QUESTIONS_PERSO_MAX = 3;
+export const NB_GAGES_PERSO_MIN = 1;
+export const NB_GAGES_PERSO_MAX = 2;
+
+export const SECRETS_TITRE = "Prépare tes pièges 🙈";
+export const SECRETS_SOUS_TITRE = "Chut, ne montre pas ton écran à l'autre !";
+export const BADGE_QUESTION_PERSO = (auteur: string) =>
+  `💌 Question écrite spécialement pour toi par ${auteur}...`;
+export const BADGE_GAGE_PERSO = (auteur: string) =>
+  `💕 Gage spécial de ${auteur}`;
+
