@@ -264,7 +264,7 @@ function GamePage() {
         {room.phase === "secrets" && <Secrets {...ctx} onDone={backToMenu} />}
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
-        {room.phase === "minigames" && <MinigamesMode {...ctx} onBack={backToMenu} />}
+        {room.phase === "minigames" && <MinigamesMode ctx={ctx} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
         {room.phase === "done" && <Final {...ctx} onMenu={backToMenu} />}
       </div>
@@ -763,6 +763,56 @@ function MinigameStage(ctx: Ctx) {
     </div>
   );
 }
+
+// ───────────────────────────────────────────── MINIGAMES MODE (à la carte) ─────
+
+function MinigamesMode({ ctx }: { ctx: Ctx }) {
+  const { room, mySlot, players } = ctx;
+  const myName = players.find((p) => p.slot === mySlot)?.name ?? "Toi";
+  const otherName = players.find((p) => p.slot !== mySlot)?.name ?? "...";
+
+  const pickGame = async (id: MinigameId) => {
+    await supabase.from("rooms").update({
+      minigame_id: id,
+      minigame_state: {},
+    }).eq("id", room.id);
+  };
+
+  const finish = async (winnerSlot: number | null) => {
+    if (mySlot !== 1) return;
+    await bumpComplicity(room, COMPLICITY_GAINS.minigame);
+    if (winnerSlot === null) {
+      await supabase.from("rooms").update({
+        minigame_id: null, minigame_state: {},
+      }).eq("id", room.id);
+      return;
+    }
+    const loser = winnerSlot === 1 ? 2 : 1;
+    await supabase.from("rooms").update({
+      phase: "dare",
+      current_dare: null,
+      current_dare_for: loser,
+      minigame_state: { dare_level: "medium" },
+    }).eq("id", room.id);
+  };
+
+  if (!room.minigame_id) {
+    return <MinigamesMenu onPick={pickGame} onBack={() => void 0} />;
+  }
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <Minigame
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onFinish={finish}
+      />
+    </div>
+  );
+}
+
 
 // ───────────────────────────────────────────── DARE ─────
 
