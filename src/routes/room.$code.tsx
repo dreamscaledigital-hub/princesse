@@ -45,6 +45,7 @@ import { ComplicityBar } from "@/components/ComplicityBar";
 import { MenuScreen } from "@/components/MenuScreen";
 import { Minigame } from "@/components/minigames";
 import { RPSExtreme } from "@/components/RPSExtreme";
+import { Mastermind } from "@/components/Mastermind";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
