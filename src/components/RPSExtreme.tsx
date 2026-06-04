@@ -118,7 +118,8 @@ export function RPSExtreme({ room, mySlot, myName, otherName, onBackToMenu, onDa
     );
   }
   if (phase === "wheel") {
-    return <WheelView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
+    // Compat : ancien état "wheel" → on bascule directement vers dare
+    return <DareView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onDareDone={onDareDone} />;
   }
   if (phase === "dare") {
     return (
