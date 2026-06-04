@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "full" | "edit_secrets";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "full" | "edit_secrets";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -36,6 +36,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Le Pendu",
     subtitle: "Devine le mot secret avant 💔",
     gradient: "from-rose-200/80 to-pink-300/80",
+  },
+  {
+    id: "wouldyou",
+    emoji: "💞",
+    title: "Tu préfères ?",
+    subtitle: "A ou B — êtes-vous compatibles ?",
+    gradient: "from-fuchsia-200/80 to-rose-300/80",
   },
   {
     id: "full",
