@@ -9,10 +9,11 @@ import {
   CULTURE_QUESTIONS,
   GREEN_MAX_DELAY_MS,
   GREEN_MIN_DELAY_MS,
+  HEART_MEMORY_CARDS,
+  HEART_MEMORY_SHOW_MS,
   MINIGAME_DESCRIPTIONS,
   MINIGAME_LABELS,
   RPS_WINS_NEEDED,
-  TAP_DURATION_MS,
   type MinigameId,
 } from "@/lib/game-content";
 import type { Room } from "@/lib/use-room-state";
@@ -85,7 +86,8 @@ export function Minigame(props: Props) {
   // play phase — dispatch
   switch (room.minigame_id) {
     case "tap":
-      return <TapBattle {...props} state={state} />;
+    case "memory":
+      return <HeartMemory {...props} state={state} />;
     case "green":
       return <GreenLight {...props} state={state} />;
     case "culture":
@@ -100,7 +102,10 @@ function initialPlayState(id: MinigameId): Record<string, unknown> {
   const now = Date.now();
   switch (id) {
     case "tap":
-      return { phase: "play", started_at: now, ends_at: now + TAP_DURATION_MS, taps_1: 0, taps_2: 0 };
+    case "memory": {
+      const cardIndex = Math.floor(Math.random() * HEART_MEMORY_CARDS.length);
+      return { phase: "play", started_at: now, reveal_until: now + HEART_MEMORY_SHOW_MS, card_index: cardIndex };
+    }
     case "green": {
       const delay = GREEN_MIN_DELAY_MS + Math.random() * (GREEN_MAX_DELAY_MS - GREEN_MIN_DELAY_MS);
       return { phase: "play", started_at: now, go_at: now + delay };
