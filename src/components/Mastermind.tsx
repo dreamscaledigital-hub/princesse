@@ -286,10 +286,8 @@ function Round({ state, room, mySlot, myName, otherName }: { state: MMState; roo
       size={size}
       palettes={palettes}
       maxAttempts={maxAttempts}
-      code={code ?? []}
       attempts={attempts}
       otherName={otherName}
-      myName={myName}
       onSubmit={async (guess) => {
         if (!code) return;
         const result = evaluate(code, guess);
