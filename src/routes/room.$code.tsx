@@ -49,6 +49,7 @@ import { Mastermind } from "@/components/Mastermind";
 import { Hangman } from "@/components/Hangman";
 import { WouldYouRather } from "@/components/WouldYouRather";
 import { CupidonDuel } from "@/components/CupidonDuel";
+import { PaysVille } from "@/components/PaysVille";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
