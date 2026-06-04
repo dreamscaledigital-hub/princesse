@@ -766,7 +766,7 @@ function MinigameStage(ctx: Ctx) {
 
 // ───────────────────────────────────────────── DARE ─────
 
-function DareScreen({ room, players, customDares, mySlot }: Ctx) {
+function DareScreen({ room, players, customDares, customQuestions, mySlot }: Ctx) {
   const failedSlot = room.current_dare_for!;
   const chooserSlot = failedSlot === 1 ? 2 : 1;
   const failedName = players.find((p) => p.slot === failedSlot)?.name ?? "...";
@@ -1088,19 +1088,22 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
       </div>
 
       <Button onClick={submitAll} disabled={!canSubmit || saving} className="mt-6 h-14 w-full rounded-2xl text-base font-semibold">
-        {saving ? "..." : "C'est prêt 🙈"}
+        {saving ? "..." : isEdit ? "Sauvegarder & retour menu 💾" : "C'est prêt 🙈"}
       </Button>
-      {!canSubmit && (
+      {!canSubmit && !isEdit && (
         <p className="mt-2 text-center text-xs text-muted-foreground">Remplis au moins {NB_QUESTIONS_PERSO_MIN} questions complètes et {NB_GAGES_PERSO_MIN} gage.</p>
       )}
-      <p className="mt-3 text-center text-xs text-muted-foreground">{otherName} : {otherReady ? "a fini 💕" : "prépare ses pièges..."}</p>
+      {!isEdit && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">{otherName} : {otherReady ? "a fini 💕" : "prépare ses pièges..."}</p>
+      )}
     </div>
   );
 }
 
+
 // ───────────────────────────────────────────── FINAL ─────
 
-function Final({ room, players, mySlot }: Ctx) {
+function Final({ room, players, mySlot, onMenu }: Ctx & { onMenu: () => void }) {
   const me = players.find((p) => p.slot === mySlot);
   const other = players.find((p) => p.slot !== mySlot);
   const myScore = mySlot === 1 ? room.score_1 : room.score_2;
@@ -1135,11 +1138,12 @@ function Final({ room, players, mySlot }: Ctx) {
       supabase.from("custom_dares").delete().eq("room_id", room.id),
     ]);
     await supabase.from("rooms").update({
-      phase: "secrets", stage: "round1", current_turn: 0, current_player: 1, current_dare: null, current_dare_for: null,
+      phase: "menu", mode: null, stage: "round1", current_turn: 0, current_player: 1, current_dare: null, current_dare_for: null,
       score_1: 0, score_2: 0, complicity: 0, turn_order: [], turn_plan: [], secrets_ready: [],
       minigame_id: null, minigame_state: {}, minigame_round: 0, finale_scores: { "1": 0, "2": 0 },
     }).eq("id", room.id);
   };
+
 
   return (
     <div className="flex flex-1 flex-col">
