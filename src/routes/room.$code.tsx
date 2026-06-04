@@ -47,7 +47,7 @@ export const Route = createFileRoute("/room/$code")({
 function GamePage() {
   const { code } = Route.useParams();
   const router = useRouter();
-  const { room, players, answers, guesses, loading, error } = useRoomState(code);
+  const { room, players, answers, guesses, customQuestions, customDares, loading, error } = useRoomState(code);
   const [mySlot, setMySlot] = useState<number | null>(null);
   const [joining, setJoining] = useState(false);
   const clientId = typeof window !== "undefined" ? getClientId() : "";
