@@ -220,12 +220,12 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames") {
+    } else if (mode === "minigames" || mode === "mastermind") {
       await supabase
         .from("rooms")
         .update({
           phase: "minigames",
-          mode: "minigames",
+          mode,
           minigame_id: null,
           minigame_state: {},
           current_dare: null,
