@@ -908,9 +908,10 @@ type DraftDare = { text: string; level: DareLevel };
 
 function emptyQ(): DraftQuestion { return { text: "", correct: "", w1: "", w2: "", w3: "" }; }
 
-function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlot }: Ctx) {
+function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlot, onDone }: Ctx & { onDone: () => void }) {
   const myName = players.find((p) => p.slot === mySlot)?.name ?? "Toi";
   const otherName = players.find((p) => p.slot === otherSlot)?.name ?? "ton amour";
+  const isEdit = room.mode === "edit_secrets";
 
   const myExistingQ = customQuestions.filter((q) => q.author_slot === mySlot);
   const myExistingD = customDares.filter((d) => d.author_slot === mySlot);
@@ -927,11 +928,12 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (isEdit) return; // standalone editing doesn't auto-advance
     if (!bothReady || room.phase !== "secrets") return;
     supabase.from("rooms").update({ phase: "phase1" }).eq("id", room.id).eq("phase", "secrets").then(() => undefined);
-  }, [bothReady, room.id, room.phase]);
+  }, [bothReady, room.id, room.phase, isEdit]);
 
-  if (iAmReady) {
+  if (iAmReady && !isEdit) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <motion.div animate={{ rotate: [0, 6, -6, 0] }} transition={{ repeat: Infinity, duration: 2.5 }} className="text-7xl">🙈</motion.div>
@@ -944,7 +946,9 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
 
   const validQuestions = questions.filter((q) => q.text.trim() && q.correct.trim() && q.w1.trim() && q.w2.trim() && q.w3.trim());
   const validDares = dares.filter((d) => d.text.trim());
-  const canSubmit = validQuestions.length >= NB_QUESTIONS_PERSO_MIN && validDares.length >= NB_GAGES_PERSO_MIN;
+  const canSubmit = isEdit
+    ? validQuestions.length + validDares.length > 0
+    : validQuestions.length >= NB_QUESTIONS_PERSO_MIN && validDares.length >= NB_GAGES_PERSO_MIN;
 
   const submitAll = async () => {
     setSaving(true);
@@ -965,10 +969,17 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
         room_id: room.id, author_slot: mySlot, text: d.text.trim(), level: d.level,
       })));
     }
+    if (isEdit) {
+      setSaving(false);
+      toast.success("Pièges enregistrés 🙈");
+      onDone();
+      return;
+    }
     const nextReady = Array.from(new Set([...secretsReady, mySlot]));
     await supabase.from("rooms").update({ secrets_ready: nextReady }).eq("id", room.id);
     setSaving(false);
   };
+
 
   const updateQ = (i: number, patch: Partial<DraftQuestion>) => setQuestions((prev) => prev.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
   const updateD = (i: number, patch: Partial<DraftDare>) => setDares((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
