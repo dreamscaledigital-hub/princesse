@@ -1,23 +1,32 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { DareLevel, MinigameId } from "@/lib/game-content";
 
 export type TurnPlanEntry =
   | { kind: "classic"; guesser: number; qi: number }
   | { kind: "custom"; guesser: number; custom_id: string };
 
+export type Stage = "round1" | "round2" | "finale" | "done";
+
 export type Room = {
   id: string;
   code: string;
   phase: "lobby" | "secrets" | "phase1" | "phase2" | "dare" | "done";
+  stage: Stage;
   current_turn: number;
   current_player: number;
   current_dare: string | null;
   current_dare_for: number | null;
   score_1: number;
   score_2: number;
+  complicity: number;
   turn_order: number[];
   turn_plan: TurnPlanEntry[];
   secrets_ready: number[];
+  minigame_id: MinigameId | null;
+  minigame_state: Record<string, unknown>;
+  minigame_round: number;
+  finale_scores: { "1": number; "2": number };
   created_at: string;
 };
 
@@ -60,6 +69,7 @@ export type CustomDare = {
   room_id: string;
   author_slot: number;
   text: string;
+  level: DareLevel;
 };
 
 export function useRoomState(code: string | undefined) {
@@ -111,82 +121,49 @@ export function useRoomState(code: string | undefined) {
 
       channel = supabase
         .channel(`room-${r.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "rooms", filter: `id=eq.${r.id}` },
-          (payload) => {
-            if (payload.eventType === "DELETE") setRoom(null);
-            else setRoom(payload.new as unknown as Room);
-          },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "players", filter: `room_id=eq.${r.id}` },
-          (payload) => {
-            setPlayers((prev) => {
-              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Player];
-              if (payload.eventType === "UPDATE")
-                return prev.map((p) => (p.id === (payload.new as Player).id ? (payload.new as unknown as Player) : p));
-              if (payload.eventType === "DELETE")
-                return prev.filter((p) => p.id !== (payload.old as Player).id);
-              return prev;
-            });
-          },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "answers", filter: `room_id=eq.${r.id}` },
-          (payload) => {
-            setAnswers((prev) => {
-              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Answer];
-              if (payload.eventType === "UPDATE")
-                return prev.map((a) => (a.id === (payload.new as Answer).id ? (payload.new as unknown as Answer) : a));
-              if (payload.eventType === "DELETE")
-                return prev.filter((a) => a.id !== (payload.old as Answer).id);
-              return prev;
-            });
-          },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "guesses", filter: `room_id=eq.${r.id}` },
-          (payload) => {
-            setGuesses((prev) => {
-              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Guess];
-              if (payload.eventType === "DELETE")
-                return prev.filter((g) => g.id !== (payload.old as Guess).id);
-              return prev;
-            });
-          },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "custom_questions", filter: `room_id=eq.${r.id}` },
-          (payload) => {
-            setCustomQuestions((prev) => {
-              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as CustomQuestion];
-              if (payload.eventType === "UPDATE")
-                return prev.map((q) => (q.id === (payload.new as CustomQuestion).id ? (payload.new as unknown as CustomQuestion) : q));
-              if (payload.eventType === "DELETE")
-                return prev.filter((q) => q.id !== (payload.old as CustomQuestion).id);
-              return prev;
-            });
-          },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "custom_dares", filter: `room_id=eq.${r.id}` },
-          (payload) => {
-            setCustomDares((prev) => {
-              if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as CustomDare];
-              if (payload.eventType === "UPDATE")
-                return prev.map((d) => (d.id === (payload.new as CustomDare).id ? (payload.new as unknown as CustomDare) : d));
-              if (payload.eventType === "DELETE")
-                return prev.filter((d) => d.id !== (payload.old as CustomDare).id);
-              return prev;
-            });
-          },
-        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${r.id}` }, (payload) => {
+          if (payload.eventType === "DELETE") setRoom(null);
+          else setRoom(payload.new as unknown as Room);
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "players", filter: `room_id=eq.${r.id}` }, (payload) => {
+          setPlayers((prev) => {
+            if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Player];
+            if (payload.eventType === "UPDATE") return prev.map((p) => (p.id === (payload.new as Player).id ? (payload.new as unknown as Player) : p));
+            if (payload.eventType === "DELETE") return prev.filter((p) => p.id !== (payload.old as Player).id);
+            return prev;
+          });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "answers", filter: `room_id=eq.${r.id}` }, (payload) => {
+          setAnswers((prev) => {
+            if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Answer];
+            if (payload.eventType === "UPDATE") return prev.map((a) => (a.id === (payload.new as Answer).id ? (payload.new as unknown as Answer) : a));
+            if (payload.eventType === "DELETE") return prev.filter((a) => a.id !== (payload.old as Answer).id);
+            return prev;
+          });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "guesses", filter: `room_id=eq.${r.id}` }, (payload) => {
+          setGuesses((prev) => {
+            if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as Guess];
+            if (payload.eventType === "DELETE") return prev.filter((g) => g.id !== (payload.old as Guess).id);
+            return prev;
+          });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "custom_questions", filter: `room_id=eq.${r.id}` }, (payload) => {
+          setCustomQuestions((prev) => {
+            if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as CustomQuestion];
+            if (payload.eventType === "UPDATE") return prev.map((q) => (q.id === (payload.new as CustomQuestion).id ? (payload.new as unknown as CustomQuestion) : q));
+            if (payload.eventType === "DELETE") return prev.filter((q) => q.id !== (payload.old as CustomQuestion).id);
+            return prev;
+          });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "custom_dares", filter: `room_id=eq.${r.id}` }, (payload) => {
+          setCustomDares((prev) => {
+            if (payload.eventType === "INSERT") return [...prev, payload.new as unknown as CustomDare];
+            if (payload.eventType === "UPDATE") return prev.map((d) => (d.id === (payload.new as CustomDare).id ? (payload.new as unknown as CustomDare) : d));
+            if (payload.eventType === "DELETE") return prev.filter((d) => d.id !== (payload.old as CustomDare).id);
+            return prev;
+          });
+        })
         .subscribe();
     })();
 
