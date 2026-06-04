@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "full" | "edit_secrets";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "full" | "edit_secrets";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -50,6 +50,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Duel de Cupidon",
     subtitle: "Esquive les flèches… ou décoche-les",
     gradient: "from-red-200/80 to-rose-400/80",
+  },
+  {
+    id: "paysville",
+    emoji: "🌍",
+    title: "Pays Ville",
+    subtitle: "Petit Bac coquin — premier à crier STOP",
+    gradient: "from-orange-200/80 to-rose-300/80",
   },
   {
     id: "full",

@@ -49,6 +49,7 @@ import { Mastermind } from "@/components/Mastermind";
 import { Hangman } from "@/components/Hangman";
 import { WouldYouRather } from "@/components/WouldYouRather";
 import { CupidonDuel } from "@/components/CupidonDuel";
+import { PaysVille } from "@/components/PaysVille";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -224,7 +225,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville") {
       await supabase
         .from("rooms")
         .update({
@@ -831,6 +832,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   if (room.mode === "cupidon") {
     return (
       <CupidonDuel
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
+  if (room.mode === "paysville") {
+    return (
+      <PaysVille
         room={room}
         mySlot={mySlot}
         myName={myName}
