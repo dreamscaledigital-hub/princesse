@@ -800,7 +800,40 @@ function DareScreen({ room, players, customDares, mySlot }: Ctx) {
 
   const advance = async () => {
     await bumpComplicity(room, COMPLICITY_GAINS.dare_done);
-    // Return to the right stage flow
+    if (room.mode === "minigames") {
+      await supabase.from("rooms").update({
+        phase: "minigames", current_dare: null, current_dare_for: null,
+        minigame_id: null, minigame_state: {},
+      }).eq("id", room.id);
+      return;
+    }
+    if (room.mode === "quiz") {
+      const turnOrder = room.turn_order ?? [];
+      const next = room.current_turn + 1;
+      if (next >= turnOrder.length) {
+        if (mySlot === 1) {
+          const plan = buildQuizPlan(customDares ? (room.turn_plan ?? []).filter((p): p is Extract<TurnPlanEntry, {kind:"custom"}> => p.kind === "custom").map(() => ({})) as never : []);
+          const fresh = buildQuizPlan([]);
+          await supabase.from("rooms").update({
+            phase: "phase2", current_dare: null, current_dare_for: null,
+            current_turn: 0, current_player: fresh[0]?.guesser ?? 1,
+            turn_order: fresh.map((p) => p.guesser), turn_plan: fresh,
+          }).eq("id", room.id);
+        } else {
+          await supabase.from("rooms").update({
+            phase: "phase2", current_dare: null, current_dare_for: null,
+          }).eq("id", room.id);
+        }
+      } else {
+        await supabase.from("rooms").update({
+          phase: "phase2", current_turn: next, current_player: turnOrder[next],
+          current_dare: null, current_dare_for: null,
+        }).eq("id", room.id);
+      }
+      return;
+    }
+    // Return to the right stage flow (full mode)
+
     if (stage === "round1") {
       const next = room.current_turn + 1;
       const turnOrder = room.turn_order ?? [];
