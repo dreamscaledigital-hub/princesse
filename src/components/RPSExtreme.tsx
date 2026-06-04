@@ -266,26 +266,25 @@ function PlayRound({
     await patch(room.id, p);
   };
 
-  // Quand les deux sont envoyés et qu'on est encore en "play", passer en "reveal"
-  // pour figer l'affichage. Seul slot 1 pilote pour éviter double écriture.
+  // Quand les deux sont envoyés et qu'on est encore en "play", passer en "reveal".
+  // Les deux joueurs peuvent piloter : la fonction SQL `minigame_patch` fusionne,
+  // donc deux écritures identiques ne se gênent pas.
   useEffect(() => {
     if (!bothSent) return;
     if (phase !== "play") return;
-    if (mySlot !== 1) return;
     void patch(room.id, { phase: "reveal" });
-  }, [bothSent, phase, mySlot, room.id]);
+  }, [bothSent, phase, room.id]);
 
-  // Reveal → résolution (slot 1 pilote)
+  // Reveal → résolution (les deux joueurs pilotent : opérations idempotentes)
   useEffect(() => {
     if (phase !== "reveal") return;
-    if (mySlot !== 1) return;
     const c1 = state.choice_1 as Choice | null;
     const c2 = state.choice_2 as Choice | null;
     if (!c1 || !c2) return;
     const w = rpsWinner(c1, c2);
     const t = setTimeout(() => {
       if (w === 0) {
-        // Égalité → on relance
+        // Égalité → on relance la manche
         void patch(room.id, {
           phase: "play",
           choice_1: null, choice_2: null, sent_1: false, sent_2: false,
@@ -293,9 +292,10 @@ function PlayRound({
       } else {
         void patch(room.id, { phase: "wheel", winner_slot: w });
       }
-    }, 1800);
+    }, 2500);
     return () => clearTimeout(t);
-  }, [phase, mySlot, room.id, state.choice_1, state.choice_2]);
+  }, [phase, room.id, state.choice_1, state.choice_2]);
+
 
   return (
     <div className="flex flex-1 flex-col">
