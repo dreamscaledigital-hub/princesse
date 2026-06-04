@@ -295,7 +295,7 @@ function PlayerCard({
 
 // ───────────────────────────────────────────── PHASE 1 ─────
 
-function Phase1({ room, players, answers, mySlot, otherSlot }: Ctx) {
+function Phase1({ room, players, answers, customQuestions, mySlot, otherSlot }: Ctx) {
   const myAnswers = answers.filter((a) => a.player_slot === mySlot);
   const otherAnswers = answers.filter((a) => a.player_slot === otherSlot);
   const otherName = players.find((p) => p.slot === otherSlot)?.name ?? "ton amour";
