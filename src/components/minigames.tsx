@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+// Cast to loosen strict Json type on minigame_state jsonb column.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = _supabase as any;
 import { Button } from "@/components/ui/button";
 import {
   CULTURE_QUESTIONS,
