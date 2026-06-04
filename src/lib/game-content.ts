@@ -52,6 +52,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     gradient: "from-red-200/80 to-rose-400/80",
   },
   {
+    id: "paysville",
+    emoji: "🌍",
+    title: "Pays Ville",
+    subtitle: "Petit Bac coquin — premier à crier STOP",
+    gradient: "from-orange-200/80 to-rose-300/80",
+  },
+  {
     id: "full",
     emoji: "🏆",
     title: "Partie complète",
