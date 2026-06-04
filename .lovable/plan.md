@@ -1,92 +1,63 @@
-# Plan : jeu de couple complet (jauge, gages 3 niveaux, mini-jeux, grand défi)
+## Objectif
 
-On garde TOUT l'existant (lobby, phase secrète, QCM "deviner l'autre", design, synchro Supabase). On ajoute la structure ci-dessous.
+Transformer le jeu actuel (parcours linéaire imposé) en une vraie appli avec **menu hub** d'où on lance librement chaque mode. Garder tout l'existant (synchro Supabase, design, jauge, gages 3 niveaux, mini-jeux, questions/gages perso), réorganiser juste l'architecture.
 
-## 1. Schéma BDD (migration)
+## Nouvelle architecture de phases
 
-**`rooms`** — colonnes ajoutées :
-- `complicity` (int, 0-100) — jauge partagée
-- `stage` (text) : `round1` | `round2` | `finale` | `done` (sous-phase de phase2)
-- `minigame_id` (text nullable) : `tap` | `green` | `culture` | `rps`
-- `minigame_state` (jsonb) — état temps réel du mini-jeu en cours (compteurs, timestamps, choix)
-- `minigame_round` (int) — pour best-of dans la finale
-- `finale_scores` (jsonb) — `{"1": n, "2": n}` pour le grand défi
+On ajoute une nouvelle phase BDD : `menu`. Le flux devient :
 
-**`custom_dares`** — colonne ajoutée :
-- `level` (text) : `simple` | `medium` | `ultra` (défaut `simple`)
-
-Realtime déjà actif sur `rooms` (les updates de `minigame_state` se propageront).
-
-## 2. Contenu (`src/lib/game-content.ts`)
-
-Variables ajoutées en haut du fichier :
-- `GAGES_SIMPLE[]`, `GAGES_MEDIUM[]`, `GAGES_ULTRA[]` (remplace l'actuel `GAGES`)
-- `LEVEL_LABELS = { simple: "Simple 🟢", medium: "Moyen 🟡", ultra: "Ultra 🔴" }`
-- `SURPRISE_FINALE` (texte libre modifiable, ex. "Bon pour une soirée surprise…")
-- `CULTURE_QUESTIONS[]` (banque QCM culture générale, ~10 questions)
-- `NB_MINIGAMES_ROUND2 = 2`, `NB_MINIGAMES_FINALE = 3`
-- `COMPLICITY_GAINS = { correct: 8, dare_done: 5, minigame: 10 }`
-
-## 3. Flux de partie
-
-```
-lobby → secrets → phase1 (réponses) → phase2 :
-   stage=round1  : QCM existant (rater = gage SIMPLE)
-   stage=round2  : 2 mini-jeux (perdre = gage MEDIUM)
-   stage=finale  : 3 mini-jeux + 1 question bonus (perdre = gage ULTRA)
-→ done (verdict + surprise si jauge ≥ 100)
+```text
+lobby → secrets (optionnel, premier passage) → menu ⇄ {quiz | minigames | full | edit_secrets}
+                                                 ↑              │
+                                                 └──────────────┘ (retour menu après résultat)
 ```
 
-La jauge `complicity` monte à chaque bonne réponse, gage validé, mini-jeu terminé. Affichée en permanence en haut avec les 2 avatars qui avancent.
+- `phase` (rooms) prend les valeurs : `lobby | secrets | menu | quiz | minigames | full | edit_secrets | dare | done`
+- Nouveau champ `mode` (text nullable) pour préciser le sous-mode actif (ex. mini-jeu choisi)
+- Quand un joueur clique une carte du menu → update `rooms.phase` → l'autre bascule en temps réel (déjà câblé via `useRoomState`)
+- Bouton "← Menu" partout : remet `phase = 'menu'` côté BDD, les deux reviennent ensemble
+- Jauge `complicity` reste persistante entre les modes (déjà en BDD)
 
-## 4. Mini-jeux (composants dans `src/routes/room.$code.tsx`)
+## Modes
 
-Protocole commun : `rooms.minigame_state` = `{ phase: "countdown"|"play"|"result", started_at, ...specific }`.
+1. **💬 Tu me connais ?** — le QCM existant (round1 actuel) en boucle libre, gage SIMPLE à chaque erreur. Bouton "Terminer" → retour menu.
+2. **🎮 Mini-jeux** — sous-menu listant les 4 mini-jeux (TapBattle/Memory, GreenLight, CultureFlash, RPS). On en choisit un, on joue, le perdant tire un gage MOYEN, puis retour au sous-menu. Bouton "← Menu principal".
+3. **🏆 Partie complète** — l'enchaînement structuré existant (round1 → round2 → finale → done) inchangé, juste lancé depuis le menu.
+4. **✏️ Nos pièges** — réutilise l'écran `secrets` existant en mode "édition libre" : chacun peut ajouter/modifier ses questions et gages perso à tout moment. Bouton "← Menu" pour sortir.
 
-- **TapBattle** : 5s, chacun incrémente `taps_1`/`taps_2` via update local + sync 200ms. Vainqueur = plus de taps.
-- **GreenLight** : délai aléatoire (2-6s) écrit par le slot 1, écran vert, premier `tap_at` gagne. Tap avant le vert = défaite.
-- **CultureFlash** : question tirée, 4 choix, premier à cliquer juste gagne (`winner_slot`).
-- **RPS** : best-of-3, chacun écrit `choice_1`/`choice_2` ; résolution quand les deux sont remplis.
+## Écran menu
 
-Chaque mini-jeu : écran "Prêt ? 3-2-1" → jeu → écran "[prénom] gagne ! 🎉" → gage si pertinent → tour suivant.
+- Header sticky : `<ComplicityBar />` + ligne "Toi & Eloise 💕 en ligne" (compte de `players`)
+- 4 grosses cartes tappables (grid 1 col mobile, 2 col tablette) avec emoji géant, titre, sous-titre, gradient doux
+- Tap sur carte → `supabase.from('rooms').update({ phase: <mode> })` → bascule synchronisée
+- Footer mignon avec code de la partie + bouton "Quitter la partie"
 
-## 5. Gages 3 niveaux
+## Découpage des fichiers (minimiser le diff)
 
-- `DareScreen` reçoit un `level`. Pool = `GAGES_{LEVEL}` + `customDares.filter(d => d.level === level && d.author_slot === partner)`.
-- L'auteur tire 3 propositions au hasard, badge niveau visible.
-- Phase secrète : chaque gage perso a un sélecteur de niveau (simple/medium/ultra).
-- Validation du gage ("C'est fait ✅") → +5 à la jauge.
+- `src/lib/game-content.ts` : ajoute `MODES` (id, label, emoji, gradient, description) en haut
+- `src/lib/use-room-state.ts` : étend le type `phase` aux nouvelles valeurs
+- `src/routes/room.$code.tsx` : ajoute un `<MenuScreen />` + routage sur `phase === 'menu' | 'quiz' | 'minigames' | 'edit_secrets'`. Le code existant des phases `phase1/phase2` devient le mode `full`. Les mini-jeux et le QCM existants sont extraits/réutilisés tels quels.
+- `src/components/MenuScreen.tsx` : nouveau composant
+- `src/components/MinigamesMenu.tsx` : sous-menu pour choisir un mini-jeu à la carte
+- Migration : ajouter `mode` (text nullable) à `rooms` + élargir contrainte sur `phase` si CHECK contraint
 
-## 6. UI jauge & avatars
+## Étapes d'implémentation
 
-Composant `<ComplicityBar />` collé en haut, sticky :
-- barre dégradée rose→vert sauge, % affiché
-- chemin SVG avec 2 avatars (blonde Eloise, brun Toi) qui glissent selon `complicity`
-- petite animation pulse + cœur volant quand la jauge monte (framer-motion)
-- à 100 % : confettis + déblocage du bouton "Découvrir la surprise 💌" à l'écran final
-
-## 7. Écran final
-
-- Scores Toi / Eloise
-- Verdict mignon (gagnant ou ex-aequo)
-- Jauge finale ; si ≥ 100 : carte dépliable révélant `SURPRISE_FINALE`
-- Boutons "Rejouer 🔁" (reset complet) et "Nouvelle partie"
-
-## 8. Étapes d'implémentation
-
-1. Migration BDD (nouvelles colonnes + level sur custom_dares)
-2. Mise à jour `types.ts`, `use-room-state.ts`, `game-content.ts`
-3. Composant `ComplicityBar` + intégration en haut de toutes les phases
-4. Refonte de `DareScreen` pour 3 niveaux + ajout du sélecteur de niveau dans la phase secrète
-5. Logique de progression `round1 → round2 → finale → done` + transitions
-6. Implémentation des 4 mini-jeux (composants + synchro `minigame_state`)
-7. Grand défi : enchaînement best-of + question bonus
-8. Écran final avec surprise déblocable
-9. Test mobile
+1. Migration BDD : ajouter colonne `mode` à `rooms` ; pas de CHECK sur `phase` à modifier (column libre text).
+2. Mettre à jour `types.ts` et `use-room-state.ts` (élargir union `phase`).
+3. Ajouter `MODES` et helpers dans `game-content.ts`.
+4. Créer `MenuScreen.tsx` (4 cartes, sync, présence joueurs).
+5. Créer `MinigamesMenu.tsx` (sous-menu de choix de mini-jeu, lance un mini-jeu unique, perdant tire gage moyen).
+6. Dans `room.$code.tsx` :
+   - Au lieu d'enchaîner `lobby → secrets → phase1`, après lobby on va sur `menu` (et au tout premier passage on propose le détour `secrets` si un joueur n'a pas encore créé de pièges, mais c'est skippable).
+   - Routing par `phase` : `menu`, `quiz` (QCM en boucle), `minigames` (sous-menu + lancement), `full` (parcours existant complet), `edit_secrets` (écran secrets en mode libre).
+   - Bouton "← Menu" sur chaque écran de mode → `update({ phase: 'menu' })`.
+7. Tester la synchro : un joueur clique une carte, l'autre suit.
 
 ## Notes techniques
 
-- Toute la logique reste dans `src/routes/room.$code.tsx` + `game-content.ts` + `use-room-state.ts` pour cohérence avec l'existant. Mini-jeux extraits en sous-composants dans le même fichier ou un nouveau `src/components/minigames.tsx` selon la taille.
-- Pas de serverFn : écritures directes Supabase (jeu sans auth, RLS publique déjà en place).
-- Les updates fréquentes (TapBattle) sont throttlées (~200ms) pour ne pas saturer Realtime.
-- Valeurs par défaut : si pas de gages perso, on tire dans les pools classiques ; si pas de questions perso, le plan de tours utilise uniquement les classiques.
+- Pas de breaking change BDD : on garde tout, on ajoute juste `mode` et on autorise plus de valeurs de `phase`.
+- Mode "Tu me connais ?" seul = boucle infinie de tours QCM ; on incrémente `current_turn` à chaque réponse sans condition de fin (juste un bouton "Terminer → Menu").
+- Mode "Partie complète" = lance le parcours `stage=round1` existant tel quel.
+- Mode "Mini-jeux" : `minigame_id` est mis par le joueur qui choisit ; à la fin du mini-jeu (winner connu + éventuel gage validé), on remet `minigame_id = null` et on reste sur `phase = 'minigames'` (sous-menu).
+- Confidentialité des pièges perso : préservée (chacun ne voit que les siens en édition).
