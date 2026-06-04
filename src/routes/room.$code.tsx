@@ -6,13 +6,28 @@ import { Check, Copy, Heart, Loader2, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getClientId } from "@/lib/player-id";
 import {
+  BADGE_GAGE_PERSO,
+  BADGE_QUESTION_PERSO,
   DEFAULT_NAMES,
   GAGES,
   LEURRES,
+  NB_GAGES_PERSO_MAX,
+  NB_GAGES_PERSO_MIN,
+  NB_QUESTIONS_PERSO_MAX,
+  NB_QUESTIONS_PERSO_MIN,
   NB_TOURS_PHASE2,
   QUESTIONS_PHASE1,
+  SECRETS_SOUS_TITRE,
+  SECRETS_TITRE,
 } from "@/lib/game-content";
-import { useRoomState, type Room } from "@/lib/use-room-state";
+import {
+  useRoomState,
+  type CustomDare,
+  type CustomQuestion,
+  type Room,
+  type TurnPlanEntry,
+} from "@/lib/use-room-state";
+
 import { FloatingHearts } from "@/components/FloatingHearts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
