@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "full" | "edit_secrets";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "full" | "edit_secrets";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -64,6 +64,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Qui est le plus susceptible…",
     subtitle: "Votez en secret, désignez le coupable",
     gradient: "from-violet-200/80 to-fuchsia-300/80",
+  },
+  {
+    id: "riddles",
+    emoji: "🧩",
+    title: "Duel de devinettes",
+    subtitle: "Premier à résoudre l'énigme gagne",
+    gradient: "from-lime-200/80 to-emerald-300/80",
   },
   {
     id: "full",
