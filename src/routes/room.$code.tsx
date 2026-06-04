@@ -124,6 +124,8 @@ function GamePage() {
     players,
     answers,
     guesses,
+    customQuestions,
+    customDares,
     mySlot,
     otherSlot: mySlot === 1 ? 2 : 1,
   };
@@ -133,6 +135,7 @@ function GamePage() {
       <FloatingHearts count={8} />
       <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col px-5 py-6">
         {room.phase === "lobby" && <Lobby {...ctx} />}
+        {room.phase === "secrets" && <Secrets {...ctx} />}
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
@@ -147,9 +150,12 @@ type Ctx = {
   players: import("@/lib/use-room-state").Player[];
   answers: import("@/lib/use-room-state").Answer[];
   guesses: import("@/lib/use-room-state").Guess[];
+  customQuestions: CustomQuestion[];
+  customDares: CustomDare[];
   mySlot: number;
   otherSlot: number;
 };
+
 
 // ───────────────────────────────────────────── LOBBY ─────
 
