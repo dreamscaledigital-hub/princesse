@@ -1134,15 +1134,16 @@ function Final({ room, players, mySlot }: Ctx) {
   const replay = async () => {
     if (mySlot !== 1) return;
     if (!room) return;
-    // wipe answers/guesses, reset scores, back to phase1
     await Promise.all([
       supabase.from("answers").delete().eq("room_id", room.id),
       supabase.from("guesses").delete().eq("room_id", room.id),
+      supabase.from("custom_questions").delete().eq("room_id", room.id),
+      supabase.from("custom_dares").delete().eq("room_id", room.id),
     ]);
     await supabase
       .from("rooms")
       .update({
-        phase: "phase1",
+        phase: "secrets",
         current_turn: 0,
         current_player: 1,
         current_dare: null,
@@ -1150,9 +1151,12 @@ function Final({ room, players, mySlot }: Ctx) {
         score_1: 0,
         score_2: 0,
         turn_order: [],
+        turn_plan: [],
+        secrets_ready: [],
       })
       .eq("id", room.id);
   };
+
 
   return (
     <div className="flex flex-1 flex-col">
