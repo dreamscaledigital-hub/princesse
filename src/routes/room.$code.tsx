@@ -787,6 +787,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
     await bumpComplicity(room, COMPLICITY_GAINS.dare_done);
   };
 
+  if (room.mode === "mastermind") {
+    return (
+      <Mastermind
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
   return (
     <RPSExtreme
       room={room}
