@@ -356,8 +356,9 @@ function Lobby({ room, players, mySlot }: Ctx) {
   };
 
   const startGame = async () => {
-    await supabase.from("rooms").update({ phase: "secrets" }).eq("id", room.id);
+    await supabase.from("rooms").update({ phase: "menu", mode: null }).eq("id", room.id);
   };
+
 
   const bothHere = players.length === 2;
 
