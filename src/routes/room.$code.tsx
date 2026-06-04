@@ -48,6 +48,7 @@ import { RPSExtreme } from "@/components/RPSExtreme";
 import { Mastermind } from "@/components/Mastermind";
 import { Hangman } from "@/components/Hangman";
 import { WouldYouRather } from "@/components/WouldYouRather";
+import { CupidonDuel } from "@/components/CupidonDuel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -223,7 +224,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon") {
       await supabase
         .from("rooms")
         .update({
@@ -823,6 +824,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
         myName={myName}
         otherName={otherName}
         onBackToMenu={backToMenu}
+      />
+    );
+  }
+
+  if (room.mode === "cupidon") {
+    return (
+      <CupidonDuel
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
       />
     );
   }

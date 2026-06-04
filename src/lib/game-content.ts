@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "full" | "edit_secrets";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "full" | "edit_secrets";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -43,6 +43,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Tu préfères ?",
     subtitle: "A ou B — jusqu'où iriez-vous ?",
     gradient: "from-fuchsia-200/80 to-rose-300/80",
+  },
+  {
+    id: "cupidon",
+    emoji: "💘",
+    title: "Duel de Cupidon",
+    subtitle: "Esquive les flèches… ou décoche-les",
+    gradient: "from-red-200/80 to-rose-400/80",
   },
   {
     id: "full",
