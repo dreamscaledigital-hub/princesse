@@ -34,11 +34,12 @@ export function Minigame(props: Props) {
   const state = (room.minigame_state ?? {}) as Record<string, unknown>;
   const phase = (state.phase as string) ?? "countdown";
 
-  // Determines which player advances DB writes (countdown init + countdown→play).
-  // In "minigames" à la carte mode the picker drives. Otherwise host (slot 1).
+  // Driver = picker (à la carte) sinon host (slot 1). Sert à éviter les doubles
+  // initialisations aléatoires (ex: card_index) qui pourraient se chevaucher.
   const driverSlot = (state.picker_slot as number | undefined) ?? 1;
+  const pickerSlot = state.picker_slot as number | undefined;
 
-  // Driver initializes countdown
+  // Initialise le compte à rebours si l'état est vide
   useEffect(() => {
     if (mySlot !== driverSlot) return;
     if (!room.minigame_id) return;
@@ -52,20 +53,32 @@ export function Minigame(props: Props) {
     }
   }, [room.id, room.minigame_id, mySlot, driverSlot, state]);
 
-  // Countdown → play (driver)
+  // Countdown → play : déclenché par le driver. Filet de sécurité : si le
+  // compte à rebours est largement dépassé (driver disparu, etc.), l'autre
+  // joueur force aussi la transition.
   useEffect(() => {
-    if (mySlot !== driverSlot) return;
     if (phase !== "countdown") return;
+    if (!room.minigame_id) return;
     const start = (state.countdown_start as number) ?? Date.now();
-    const remaining = 3000 - (Date.now() - start);
+    const elapsed = Date.now() - start;
+    const isDriver = mySlot === driverSlot;
+    // Le driver part à 3s ; un fallback de l'autre joueur se déclenche à 5s
+    const target = isDriver ? 3000 : 5000;
+    const remaining = Math.max(0, target - elapsed);
     const id = setTimeout(() => {
+      const playState = initialPlayState(room.minigame_id as MinigameId);
       void supabase
         .from("rooms")
-        .update({ minigame_state: initialPlayState(room.minigame_id as MinigameId) })
+        .update({
+          minigame_state: {
+            ...playState,
+            ...(pickerSlot !== undefined ? { picker_slot: pickerSlot } : {}),
+          },
+        })
         .eq("id", room.id);
-    }, Math.max(0, remaining));
+    }, remaining);
     return () => clearTimeout(id);
-  }, [phase, room.id, room.minigame_id, mySlot, driverSlot, state]);
+  }, [phase, room.id, room.minigame_id, mySlot, driverSlot, pickerSlot, state]);
 
   if (!room.minigame_id) return null;
 
