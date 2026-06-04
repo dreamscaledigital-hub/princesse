@@ -11,50 +11,50 @@ const supabase = _supabase as any;
 // ─────────── RÉGLAGES ───────────
 const NB_QUESTIONS = 10;
 
-type Mode = "simple" | "extreme";
+type Mode = "doux" | "coquin";
 
 type Question = { a: string; b: string };
 
-const QUESTIONS_SIMPLE: Question[] = [
-  { a: "Pizza 🍕", b: "Sushis 🍣" },
-  { a: "Vacances à la mer 🌊", b: "Vacances à la montagne 🏔️" },
-  { a: "Soirée Netflix au chaud 🍿", b: "Sortie en ville 🌃" },
-  { a: "Petit-déj au lit 🥐", b: "Grasse mat' à deux 😴" },
-  { a: "Coucher de soleil sur la plage 🌅", b: "Balade en forêt 🌲" },
-  { a: "Cuisiner ensemble 👩‍🍳", b: "Se faire livrer 🛵" },
-  { a: "Comédie romantique 💞", b: "Film d'action 💥" },
-  { a: "Câlin sous la couette 🛌", b: "Danser dans le salon 💃" },
-  { a: "Chien 🐶", b: "Chat 🐱" },
-  { a: "Été ☀️", b: "Hiver ❄️" },
-  { a: "Café ☕", b: "Thé 🍵" },
-  { a: "Sucré 🍫", b: "Salé 🧀" },
-  { a: "Voyage en road-trip 🚗", b: "Voyage en avion ✈️" },
-  { a: "Concert live 🎤", b: "Cinéma 🎬" },
-  { a: "Lever tôt 🌄", b: "Coucher tard 🌙" },
+const QUESTIONS_DOUX: Question[] = [
+  { a: "Un massage sensuel aux huiles chaudes sur tout le corps 💆‍♀️", b: "Un bain moussant à deux avec champagne et fraises 🍾" },
+  { a: "M'embrasser passionnément dans le cou pendant 5 min 💋", b: "Recevoir des baisers dans le dos qui descendent lentement 😘" },
+  { a: "Te retrouver les yeux bandés, guide par mes mains 🙈", b: "M'observer te déshabiller lentement, sans me toucher 👀" },
+  { a: "Une nuit à l'hôtel avec vue sur la ville 🌃", b: "Une nuit de folie dans notre lit transformé en tente de soie 🛏️" },
+  { a: "Moi qui prends l'initiative et te domine doucement 😈", b: "Toi qui me plaque contre le mur et prend le contrôle 🔥" },
+  { a: "Des caresses lentes et tendres qui durent une heure 🕊️", b: "Un baiser sauvage qui nous mène directement au lit 💥" },
+  { a: "Te réveiller avec ma bouche sur toi 🌅", b: "Te surprendre en pleine nuit avec mes mains 🌙" },
+  { a: "M'entendre te murmurer des mots coquins à l'oreille 🤫", b: "Te voir me fixer en silence, le désir dans les yeux 👁️" },
+  { a: "Une danse lente, collé-serré, sans aucun vêtement 💃", b: "Un strip-tease improvisé rien que pour toi 🎭" },
+  { a: "Qu'on fasse l'amour sous la pluie chaude de la douche 🚿", b: "Qu'on fasse l'amour devant la cheminée, couverts d'une couverture 🔥" },
+  { a: "Que je porte ta chemise et rien d'autre 👔", b: "Que je porte de la lingerie transparente noire 🖤" },
+  { a: "Te caresser pendant que tu regardes un film 🎬", b: "T'embrasser sauvagement en plein milieu du film 💋" },
+  { a: "Un week-end où on ne sort pas du lit 🛌", b: "Une escapade où on fait l'amour dans des lieux inattendus 🏨" },
+  { a: "Te voir transpirer après un effort physique 🔥", b: "Te voir tout calme et détendu après un bain 🛁" },
+  { a: "Qu'on s'endorme nus, peau contre peau 🤍", b: "Qu'on s'endorme après une nuit sans sommeil 😴" },
 ];
 
-const QUESTIONS_EXTREME: Question[] = [
-  { a: "Un massage aux huiles 💆", b: "Un bain à deux aux bougies 🛁" },
-  { a: "Bisous dans le cou 💋", b: "Bisous dans le dos 😘" },
-  { a: "Lumières tamisées 💡", b: "À la lueur des bougies 🕯️" },
-  { a: "Toi qui prends l'initiative 😏", b: "Moi qui prends l'initiative 😈" },
-  { a: "Tendre et lent 🕊️", b: "Passionné 🔥" },
-  { a: "Week-end surprise en amoureux 🧳", b: "Une nuit rien qu'à nous à la maison 🏡" },
-  { a: "Slow collé-serré 💃", b: "Te chuchoter à l'oreille 🤫" },
-  { a: "Yeux dans les yeux 👀", b: "Yeux bandés 🙈" },
-  { a: "Sous la douche 🚿", b: "Devant la cheminée 🔥" },
-  { a: "Lingerie sexy 🖤", b: "Ta chemise et rien d'autre 👕" },
-  { a: "Matinée au lit 🌅", b: "Folie en pleine nuit 🌙" },
-  { a: "Caresses dans les cheveux ✨", b: "Morsures douces sur l'épaule 😏" },
-  { a: "Musique douce 🎶", b: "Silence complice 🤍" },
-  { a: "Te déshabiller lentement 🎁", b: "Te jeter sur le lit 💥" },
+const QUESTIONS_COQUIN: Question[] = [
+  { a: "M'attacher au lit pour que tu fasses ce que tu veux de moi ⛓️", b: "T'attacher et te torturer avec des caresses lentes 🪶" },
+  { a: "Recevoir un cunni langoureux pendant que je suis allongée 🛏️", b: "T'asseoir sur mon visage pendant que je te léche 👅" },
+  { a: "Faire l'amour à la fenêtre, risque d'être vus 🪟", b: "Faire l'amour en pleine nature, risque d'être entendus 🌳" },
+  { a: "Te voir jouir avant même que je ne commence 😏", b: "Te faire attendre, au bord, pendant un quart d'heure ⏳" },
+  { a: "Qu'on utilise des menottes douces en fourrure 🐻", b: "Qu'on utilise un bandeau et un plug 🎀" },
+  { a: "Qu'on fasse l'amour en silence, les voisins à côté 🤫", b: "Qu'on fasse l'amour en criant, sans se retenir 📢" },
+  { a: "Que je te domine, je décide de tout ce soir 👑", b: "Que tu me domines, j'obéis à tous tes ordres 🧎" },
+  { a: "Te caresser sous la table au restaurant 🍽️", b: "Te caresser au cinéma dans le fond de la salle 🎥" },
+  { a: "Qu'on se filme pendant qu'on fait l'amour 📹", b: "Qu'on prenne des photos très suggestives 📸" },
+  { a: "Qu'on essaie un jouet qui vibre sur toi 🍆", b: "Qu'on essaie un jouet qui vibre sur moi 💦" },
+  { a: "Faire l'amour debout contre le mur du dressing 🪞", b: "Faire l'amour sur le plan de travail de la cuisine 🍳" },
+  { a: "Qu'on s'échange nos sous-vêtements toute la journée 🩲", b: "Qu'on ne porte rien sous nos vêtements toute la journée 🚫" },
+  { a: "Te sentir me pénétrer lentement, millimètre par millimètre 🐌", b: "Te sentir me prendre sauvagement d'un seul coup 💥" },
+  { a: "Qu'on essaie la glace pendant les préliminaires 🧊", b: "Qu'on essaie la cire chaude pendant les préliminaires 🕯️" },
 ];
 
-const BANKS: Record<Mode, Question[]> = { simple: QUESTIONS_SIMPLE, extreme: QUESTIONS_EXTREME };
+const BANKS: Record<Mode, Question[]> = { doux: QUESTIONS_DOUX, coquin: QUESTIONS_COQUIN };
 
 const MODE_INFO: Record<Mode, { label: string; emoji: string; gradient: string; desc: string }> = {
-  simple:  { label: "Simple",  emoji: "😊", gradient: "from-emerald-200 to-rose-200",  desc: "Cool, fun et mignon" },
-  extreme: { label: "Extrême", emoji: "🔥", gradient: "from-rose-300 to-red-300",      desc: "Hot, complice et taquin" },
+  doux:    { label: "Doux",    emoji: "💋", gradient: "from-rose-200 to-pink-200",  desc: "Sensuel, romantique et doux" },
+  coquin:  { label: "Coquin",  emoji: "🔥", gradient: "from-rose-400 to-red-400",   desc: "Osé, torride et sans tabou" },
 };
 
 type WYRState = {
