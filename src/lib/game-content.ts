@@ -66,6 +66,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     gradient: "from-violet-200/80 to-fuchsia-300/80",
   },
   {
+    id: "riddles",
+    emoji: "🧩",
+    title: "Duel de devinettes",
+    subtitle: "Premier à résoudre l'énigme gagne",
+    gradient: "from-lime-200/80 to-emerald-300/80",
+  },
+  {
     id: "full",
     emoji: "🏆",
     title: "Partie complète",
