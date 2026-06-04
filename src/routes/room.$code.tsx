@@ -841,7 +841,268 @@ function DareScreen({ room, players, customDares, mySlot }: Ctx) {
 }
 
 
+// ───────────────────────────────────────────── SECRETS ─────
+
+type DraftQuestion = { text: string; correct: string; w1: string; w2: string; w3: string };
+type DraftDare = { text: string };
+
+function emptyQ(): DraftQuestion {
+  return { text: "", correct: "", w1: "", w2: "", w3: "" };
+}
+
+function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlot }: Ctx) {
+  const myName = players.find((p) => p.slot === mySlot)?.name ?? "Toi";
+  const otherName = players.find((p) => p.slot === otherSlot)?.name ?? "ton amour";
+
+  const myExistingQ = customQuestions.filter((q) => q.author_slot === mySlot);
+  const myExistingD = customDares.filter((d) => d.author_slot === mySlot);
+  const otherCountQ = customQuestions.filter((q) => q.author_slot === otherSlot).length;
+  const otherCountD = customDares.filter((d) => d.author_slot === otherSlot).length;
+
+  const secretsReady = (room.secrets_ready ?? []) as number[];
+  const iAmReady = secretsReady.includes(mySlot);
+  const otherReady = secretsReady.includes(otherSlot);
+  const bothReady = iAmReady && otherReady;
+
+  const [questions, setQuestions] = useState<DraftQuestion[]>(() =>
+    Array.from({ length: NB_QUESTIONS_PERSO_MIN }, emptyQ),
+  );
+  const [dares, setDares] = useState<DraftDare[]>(() =>
+    Array.from({ length: NB_GAGES_PERSO_MIN }, () => ({ text: "" })),
+  );
+  const [saving, setSaving] = useState(false);
+
+  // If both ready -> auto-advance to phase1 (any client; idempotent via .eq phase)
+  useEffect(() => {
+    if (!bothReady || room.phase !== "secrets") return;
+    supabase
+      .from("rooms")
+      .update({ phase: "phase1" })
+      .eq("id", room.id)
+      .eq("phase", "secrets")
+      .then(() => undefined);
+  }, [bothReady, room.id, room.phase]);
+
+  if (iAmReady) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <motion.div
+          animate={{ rotate: [0, 6, -6, 0] }}
+          transition={{ repeat: Infinity, duration: 2.5 }}
+          className="text-7xl"
+        >
+          🙈
+        </motion.div>
+        <h2 className="mt-6 font-script text-4xl text-primary">
+          Tes pièges sont prêts !
+        </h2>
+        <p className="mt-2 text-muted-foreground">
+          {otherReady
+            ? "C'est parti..."
+            : `On attend que ${otherName} finisse ses pièges...`}
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {otherName} : {otherCountQ} question(s) · {otherCountD} gage(s)
+        </p>
+      </div>
+    );
+  }
+
+  const validQuestions = questions.filter(
+    (q) => q.text.trim() && q.correct.trim() && q.w1.trim() && q.w2.trim() && q.w3.trim(),
+  );
+  const validDares = dares.filter((d) => d.text.trim());
+  const canSubmit =
+    validQuestions.length >= NB_QUESTIONS_PERSO_MIN &&
+    validDares.length >= NB_GAGES_PERSO_MIN;
+
+  const submitAll = async () => {
+    setSaving(true);
+    // Clean any previous drafts from this player (in case of edit)
+    if (myExistingQ.length || myExistingD.length) {
+      await Promise.all([
+        supabase
+          .from("custom_questions")
+          .delete()
+          .eq("room_id", room.id)
+          .eq("author_slot", mySlot),
+        supabase
+          .from("custom_dares")
+          .delete()
+          .eq("room_id", room.id)
+          .eq("author_slot", mySlot),
+      ]);
+    }
+    if (validQuestions.length) {
+      await supabase.from("custom_questions").insert(
+        validQuestions.map((q) => ({
+          room_id: room.id,
+          author_slot: mySlot,
+          text: q.text.trim(),
+          correct_answer: q.correct.trim(),
+          wrongs: [q.w1.trim(), q.w2.trim(), q.w3.trim()],
+        })),
+      );
+    }
+    if (validDares.length) {
+      await supabase.from("custom_dares").insert(
+        validDares.map((d) => ({
+          room_id: room.id,
+          author_slot: mySlot,
+          text: d.text.trim(),
+        })),
+      );
+    }
+    const nextReady = Array.from(new Set([...secretsReady, mySlot]));
+    await supabase
+      .from("rooms")
+      .update({ secrets_ready: nextReady })
+      .eq("id", room.id);
+    setSaving(false);
+  };
+
+  const updateQ = (i: number, patch: Partial<DraftQuestion>) =>
+    setQuestions((prev) => prev.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
+  const updateD = (i: number, text: string) =>
+    setDares((prev) => prev.map((d, idx) => (idx === i ? { text } : d)));
+
+  return (
+    <div className="flex flex-1 flex-col pb-8">
+      <p className="text-center text-xs uppercase tracking-wider text-muted-foreground">
+        Étape secrète · {myName}
+      </p>
+      <h2 className="mt-1 text-center font-script text-4xl text-primary">{SECRETS_TITRE}</h2>
+      <p className="mt-1 text-center text-sm text-muted-foreground">{SECRETS_SOUS_TITRE}</p>
+
+      <div className="mt-6 rounded-2xl bg-card/80 p-4 backdrop-blur">
+        <p className="text-sm font-semibold">
+          💌 Tes questions pour {otherName}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Écris {NB_QUESTIONS_PERSO_MIN} à {NB_QUESTIONS_PERSO_MAX} questions avec la bonne réponse et 3 mauvaises.
+        </p>
+
+        <div className="mt-4 space-y-5">
+          {questions.map((q, i) => (
+            <div key={i} className="space-y-2 rounded-xl border border-border/60 p-3">
+              <p className="text-xs font-medium text-muted-foreground">Question {i + 1}</p>
+              <Input
+                placeholder="La question..."
+                value={q.text}
+                onChange={(e) => updateQ(i, { text: e.target.value })}
+                maxLength={120}
+              />
+              <Input
+                placeholder="✅ La bonne réponse"
+                value={q.correct}
+                onChange={(e) => updateQ(i, { correct: e.target.value })}
+                maxLength={60}
+                className="border-primary/40"
+              />
+              <div className="grid grid-cols-1 gap-2">
+                <Input
+                  placeholder="❌ Mauvaise réponse 1"
+                  value={q.w1}
+                  onChange={(e) => updateQ(i, { w1: e.target.value })}
+                  maxLength={60}
+                />
+                <Input
+                  placeholder="❌ Mauvaise réponse 2"
+                  value={q.w2}
+                  onChange={(e) => updateQ(i, { w2: e.target.value })}
+                  maxLength={60}
+                />
+                <Input
+                  placeholder="❌ Mauvaise réponse 3"
+                  value={q.w3}
+                  onChange={(e) => updateQ(i, { w3: e.target.value })}
+                  maxLength={60}
+                />
+              </div>
+              {questions.length > NB_QUESTIONS_PERSO_MIN && (
+                <button
+                  type="button"
+                  onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="text-xs text-muted-foreground underline"
+                >
+                  Retirer cette question
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {questions.length < NB_QUESTIONS_PERSO_MAX && (
+          <Button
+            variant="secondary"
+            className="mt-3 w-full"
+            onClick={() => setQuestions((prev) => [...prev, emptyQ()])}
+          >
+            + Ajouter une question
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-card/80 p-4 backdrop-blur">
+        <p className="text-sm font-semibold">
+          💕 Tes gages perso pour {otherName}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {NB_GAGES_PERSO_MIN} à {NB_GAGES_PERSO_MAX} gages qui pourront tomber quand il/elle se trompe.
+        </p>
+        <div className="mt-3 space-y-2">
+          {dares.map((d, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                placeholder={`Gage ${i + 1}...`}
+                value={d.text}
+                onChange={(e) => updateD(i, e.target.value)}
+                maxLength={140}
+              />
+              {dares.length > NB_GAGES_PERSO_MIN && (
+                <button
+                  type="button"
+                  onClick={() => setDares((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="text-xs text-muted-foreground underline"
+                >
+                  Retirer
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {dares.length < NB_GAGES_PERSO_MAX && (
+          <Button
+            variant="secondary"
+            className="mt-3 w-full"
+            onClick={() => setDares((prev) => [...prev, { text: "" }])}
+          >
+            + Ajouter un gage
+          </Button>
+        )}
+      </div>
+
+      <Button
+        onClick={submitAll}
+        disabled={!canSubmit || saving}
+        className="mt-6 h-14 w-full rounded-2xl text-base font-semibold"
+      >
+        {saving ? "..." : "C'est prêt 🙈"}
+      </Button>
+      {!canSubmit && (
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Remplis au moins {NB_QUESTIONS_PERSO_MIN} questions complètes et {NB_GAGES_PERSO_MIN} gage.
+        </p>
+      )}
+      <p className="mt-3 text-center text-xs text-muted-foreground">
+        {otherName} : {otherReady ? "a fini 💕" : "prépare ses pièges..."}
+      </p>
+    </div>
+  );
+}
+
 // ───────────────────────────────────────────── FINAL ─────
+
 
 function Final({ room, players, mySlot }: Ctx) {
   const me = players.find((p) => p.slot === mySlot);
