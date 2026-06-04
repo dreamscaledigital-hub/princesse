@@ -842,6 +842,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
     );
   }
 
+  if (room.mode === "paysville") {
+    return (
+      <PaysVille
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
   return (
     <RPSExtreme
       room={room}
