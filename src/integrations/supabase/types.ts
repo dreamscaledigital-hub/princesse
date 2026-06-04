@@ -266,7 +266,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_tap: {
+        Args: { _delta: number; _room_id: string; _slot: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

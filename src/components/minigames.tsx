@@ -179,11 +179,13 @@ function ResultScreen({
 // ── TAP BATTLE ─────────────────────────────────
 function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: Record<string, unknown> }) {
   const endsAt = (state.ends_at as number) ?? Date.now();
+  const startedAt = (state.started_at as number) ?? Date.now();
   const taps1 = (state.taps_1 as number) ?? 0;
   const taps2 = (state.taps_2 as number) ?? 0;
-  const [myCount, setMyCount] = useState(mySlot === 1 ? taps1 : taps2);
+  const [myExtra, setMyExtra] = useState(0); // unflushed local taps
   const [now, setNow] = useState(Date.now());
-  const lastSyncRef = useRef(0);
+  const pendingRef = useRef(0);
+  const flushingRef = useRef(false);
   const finishedRef = useRef(false);
 
   useEffect(() => {
@@ -191,69 +193,93 @@ function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: 
     return () => clearInterval(t);
   }, []);
 
+  // Pre-game wait (in case the player loaded before the host wrote play state)
+  const preStart = now < startedAt;
   const remaining = Math.max(0, endsAt - now);
-  const finished = remaining === 0;
+  const totalMs = Math.max(1, endsAt - startedAt);
+  const finished = !preStart && remaining === 0;
 
-  const sync = (count: number) => {
-    const nowMs = Date.now();
-    if (nowMs - lastSyncRef.current < 180) return;
-    lastSyncRef.current = nowMs;
-    const patch = mySlot === 1 ? { taps_1: count } : { taps_2: count };
-    void supabase
-      .from("rooms")
-      .update({ minigame_state: { ...state, ...patch } })
-      .eq("id", room.id);
+  const flush = async () => {
+    if (flushingRef.current) return;
+    const delta = pendingRef.current;
+    if (delta <= 0) return;
+    flushingRef.current = true;
+    pendingRef.current = 0;
+    try {
+      await supabase.rpc("increment_tap", {
+        _room_id: room.id,
+        _slot: mySlot,
+        _delta: delta,
+      });
+      setMyExtra((e) => Math.max(0, e - delta));
+    } catch {
+      // re-queue on failure
+      pendingRef.current += delta;
+    } finally {
+      flushingRef.current = false;
+    }
   };
+
+  // Periodic flush every 200ms during play
+  useEffect(() => {
+    if (preStart || finished) return;
+    const t = setInterval(() => {
+      void flush();
+    }, 200);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preStart, finished]);
 
   const tap = () => {
-    if (finished) return;
-    setMyCount((c) => {
-      const n = c + 1;
-      sync(n);
-      return n;
-    });
+    if (preStart || finished) return;
+    pendingRef.current += 1;
+    setMyExtra((e) => e + 1);
   };
 
-  // When finished: host writes final state + result
+  // When finished: flush remaining, then host decides winner
   useEffect(() => {
     if (!finished || finishedRef.current) return;
     finishedRef.current = true;
-    // First flush my local count
-    const patch = mySlot === 1 ? { taps_1: myCount } : { taps_2: myCount };
-    const finalState = { ...state, ...patch };
-    void supabase
-      .from("rooms")
-      .update({ minigame_state: finalState })
-      .eq("id", room.id)
-      .then(() => {
-        if (mySlot !== 1) return;
-        // Host decides winner after slight delay to allow other client's last sync
-        setTimeout(async () => {
-          const { data } = await supabase
-            .from("rooms")
-            .select("minigame_state")
-            .eq("id", room.id)
-            .maybeSingle();
-          const s = ((data?.minigame_state ?? {}) as Record<string, unknown>);
-          const t1 = (s.taps_1 as number) ?? 0;
-          const t2 = (s.taps_2 as number) ?? 0;
-          const winner = t1 === t2 ? 0 : t1 > t2 ? 1 : 2;
-          await supabase
-            .from("rooms")
-            .update({ minigame_state: { ...s, phase: "result", winner_slot: winner } })
-            .eq("id", room.id);
-        }, 600);
-      });
-  }, [finished, mySlot, myCount, room.id, state]);
+    (async () => {
+      await flush();
+      // small delay so both clients flush
+      await new Promise((r) => setTimeout(r, 700));
+      if (mySlot !== 1) return;
+      const { data } = await supabase
+        .from("rooms")
+        .select("minigame_state")
+        .eq("id", room.id)
+        .maybeSingle();
+      const s = ((data?.minigame_state ?? {}) as Record<string, unknown>);
+      const t1 = (s.taps_1 as number) ?? 0;
+      const t2 = (s.taps_2 as number) ?? 0;
+      const winner = t1 === t2 ? 0 : t1 > t2 ? 1 : 2;
+      await supabase
+        .from("rooms")
+        .update({ minigame_state: { ...s, phase: "result", winner_slot: winner } })
+        .eq("id", room.id);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
 
-  const myDisplay = mySlot === 1 ? Math.max(myCount, taps1) : Math.max(myCount, taps2);
+  const myServer = mySlot === 1 ? taps1 : taps2;
   const otherDisplay = mySlot === 1 ? taps2 : taps1;
+  const myDisplay = myServer + myExtra;
+  const pct = preStart ? 100 : (remaining / totalMs) * 100;
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="text-center">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Tap Battle ⚡</p>
-        <p className="mt-1 font-script text-5xl text-primary">{(remaining / 1000).toFixed(1)}s</p>
+        <p className="mt-1 font-script text-5xl text-primary">
+          {preStart ? "..." : (remaining / 1000).toFixed(1) + "s"}
+        </p>
+        <div className="mx-auto mt-2 h-2 w-full max-w-xs overflow-hidden rounded-full bg-card/60">
+          <div
+            className="h-full bg-gradient-to-r from-primary to-primary/60 transition-[width] duration-100"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-primary/15 p-4 text-center">
@@ -268,11 +294,11 @@ function TapBattle({ room, mySlot, myName, otherName, state }: Props & { state: 
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={tap}
-        disabled={finished}
+        disabled={preStart || finished}
         className="mt-6 flex-1 select-none rounded-3xl bg-gradient-to-br from-primary to-primary/70 text-2xl font-bold text-primary-foreground shadow-lg disabled:opacity-50"
-        style={{ minHeight: 240 }}
+        style={{ minHeight: 240, touchAction: "manipulation" }}
       >
-        {finished ? "Stop !" : "TAP ! TAP ! TAP !"}
+        {finished ? "Stop !" : preStart ? "Prêt·e ?" : "TAP ! TAP ! TAP !"}
       </motion.button>
     </div>
   );
