@@ -401,18 +401,18 @@ function WheelView({
     await patch(room.id, { wheel_index: idx, dare_text: gages[idx] });
   };
 
-  // Quand wheel_index est défini, on lance l'animation puis on passe à "dare"
+  // Quand wheel_index est défini, on lance l'animation puis on passe à "dare".
+  // Les deux joueurs déclenchent la transition (idempotent via la fusion SQL).
   useEffect(() => {
     if (wheelIndex === null || wheelIndex === undefined) return;
     setSpinning(true);
     const t = setTimeout(() => {
       setSpinning(false);
-      if (mySlot === 1) {
-        void patch(room.id, { phase: "dare" });
-      }
+      void patch(room.id, { phase: "dare" });
     }, 3200);
     return () => clearTimeout(t);
-  }, [wheelIndex, mySlot, room.id]);
+  }, [wheelIndex, room.id]);
+
 
   // Animation : décalage angulaire qui s'arrête sur l'index choisi
   const seg = 360 / gages.length;
