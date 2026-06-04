@@ -812,13 +812,13 @@ function DareScreen({ room, players, customDares, mySlot }: Ctx) {
       const next = room.current_turn + 1;
       if (next >= turnOrder.length) {
         if (mySlot === 1) {
-          const plan = buildQuizPlan(customDares ? (room.turn_plan ?? []).filter((p): p is Extract<TurnPlanEntry, {kind:"custom"}> => p.kind === "custom").map(() => ({})) as never : []);
-          const fresh = buildQuizPlan([]);
+          const fresh = buildQuizPlan(customQuestions);
           await supabase.from("rooms").update({
             phase: "phase2", current_dare: null, current_dare_for: null,
             current_turn: 0, current_player: fresh[0]?.guesser ?? 1,
             turn_order: fresh.map((p) => p.guesser), turn_plan: fresh,
           }).eq("id", room.id);
+
         } else {
           await supabase.from("rooms").update({
             phase: "phase2", current_dare: null, current_dare_for: null,
