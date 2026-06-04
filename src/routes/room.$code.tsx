@@ -311,15 +311,34 @@ function Phase1({ room, players, answers, customQuestions, mySlot, otherSlot }: 
   const [starting, setStarting] = useState(false);
   const startGame = async () => {
     setStarting(true);
-    const order: number[] = [];
-    for (let i = 0; i < NB_TOURS_PHASE2; i++) order.push((i % 2) + 1);
+    // Build a turn plan mixing custom questions (each asked to the OTHER of its author)
+    // with classic alternating questions to reach NB_TOURS_PHASE2 total.
+    const customTurns: TurnPlanEntry[] = customQuestions.map((q) => ({
+      kind: "custom" as const,
+      guesser: q.author_slot === 1 ? 2 : 1,
+      custom_id: q.id,
+    }));
+    const remaining = Math.max(0, NB_TOURS_PHASE2 - customTurns.length);
+    const classicTurns: TurnPlanEntry[] = [];
+    let next = 1;
+    for (let i = 0; i < remaining; i++) {
+      classicTurns.push({
+        kind: "classic" as const,
+        guesser: next,
+        qi: i % QUESTIONS_PHASE1.length,
+      });
+      next = next === 1 ? 2 : 1;
+    }
+    const plan = shuffle([...customTurns, ...classicTurns]).slice(0, NB_TOURS_PHASE2);
+    const order = plan.map((p) => p.guesser);
     const { error } = await supabase
       .from("rooms")
       .update({
         phase: "phase2",
         current_turn: 0,
-        current_player: order[0],
+        current_player: order[0] ?? 1,
         turn_order: order,
+        turn_plan: plan,
       })
       .eq("id", room.id)
       .eq("phase", "phase1");
@@ -328,6 +347,7 @@ function Phase1({ room, players, answers, customQuestions, mySlot, otherSlot }: 
       setStarting(false);
     }
   };
+
 
   const submit = async () => {
     if (!text.trim()) return;
