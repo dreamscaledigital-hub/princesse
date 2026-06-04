@@ -472,41 +472,63 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
+function Phase2({ room, players, answers, guesses, customQuestions, mySlot, otherSlot }: Ctx) {
   const turnIdx = room.current_turn;
   const turnOrder = room.turn_order ?? [];
-  const guesserSlot = turnOrder[turnIdx] ?? room.current_player;
+  const turnPlan = (room.turn_plan ?? []) as TurnPlanEntry[];
+  const currentTurn = turnPlan[turnIdx];
+
+  // Fallback to legacy classic mode if no plan
+  const guesserSlot = currentTurn?.guesser ?? turnOrder[turnIdx] ?? room.current_player;
   const targetSlot = guesserSlot === 1 ? 2 : 1;
   const guesserName = players.find((p) => p.slot === guesserSlot)?.name ?? "...";
   const targetName = players.find((p) => p.slot === targetSlot)?.name ?? "...";
 
-  // Question index: we cycle through questions
-  const questionIndex = turnIdx % QUESTIONS_PHASE1.length;
-  const targetAnswer = answers.find(
-    (a) => a.player_slot === targetSlot && a.question_index === questionIndex,
-  );
+  const isCustom = currentTurn?.kind === "custom";
+  const customQ = isCustom
+    ? customQuestions.find((q) => q.id === currentTurn.custom_id)
+    : undefined;
+  const authorName = customQ
+    ? players.find((p) => p.slot === customQ.author_slot)?.name ?? "ton amour"
+    : "";
 
-  // Build choices once per turn (deterministic seed = roomId+turn so both screens match)
+  // For classic turns
+  const classicQi =
+    currentTurn?.kind === "classic" ? currentTurn.qi : turnIdx % QUESTIONS_PHASE1.length;
+  const targetAnswer = !isCustom
+    ? answers.find(
+        (a) => a.player_slot === targetSlot && a.question_index === classicQi,
+      )
+    : undefined;
+
+  // The correct answer for this turn (classic or custom)
+  const correctAnswer = isCustom ? customQ?.correct_answer : targetAnswer?.answer_text;
+
+  // Build choices deterministically per turn
   const choices = useMemo(() => {
+    if (isCustom) {
+      if (!customQ) return [];
+      return shuffle([customQ.correct_answer, ...(customQ.wrongs ?? [])]);
+    }
     if (!targetAnswer) return [];
-    const pool = LEURRES[questionIndex] ?? [];
+    const pool = LEURRES[classicQi] ?? [];
     const filtered = pool.filter(
       (l) => l.toLowerCase() !== targetAnswer.answer_text.toLowerCase(),
     );
     const distractors = shuffle(filtered).slice(0, 3);
     return shuffle([targetAnswer.answer_text, ...distractors]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetAnswer?.answer_text, questionIndex, room.id, turnIdx]);
+  }, [isCustom, customQ?.id, targetAnswer?.answer_text, classicQi, room.id, turnIdx]);
 
   const isMyTurn = mySlot === guesserSlot;
   const alreadyGuessed = guesses.find((g) => g.turn_index === turnIdx);
   const [picking, setPicking] = useState(false);
 
   const pick = async (choice: string) => {
-    if (!targetAnswer || picking) return;
+    if (!correctAnswer || picking) return;
     setPicking(true);
     const isCorrect =
-      choice.toLowerCase().trim() === targetAnswer.answer_text.toLowerCase().trim();
+      choice.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
 
     await supabase.from("guesses").insert({
       room_id: room.id,
@@ -531,7 +553,6 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
 
       setTimeout(() => advanceTurn(), 1800);
     } else {
-      // Move to dare: target picks the dare
       await supabase
         .from("rooms")
         .update({
@@ -561,8 +582,6 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
     }
   };
 
-  // Auto-advance after correct guess: only guesser triggers (already handled above)
-  // But if guess exists and correct, both clients see it — show a brief celebration
   if (alreadyGuessed?.is_correct) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -583,13 +602,18 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
     );
   }
 
-  if (!targetAnswer) {
+  if (!correctAnswer) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
+
+  const questionText = isCustom
+    ? customQ!.text
+    : QUESTIONS_PHASE1[classicQi].about(targetName);
+  const selfText = isCustom ? customQ!.text : QUESTIONS_PHASE1[classicQi].self;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -613,16 +637,20 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
             transition={{ repeat: Infinity, duration: 1.8 }}
             className="text-7xl"
           >
-            ⏳
+            {isCustom ? "💌" : "⏳"}
           </motion.div>
           <h2 className="mt-6 font-script text-4xl text-primary">
             C'est au tour de {guesserName}...
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Il/elle doit deviner ta réponse à : <br />
-            <span className="font-medium text-foreground">
-              « {QUESTIONS_PHASE1[questionIndex].self} »
-            </span>
+            {isCustom ? (
+              <>Une petite question piège t'attendait 🙈</>
+            ) : (
+              <>
+                Il/elle doit deviner ta réponse à : <br />
+                <span className="font-medium text-foreground">« {selfText} »</span>
+              </>
+            )}
           </p>
         </div>
       ) : (
@@ -634,8 +662,17 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
             exit={{ opacity: 0, y: -20 }}
             className="flex flex-1 flex-col"
           >
+            {isCustom && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-3 rounded-2xl border-2 border-primary/40 bg-primary/10 px-4 py-3 text-center text-sm font-medium text-primary"
+              >
+                {BADGE_QUESTION_PERSO(authorName)}
+              </motion.div>
+            )}
             <h2 className="font-script text-3xl leading-tight text-primary">
-              {QUESTIONS_PHASE1[questionIndex].about(targetName)}
+              {questionText}
             </h2>
             <div className="mt-6 grid gap-3">
               {choices.map((c) => (
@@ -659,9 +696,7 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
 
 // ───────────────────────────────────────────── DARE ─────
 
-function DareScreen({ room, players, mySlot }: Ctx) {
-  // current_dare_for = slot of the player who must DO the dare (the one who failed)
-  // The OTHER slot chooses the dare
+function DareScreen({ room, players, customDares, mySlot }: Ctx) {
   const failedSlot = room.current_dare_for!;
   const chooserSlot = failedSlot === 1 ? 2 : 1;
   const failedName = players.find((p) => p.slot === failedSlot)?.name ?? "...";
@@ -670,15 +705,26 @@ function DareScreen({ room, players, mySlot }: Ctx) {
   const iChoose = mySlot === chooserSlot;
   const iDo = mySlot === failedSlot;
 
-  // Pick 3 random dares (deterministic per turn)
-  const dareOptions = useMemo(
-    () => shuffle(GAGES).slice(0, 3),
+  // Custom dares written by the chooser are exclusive to them
+  const myCustomDares = customDares.filter((d) => d.author_slot === chooserSlot);
+
+  // Build deterministic pool of 3 options for the chooser: prioritise customs then fill with classics
+  const dareOptions = useMemo(() => {
+    const customsTexts = myCustomDares.map((d) => `★${d.text}`); // marker prefix to spot customs
+    const classics = shuffle(GAGES);
+    const pool = shuffle([...customsTexts, ...classics]).slice(0, 3);
+    return pool;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [room.id, room.current_turn],
-  );
+  }, [room.id, room.current_turn, myCustomDares.length]);
+
+  // Determine if current dare is one written by chooser
+  const isCustomDare =
+    !!room.current_dare &&
+    myCustomDares.some((d) => d.text === room.current_dare);
 
   const chooseDare = async (dare: string) => {
-    await supabase.from("rooms").update({ current_dare: dare }).eq("id", room.id);
+    const clean = dare.startsWith("★") ? dare.slice(1) : dare;
+    await supabase.from("rooms").update({ current_dare: clean }).eq("id", room.id);
   };
 
   const advanceTurn = async () => {
@@ -700,7 +746,6 @@ function DareScreen({ room, players, mySlot }: Ctx) {
     }
   };
 
-  // STEP A: chooser picks
   if (!room.current_dare) {
     if (iChoose) {
       return (
@@ -712,16 +757,25 @@ function DareScreen({ room, players, mySlot }: Ctx) {
             Choisis un gage pour {failedName} :
           </h2>
           <div className="mt-6 grid gap-3">
-            {dareOptions.map((d) => (
-              <motion.button
-                key={d}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => chooseDare(d)}
-                className="rounded-2xl border-2 border-border bg-card/80 p-4 text-left text-base font-medium shadow-sm backdrop-blur hover:border-primary hover:bg-primary/10"
-              >
-                {d}
-              </motion.button>
-            ))}
+            {dareOptions.map((d) => {
+              const isCustomOpt = d.startsWith("★");
+              const label = isCustomOpt ? d.slice(1) : d;
+              return (
+                <motion.button
+                  key={d}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => chooseDare(d)}
+                  className="relative rounded-2xl border-2 border-border bg-card/80 p-4 text-left text-base font-medium shadow-sm backdrop-blur hover:border-primary hover:bg-primary/10"
+                >
+                  {isCustomOpt && (
+                    <span className="mb-1 block text-[10px] uppercase tracking-wider text-primary">
+                      💕 Ton gage perso
+                    </span>
+                  )}
+                  {label}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
       );
@@ -745,7 +799,6 @@ function DareScreen({ room, players, mySlot }: Ctx) {
     );
   }
 
-  // STEP B: dare chosen, failed player must do it
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
       <motion.div
@@ -756,7 +809,16 @@ function DareScreen({ room, players, mySlot }: Ctx) {
       >
         🎁
       </motion.div>
-      <p className="mt-6 text-xs uppercase tracking-wider text-muted-foreground">
+      {isCustomDare && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+        >
+          {BADGE_GAGE_PERSO(chooserName)}
+        </motion.div>
+      )}
+      <p className="mt-4 text-xs uppercase tracking-wider text-muted-foreground">
         Gage pour {failedName}
       </p>
       <h2 className="mt-3 font-script text-4xl leading-tight text-primary">
@@ -777,6 +839,7 @@ function DareScreen({ room, players, mySlot }: Ctx) {
     </div>
   );
 }
+
 
 // ───────────────────────────────────────────── FINAL ─────
 
