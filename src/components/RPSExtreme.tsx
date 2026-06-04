@@ -539,7 +539,7 @@ function DareView({
   const winner = state.winner_slot ?? 0;
   const loser = winner === 1 ? 2 : 1;
   const iLost = mySlot === loser;
-  const dare = state.dare_text ?? "…";
+  const dare = state.dare_text ?? getDeterministicDare(state, room) ?? "…";
   const level = (state.level ?? "easy") as Level;
 
   const validate = async () => {
