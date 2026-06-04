@@ -49,6 +49,76 @@ export type Database = {
           },
         ]
       }
+      custom_dares: {
+        Row: {
+          author_slot: number
+          created_at: string
+          id: string
+          room_id: string
+          text: string
+        }
+        Insert: {
+          author_slot: number
+          created_at?: string
+          id?: string
+          room_id: string
+          text: string
+        }
+        Update: {
+          author_slot?: number
+          created_at?: string
+          id?: string
+          room_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_dares_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_questions: {
+        Row: {
+          author_slot: number
+          correct_answer: string
+          created_at: string
+          id: string
+          room_id: string
+          text: string
+          wrongs: Json
+        }
+        Insert: {
+          author_slot: number
+          correct_answer: string
+          created_at?: string
+          id?: string
+          room_id: string
+          text: string
+          wrongs?: Json
+        }
+        Update: {
+          author_slot?: number
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          room_id?: string
+          text?: string
+          wrongs?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_questions_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guesses: {
         Row: {
           chosen_text: string
@@ -134,7 +204,9 @@ export type Database = {
           phase: string
           score_1: number
           score_2: number
+          secrets_ready: Json
           turn_order: Json
+          turn_plan: Json
         }
         Insert: {
           code: string
@@ -147,7 +219,9 @@ export type Database = {
           phase?: string
           score_1?: number
           score_2?: number
+          secrets_ready?: Json
           turn_order?: Json
+          turn_plan?: Json
         }
         Update: {
           code?: string
@@ -160,7 +234,9 @@ export type Database = {
           phase?: string
           score_1?: number
           score_2?: number
+          secrets_ready?: Json
           turn_order?: Json
+          turn_plan?: Json
         }
         Relationships: []
       }
