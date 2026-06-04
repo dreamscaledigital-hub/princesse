@@ -72,6 +72,19 @@ function stableIndex(seed: string, max: number) {
   return hash % max;
 }
 
+function getDeterministicDare(state: State, room: Room) {
+  const c1 = state.choice_1 as Choice | null;
+  const c2 = state.choice_2 as Choice | null;
+  const winner = state.winner_slot ?? 0;
+  if (!c1 || !c2 || winner === 0) return null;
+  const level = (state.level ?? "easy") as Level;
+  const list = GAGES_RPS[level];
+  const index = typeof state.wheel_index === "number"
+    ? state.wheel_index
+    : stableIndex(`${room.id}-${room.minigame_round}-${level}-${c1}-${c2}-${winner}`, list.length);
+  return list[index % list.length];
+}
+
 type State = {
   phase?: "level_select" | "play" | "reveal" | "wheel" | "dare" | "done";
   level_1?: Level | null;
@@ -317,29 +330,24 @@ function PlayRound({
   }, [phase, mySent, room.id]);
 
   // Reveal → résolution immédiate. Égalité = on rejoue. Sinon, les deux clients
-  // calculent le même gage déterministe et écrivent la même vérité en BDD.
+  // ont déjà reçu winner_slot + wheel_index depuis la BDD : aucun second patch requis.
   useEffect(() => {
     if (phase !== "reveal") return;
     const c1 = state.choice_1 as Choice | null;
     const c2 = state.choice_2 as Choice | null;
     if (!c1 || !c2) return;
-    if (state.dare_text && state.winner_slot) return;
     const w = rpsWinner(c1, c2);
     console.log("[RPS] reveal resolved", { c1, c2, winner: w });
-    if (w === 0) {
-      if (mySlot === 1) {
+    if (w === 0 && mySlot === 1) {
+      const t = setTimeout(() => {
         void patch(room.id, {
           phase: "play",
           choice_1: null, choice_2: null, sent_1: false, sent_2: false,
         });
-      }
-      return;
+      }, 1200);
+      return () => clearTimeout(t);
     }
-    const level = (state.level ?? "easy") as Level;
-    const list = GAGES_RPS[level];
-    const idx = stableIndex(`${room.id}-${room.minigame_round}-${level}-${c1}-${c2}-${w}`, list.length);
-    void patch(room.id, { phase: "dare", winner_slot: w, dare_text: list[idx] });
-  }, [phase, room.id, room.minigame_round, state.choice_1, state.choice_2, state.dare_text, state.level, state.winner_slot, mySlot]);
+  }, [phase, room.id, state.choice_1, state.choice_2, mySlot]);
 
 
 
