@@ -145,6 +145,105 @@ function GamePage() {
   const name1 = players.find((p) => p.slot === 1)?.name ?? "Toi";
   const name2 = players.find((p) => p.slot === 2)?.name ?? "Ton amour";
 
+  const backToMenu = async () => {
+    await supabase
+      .from("rooms")
+      .update({
+        phase: "menu",
+        mode: null,
+        minigame_id: null,
+        minigame_state: {},
+        current_dare: null,
+        current_dare_for: null,
+      })
+      .eq("id", room.id);
+  };
+
+  const pickMode = async (mode: ModeId) => {
+    if (mode === "full") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "secrets",
+          mode: "full",
+          stage: "round1",
+          current_turn: 0,
+          current_player: 1,
+          score_1: 0,
+          score_2: 0,
+          turn_order: [],
+          turn_plan: [],
+          secrets_ready: [],
+          minigame_id: null,
+          minigame_state: {},
+          minigame_round: 0,
+          finale_scores: { "1": 0, "2": 0 },
+          current_dare: null,
+          current_dare_for: null,
+        })
+        .eq("id", room.id);
+    } else if (mode === "quiz") {
+      const myAns = answers.filter((a) => a.player_slot === 1).length;
+      const otherAns = answers.filter((a) => a.player_slot === 2).length;
+      const haveAnswers = myAns >= QUESTIONS_PHASE1.length && otherAns >= QUESTIONS_PHASE1.length;
+      if (!haveAnswers) {
+        await supabase
+          .from("rooms")
+          .update({
+            phase: "phase1",
+            mode: "quiz",
+            stage: "round1",
+            current_turn: 0,
+            current_player: 1,
+            score_1: 0,
+            score_2: 0,
+            turn_order: [],
+            turn_plan: [],
+            current_dare: null,
+            current_dare_for: null,
+          })
+          .eq("id", room.id);
+      } else {
+        const plan = buildQuizPlan(customQuestions);
+        await supabase
+          .from("rooms")
+          .update({
+            phase: "phase2",
+            mode: "quiz",
+            stage: "round1",
+            current_turn: 0,
+            current_player: plan[0]?.guesser ?? 1,
+            turn_order: plan.map((p) => p.guesser),
+            turn_plan: plan,
+            current_dare: null,
+            current_dare_for: null,
+          })
+          .eq("id", room.id);
+      }
+    } else if (mode === "minigames") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "minigames",
+          mode: "minigames",
+          minigame_id: null,
+          minigame_state: {},
+          current_dare: null,
+          current_dare_for: null,
+        })
+        .eq("id", room.id);
+    } else if (mode === "edit_secrets") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "secrets",
+          mode: "edit_secrets",
+          secrets_ready: [],
+        })
+        .eq("id", room.id);
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       <FloatingHearts count={8} />
@@ -152,16 +251,27 @@ function GamePage() {
         {showComplicity && (
           <ComplicityBar value={room.complicity ?? 0} name1={name1} name2={name2} />
         )}
+        {room.phase !== "lobby" && room.phase !== "menu" && (
+          <button
+            onClick={backToMenu}
+            className="mb-3 self-start rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card"
+          >
+            ← Menu
+          </button>
+        )}
         {room.phase === "lobby" && <Lobby {...ctx} />}
-        {room.phase === "secrets" && <Secrets {...ctx} />}
+        {room.phase === "menu" && <MenuScreen room={room} players={players} mySlot={mySlot} onPick={pickMode} />}
+        {room.phase === "secrets" && <Secrets {...ctx} onDone={backToMenu} />}
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
+        {room.phase === "minigames" && <MinigamesMode {...ctx} onBack={backToMenu} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
-        {room.phase === "done" && <Final {...ctx} />}
+        {room.phase === "done" && <Final {...ctx} onMenu={backToMenu} />}
       </div>
     </div>
   );
 }
+
 
 type Ctx = {
   room: Room;
