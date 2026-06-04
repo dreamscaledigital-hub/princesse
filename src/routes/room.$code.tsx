@@ -45,6 +45,7 @@ import { ComplicityBar } from "@/components/ComplicityBar";
 import { MenuScreen } from "@/components/MenuScreen";
 import { Minigame } from "@/components/minigames";
 import { RPSExtreme } from "@/components/RPSExtreme";
+import { Mastermind } from "@/components/Mastermind";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -220,12 +221,12 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames") {
+    } else if (mode === "minigames" || mode === "mastermind") {
       await supabase
         .from("rooms")
         .update({
           phase: "minigames",
-          mode: "minigames",
+          mode,
           minigame_id: null,
           minigame_state: {},
           current_dare: null,
@@ -785,6 +786,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   const onDareDone = async () => {
     await bumpComplicity(room, COMPLICITY_GAINS.dare_done);
   };
+
+  if (room.mode === "mastermind") {
+    return (
+      <Mastermind
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
 
   return (
     <RPSExtreme
