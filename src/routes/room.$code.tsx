@@ -104,7 +104,7 @@ function GamePage() {
     );
   }
 
-  const ctx = {
+  const ctx: Ctx = {
     room,
     players,
     answers,
@@ -127,8 +127,11 @@ function GamePage() {
   );
 }
 
-type Ctx = ReturnType<typeof useRoomState> & {
+type Ctx = {
   room: Room;
+  players: import("@/lib/use-room-state").Player[];
+  answers: import("@/lib/use-room-state").Answer[];
+  guesses: import("@/lib/use-room-state").Guess[];
   mySlot: number;
   otherSlot: number;
 };
