@@ -283,14 +283,13 @@ function Phase1({ room, players, answers, mySlot, otherSlot }: Ctx) {
   const [submitting, setSubmitting] = useState(false);
 
   // Trigger phase2 when both have answered all questions
+  // Les deux clients tentent la mise à jour ; le filtre phase=phase1 garantit l'idempotence.
   useEffect(() => {
-    if (mySlot !== 1) return; // only slot 1 triggers to avoid race
     if (
-      myAnswers.length === QUESTIONS_PHASE1.length &&
-      otherAnswers.length === QUESTIONS_PHASE1.length &&
+      myAnswers.length >= QUESTIONS_PHASE1.length &&
+      otherAnswers.length >= QUESTIONS_PHASE1.length &&
       room.phase === "phase1"
     ) {
-      // Build turn order: alternate starting with slot 1
       const order: number[] = [];
       for (let i = 0; i < NB_TOURS_PHASE2; i++) order.push((i % 2) + 1);
       supabase
@@ -301,9 +300,10 @@ function Phase1({ room, players, answers, mySlot, otherSlot }: Ctx) {
           current_player: order[0],
           turn_order: order,
         })
-        .eq("id", room.id);
+        .eq("id", room.id)
+        .eq("phase", "phase1");
     }
-  }, [myAnswers.length, otherAnswers.length, mySlot, room]);
+  }, [myAnswers.length, otherAnswers.length, room.phase, room.id]);
 
   const submit = async () => {
     if (!text.trim()) return;
