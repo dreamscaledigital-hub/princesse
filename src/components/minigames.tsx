@@ -34,23 +34,27 @@ export function Minigame(props: Props) {
   const state = (room.minigame_state ?? {}) as Record<string, unknown>;
   const phase = (state.phase as string) ?? "countdown";
 
-  // Host (slot 1) initializes countdown
+  // Determines which player advances DB writes (countdown init + countdown→play).
+  // In "minigames" à la carte mode the picker drives. Otherwise host (slot 1).
+  const driverSlot = (state.picker_slot as number | undefined) ?? 1;
+
+  // Driver initializes countdown
   useEffect(() => {
-    if (mySlot !== 1) return;
+    if (mySlot !== driverSlot) return;
     if (!room.minigame_id) return;
     if (Object.keys(state).length === 0) {
       void supabase
         .from("rooms")
         .update({
-          minigame_state: { phase: "countdown", countdown_start: Date.now() },
+          minigame_state: { phase: "countdown", countdown_start: Date.now(), picker_slot: mySlot },
         })
         .eq("id", room.id);
     }
-  }, [room.id, room.minigame_id, mySlot, state]);
+  }, [room.id, room.minigame_id, mySlot, driverSlot, state]);
 
-  // Countdown → play (host)
+  // Countdown → play (driver)
   useEffect(() => {
-    if (mySlot !== 1) return;
+    if (mySlot !== driverSlot) return;
     if (phase !== "countdown") return;
     const start = (state.countdown_start as number) ?? Date.now();
     const remaining = 3000 - (Date.now() - start);
@@ -61,7 +65,7 @@ export function Minigame(props: Props) {
         .eq("id", room.id);
     }, Math.max(0, remaining));
     return () => clearTimeout(id);
-  }, [phase, room.id, room.minigame_id, mySlot, state]);
+  }, [phase, room.id, room.minigame_id, mySlot, driverSlot, state]);
 
   if (!room.minigame_id) return null;
 

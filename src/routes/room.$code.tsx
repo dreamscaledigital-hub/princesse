@@ -774,7 +774,7 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   const pickGame = async (id: MinigameId) => {
     await supabase.from("rooms").update({
       minigame_id: id,
-      minigame_state: { phase: "countdown", countdown_start: Date.now() },
+      minigame_state: { phase: "countdown", countdown_start: Date.now(), picker_slot: mySlot },
     }).eq("id", room.id);
   };
 
