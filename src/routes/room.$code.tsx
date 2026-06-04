@@ -15,6 +15,7 @@ import {
   LEURRES,
   LEVEL_LABELS,
   MINIGAME_IDS,
+  type ModeId,
   NB_GAGES_PERSO_MAX,
   NB_GAGES_PERSO_MIN,
   NB_MINIGAMES_FINALE,
@@ -41,11 +42,14 @@ import {
 
 import { FloatingHearts } from "@/components/FloatingHearts";
 import { ComplicityBar } from "@/components/ComplicityBar";
+import { MenuScreen } from "@/components/MenuScreen";
+import { MinigamesMenu } from "@/components/MinigamesMenu";
 import { Minigame } from "@/components/minigames";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -141,6 +145,105 @@ function GamePage() {
   const name1 = players.find((p) => p.slot === 1)?.name ?? "Toi";
   const name2 = players.find((p) => p.slot === 2)?.name ?? "Ton amour";
 
+  const backToMenu = async () => {
+    await supabase
+      .from("rooms")
+      .update({
+        phase: "menu",
+        mode: null,
+        minigame_id: null,
+        minigame_state: {},
+        current_dare: null,
+        current_dare_for: null,
+      })
+      .eq("id", room.id);
+  };
+
+  const pickMode = async (mode: ModeId) => {
+    if (mode === "full") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "secrets",
+          mode: "full",
+          stage: "round1",
+          current_turn: 0,
+          current_player: 1,
+          score_1: 0,
+          score_2: 0,
+          turn_order: [],
+          turn_plan: [],
+          secrets_ready: [],
+          minigame_id: null,
+          minigame_state: {},
+          minigame_round: 0,
+          finale_scores: { "1": 0, "2": 0 },
+          current_dare: null,
+          current_dare_for: null,
+        })
+        .eq("id", room.id);
+    } else if (mode === "quiz") {
+      const myAns = answers.filter((a) => a.player_slot === 1).length;
+      const otherAns = answers.filter((a) => a.player_slot === 2).length;
+      const haveAnswers = myAns >= QUESTIONS_PHASE1.length && otherAns >= QUESTIONS_PHASE1.length;
+      if (!haveAnswers) {
+        await supabase
+          .from("rooms")
+          .update({
+            phase: "phase1",
+            mode: "quiz",
+            stage: "round1",
+            current_turn: 0,
+            current_player: 1,
+            score_1: 0,
+            score_2: 0,
+            turn_order: [],
+            turn_plan: [],
+            current_dare: null,
+            current_dare_for: null,
+          })
+          .eq("id", room.id);
+      } else {
+        const plan = buildQuizPlan(customQuestions);
+        await supabase
+          .from("rooms")
+          .update({
+            phase: "phase2",
+            mode: "quiz",
+            stage: "round1",
+            current_turn: 0,
+            current_player: plan[0]?.guesser ?? 1,
+            turn_order: plan.map((p) => p.guesser),
+            turn_plan: plan,
+            current_dare: null,
+            current_dare_for: null,
+          })
+          .eq("id", room.id);
+      }
+    } else if (mode === "minigames") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "minigames",
+          mode: "minigames",
+          minigame_id: null,
+          minigame_state: {},
+          current_dare: null,
+          current_dare_for: null,
+        })
+        .eq("id", room.id);
+    } else if (mode === "edit_secrets") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "secrets",
+          mode: "edit_secrets",
+          secrets_ready: [],
+        })
+        .eq("id", room.id);
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       <FloatingHearts count={8} />
@@ -148,16 +251,27 @@ function GamePage() {
         {showComplicity && (
           <ComplicityBar value={room.complicity ?? 0} name1={name1} name2={name2} />
         )}
+        {room.phase !== "lobby" && room.phase !== "menu" && (
+          <button
+            onClick={backToMenu}
+            className="mb-3 self-start rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card"
+          >
+            ← Menu
+          </button>
+        )}
         {room.phase === "lobby" && <Lobby {...ctx} />}
-        {room.phase === "secrets" && <Secrets {...ctx} />}
+        {room.phase === "menu" && <MenuScreen room={room} players={players} mySlot={mySlot} onPick={pickMode} />}
+        {room.phase === "secrets" && <Secrets {...ctx} onDone={backToMenu} />}
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
+        {room.phase === "minigames" && <MinigamesMode {...ctx} onBack={backToMenu} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
-        {room.phase === "done" && <Final {...ctx} />}
+        {room.phase === "done" && <Final {...ctx} onMenu={backToMenu} />}
       </div>
     </div>
   );
 }
+
 
 type Ctx = {
   room: Room;
@@ -197,6 +311,23 @@ async function bumpComplicity(room: Room, gain: number) {
   await supabase.from("rooms").update({ complicity: next }).eq("id", room.id);
 }
 
+function buildQuizPlan(customQuestions: CustomQuestion[]): TurnPlanEntry[] {
+  const customs: TurnPlanEntry[] = customQuestions.map((q) => ({
+    kind: "custom" as const,
+    guesser: q.author_slot === 1 ? 2 : 1,
+    custom_id: q.id,
+  }));
+  const classics: TurnPlanEntry[] = [];
+  let next = 1;
+  const target = Math.max(NB_TOURS_PHASE2, QUESTIONS_PHASE1.length * 2);
+  for (let i = 0; i < target; i++) {
+    classics.push({ kind: "classic" as const, guesser: next, qi: i % QUESTIONS_PHASE1.length });
+    next = next === 1 ? 2 : 1;
+  }
+  return shuffle([...customs, ...classics]);
+}
+
+
 // ───────────────────────────────────────────── LOBBY ─────
 
 function Lobby({ room, players, mySlot }: Ctx) {
@@ -225,8 +356,9 @@ function Lobby({ room, players, mySlot }: Ctx) {
   };
 
   const startGame = async () => {
-    await supabase.from("rooms").update({ phase: "secrets" }).eq("id", room.id);
+    await supabase.from("rooms").update({ phase: "menu", mode: null }).eq("id", room.id);
   };
+
 
   const bothHere = players.length === 2;
 
@@ -453,8 +585,20 @@ function Round1QCM({ room, players, answers, guesses, customQuestions, mySlot, o
 
   const advanceTurn = async () => {
     const next = turnIdx + 1;
-    if (next >= NB_TOURS_PHASE2 || next >= turnOrder.length) {
-      // → Round 2 (host triggers)
+    if (next >= turnOrder.length) {
+      if (room.mode === "quiz") {
+        // standalone quiz: regenerate plan and loop
+        if (mySlot === 1) {
+          const plan = buildQuizPlan(customQuestions);
+          await supabase.from("rooms").update({
+            current_turn: 0, current_player: plan[0]?.guesser ?? 1,
+            turn_order: plan.map((p) => p.guesser), turn_plan: plan,
+            current_dare: null, current_dare_for: null,
+          }).eq("id", room.id);
+        }
+        return;
+      }
+      // full mode → Round 2
       if (mySlot === 1) {
         await supabase.from("rooms").update({
           stage: "round2", minigame_id: pickMinigame(), minigame_state: {}, minigame_round: 0,
@@ -466,6 +610,7 @@ function Round1QCM({ room, players, answers, guesses, customQuestions, mySlot, o
       }).eq("id", room.id);
     }
   };
+
 
   if (alreadyGuessed?.is_correct) {
     return (
@@ -621,7 +766,7 @@ function MinigameStage(ctx: Ctx) {
 
 // ───────────────────────────────────────────── DARE ─────
 
-function DareScreen({ room, players, customDares, mySlot }: Ctx) {
+function DareScreen({ room, players, customDares, customQuestions, mySlot }: Ctx) {
   const failedSlot = room.current_dare_for!;
   const chooserSlot = failedSlot === 1 ? 2 : 1;
   const failedName = players.find((p) => p.slot === failedSlot)?.name ?? "...";
@@ -655,7 +800,40 @@ function DareScreen({ room, players, customDares, mySlot }: Ctx) {
 
   const advance = async () => {
     await bumpComplicity(room, COMPLICITY_GAINS.dare_done);
-    // Return to the right stage flow
+    if (room.mode === "minigames") {
+      await supabase.from("rooms").update({
+        phase: "minigames", current_dare: null, current_dare_for: null,
+        minigame_id: null, minigame_state: {},
+      }).eq("id", room.id);
+      return;
+    }
+    if (room.mode === "quiz") {
+      const turnOrder = room.turn_order ?? [];
+      const next = room.current_turn + 1;
+      if (next >= turnOrder.length) {
+        if (mySlot === 1) {
+          const fresh = buildQuizPlan(customQuestions);
+          await supabase.from("rooms").update({
+            phase: "phase2", current_dare: null, current_dare_for: null,
+            current_turn: 0, current_player: fresh[0]?.guesser ?? 1,
+            turn_order: fresh.map((p) => p.guesser), turn_plan: fresh,
+          }).eq("id", room.id);
+
+        } else {
+          await supabase.from("rooms").update({
+            phase: "phase2", current_dare: null, current_dare_for: null,
+          }).eq("id", room.id);
+        }
+      } else {
+        await supabase.from("rooms").update({
+          phase: "phase2", current_turn: next, current_player: turnOrder[next],
+          current_dare: null, current_dare_for: null,
+        }).eq("id", room.id);
+      }
+      return;
+    }
+    // Return to the right stage flow (full mode)
+
     if (stage === "round1") {
       const next = room.current_turn + 1;
       const turnOrder = room.turn_order ?? [];
@@ -776,9 +954,10 @@ type DraftDare = { text: string; level: DareLevel };
 
 function emptyQ(): DraftQuestion { return { text: "", correct: "", w1: "", w2: "", w3: "" }; }
 
-function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlot }: Ctx) {
+function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlot, onDone }: Ctx & { onDone: () => void }) {
   const myName = players.find((p) => p.slot === mySlot)?.name ?? "Toi";
   const otherName = players.find((p) => p.slot === otherSlot)?.name ?? "ton amour";
+  const isEdit = room.mode === "edit_secrets";
 
   const myExistingQ = customQuestions.filter((q) => q.author_slot === mySlot);
   const myExistingD = customDares.filter((d) => d.author_slot === mySlot);
@@ -795,11 +974,12 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (isEdit) return; // standalone editing doesn't auto-advance
     if (!bothReady || room.phase !== "secrets") return;
     supabase.from("rooms").update({ phase: "phase1" }).eq("id", room.id).eq("phase", "secrets").then(() => undefined);
-  }, [bothReady, room.id, room.phase]);
+  }, [bothReady, room.id, room.phase, isEdit]);
 
-  if (iAmReady) {
+  if (iAmReady && !isEdit) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <motion.div animate={{ rotate: [0, 6, -6, 0] }} transition={{ repeat: Infinity, duration: 2.5 }} className="text-7xl">🙈</motion.div>
@@ -812,7 +992,9 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
 
   const validQuestions = questions.filter((q) => q.text.trim() && q.correct.trim() && q.w1.trim() && q.w2.trim() && q.w3.trim());
   const validDares = dares.filter((d) => d.text.trim());
-  const canSubmit = validQuestions.length >= NB_QUESTIONS_PERSO_MIN && validDares.length >= NB_GAGES_PERSO_MIN;
+  const canSubmit = isEdit
+    ? validQuestions.length + validDares.length > 0
+    : validQuestions.length >= NB_QUESTIONS_PERSO_MIN && validDares.length >= NB_GAGES_PERSO_MIN;
 
   const submitAll = async () => {
     setSaving(true);
@@ -833,10 +1015,17 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
         room_id: room.id, author_slot: mySlot, text: d.text.trim(), level: d.level,
       })));
     }
+    if (isEdit) {
+      setSaving(false);
+      toast.success("Pièges enregistrés 🙈");
+      onDone();
+      return;
+    }
     const nextReady = Array.from(new Set([...secretsReady, mySlot]));
     await supabase.from("rooms").update({ secrets_ready: nextReady }).eq("id", room.id);
     setSaving(false);
   };
+
 
   const updateQ = (i: number, patch: Partial<DraftQuestion>) => setQuestions((prev) => prev.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
   const updateD = (i: number, patch: Partial<DraftDare>) => setDares((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -899,19 +1088,22 @@ function Secrets({ room, players, customQuestions, customDares, mySlot, otherSlo
       </div>
 
       <Button onClick={submitAll} disabled={!canSubmit || saving} className="mt-6 h-14 w-full rounded-2xl text-base font-semibold">
-        {saving ? "..." : "C'est prêt 🙈"}
+        {saving ? "..." : isEdit ? "Sauvegarder & retour menu 💾" : "C'est prêt 🙈"}
       </Button>
-      {!canSubmit && (
+      {!canSubmit && !isEdit && (
         <p className="mt-2 text-center text-xs text-muted-foreground">Remplis au moins {NB_QUESTIONS_PERSO_MIN} questions complètes et {NB_GAGES_PERSO_MIN} gage.</p>
       )}
-      <p className="mt-3 text-center text-xs text-muted-foreground">{otherName} : {otherReady ? "a fini 💕" : "prépare ses pièges..."}</p>
+      {!isEdit && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">{otherName} : {otherReady ? "a fini 💕" : "prépare ses pièges..."}</p>
+      )}
     </div>
   );
 }
 
+
 // ───────────────────────────────────────────── FINAL ─────
 
-function Final({ room, players, mySlot }: Ctx) {
+function Final({ room, players, mySlot, onMenu }: Ctx & { onMenu: () => void }) {
   const me = players.find((p) => p.slot === mySlot);
   const other = players.find((p) => p.slot !== mySlot);
   const myScore = mySlot === 1 ? room.score_1 : room.score_2;
@@ -946,11 +1138,12 @@ function Final({ room, players, mySlot }: Ctx) {
       supabase.from("custom_dares").delete().eq("room_id", room.id),
     ]);
     await supabase.from("rooms").update({
-      phase: "secrets", stage: "round1", current_turn: 0, current_player: 1, current_dare: null, current_dare_for: null,
+      phase: "menu", mode: null, stage: "round1", current_turn: 0, current_player: 1, current_dare: null, current_dare_for: null,
       score_1: 0, score_2: 0, complicity: 0, turn_order: [], turn_plan: [], secrets_ready: [],
       minigame_id: null, minigame_state: {}, minigame_round: 0, finale_scores: { "1": 0, "2": 0 },
     }).eq("id", room.id);
   };
+
 
   return (
     <div className="flex flex-1 flex-col">

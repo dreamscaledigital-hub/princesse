@@ -2,6 +2,44 @@
 
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
+// ── Menu / Modes de jeu ──
+export type ModeId = "quiz" | "minigames" | "full" | "edit_secrets";
+
+export const MENU_TITLE = "Notre petit nid 💞";
+export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
+
+export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string; gradient: string }[] = [
+  {
+    id: "quiz",
+    emoji: "💬",
+    title: "Tu me connais ?",
+    subtitle: "Questions à choix, gages à la clé",
+    gradient: "from-pink-200/80 to-rose-300/80",
+  },
+  {
+    id: "minigames",
+    emoji: "🎮",
+    title: "Mini-jeux",
+    subtitle: "Duels rapides, perdant tire un gage",
+    gradient: "from-emerald-200/80 to-teal-300/80",
+  },
+  {
+    id: "full",
+    emoji: "🏆",
+    title: "Partie complète",
+    subtitle: "Le parcours entier avec Grand Défi",
+    gradient: "from-amber-200/80 to-orange-300/80",
+  },
+  {
+    id: "edit_secrets",
+    emoji: "✏️",
+    title: "Nos pièges",
+    subtitle: "Crée tes questions & gages secrets",
+    gradient: "from-violet-200/80 to-fuchsia-300/80",
+  },
+];
+
+
 export const QUESTIONS_PHASE1: { self: string; about: (name: string) => string }[] = [
   { self: "Ton film préféré ?", about: (n) => `Quel est le film préféré de ${n} ?` },
   { self: "Ton plat préféré ?", about: (n) => `Quel est le plat préféré de ${n} ?` },
