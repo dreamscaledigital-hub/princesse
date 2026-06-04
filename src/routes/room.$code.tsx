@@ -46,6 +46,7 @@ import { MenuScreen } from "@/components/MenuScreen";
 import { Minigame } from "@/components/minigames";
 import { RPSExtreme } from "@/components/RPSExtreme";
 import { Mastermind } from "@/components/Mastermind";
+import { Hangman } from "@/components/Hangman";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -221,7 +222,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman") {
       await supabase
         .from("rooms")
         .update({
@@ -790,6 +791,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   if (room.mode === "mastermind") {
     return (
       <Mastermind
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
+  if (room.mode === "hangman") {
+    return (
+      <Hangman
         room={room}
         mySlot={mySlot}
         myName={myName}
