@@ -118,7 +118,8 @@ export function RPSExtreme({ room, mySlot, myName, otherName, onBackToMenu, onDa
     );
   }
   if (phase === "wheel") {
-    return <WheelView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
+    // Compat : ancien état "wheel" → on bascule directement vers dare
+    return <DareView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onDareDone={onDareDone} />;
   }
   if (phase === "dare") {
     return (
@@ -307,7 +308,8 @@ function PlayRound({
     return () => clearInterval(t);
   }, [phase, mySent, room.id]);
 
-  // Reveal → résolution (les deux joueurs pilotent : opérations idempotentes)
+  // Reveal → résolution. Égalité = on rejoue. Sinon, le GAGNANT tire le gage
+  // et écrit winner_slot + dare_text + phase=dare en une seule patch (source de vérité).
   useEffect(() => {
     if (phase !== "reveal") return;
     const c1 = state.choice_1 as Choice | null;
@@ -317,16 +319,23 @@ function PlayRound({
     console.log("[RPS] reveal resolved", { c1, c2, winner: w });
     const t = setTimeout(() => {
       if (w === 0) {
-        void patch(room.id, {
-          phase: "play",
-          choice_1: null, choice_2: null, sent_1: false, sent_2: false,
-        });
-      } else {
-        void patch(room.id, { phase: "wheel", winner_slot: w });
+        if (mySlot === 1) {
+          void patch(room.id, {
+            phase: "play",
+            choice_1: null, choice_2: null, sent_1: false, sent_2: false,
+          });
+        }
+      } else if (w === mySlot) {
+        // Seul le gagnant choisit le gage, pour éviter toute divergence
+        const level = (state.level ?? "easy") as Level;
+        const list = GAGES_RPS[level];
+        const dare = list[Math.floor(Math.random() * list.length)];
+        void patch(room.id, { phase: "dare", winner_slot: w, dare_text: dare });
       }
-    }, 2500);
+    }, 2200);
     return () => clearTimeout(t);
-  }, [phase, room.id, state.choice_1, state.choice_2]);
+  }, [phase, room.id, state.choice_1, state.choice_2, state.level, mySlot]);
+
 
 
   return (
