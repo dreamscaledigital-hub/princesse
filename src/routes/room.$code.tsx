@@ -585,8 +585,20 @@ function Round1QCM({ room, players, answers, guesses, customQuestions, mySlot, o
 
   const advanceTurn = async () => {
     const next = turnIdx + 1;
-    if (next >= NB_TOURS_PHASE2 || next >= turnOrder.length) {
-      // → Round 2 (host triggers)
+    if (next >= turnOrder.length) {
+      if (room.mode === "quiz") {
+        // standalone quiz: regenerate plan and loop
+        if (mySlot === 1) {
+          const plan = buildQuizPlan(customQuestions);
+          await supabase.from("rooms").update({
+            current_turn: 0, current_player: plan[0]?.guesser ?? 1,
+            turn_order: plan.map((p) => p.guesser), turn_plan: plan,
+            current_dare: null, current_dare_for: null,
+          }).eq("id", room.id);
+        }
+        return;
+      }
+      // full mode → Round 2
       if (mySlot === 1) {
         await supabase.from("rooms").update({
           stage: "round2", minigame_id: pickMinigame(), minigame_state: {}, minigame_round: 0,
@@ -598,6 +610,7 @@ function Round1QCM({ room, players, answers, guesses, customQuestions, mySlot, o
       }).eq("id", room.id);
     }
   };
+
 
   if (alreadyGuessed?.is_correct) {
     return (
