@@ -458,12 +458,11 @@ function Phase2({ room, players, answers, guesses, mySlot, otherSlot }: Ctx) {
         origin: { y: 0.6 },
         colors: ["#f4a4ae", "#a8c8a8", "#fde2e4", "#ffd1dc"],
       });
-      const scoreField = guesserSlot === 1 ? "score_1" : "score_2";
-      const currentScore = guesserSlot === 1 ? room.score_1 : room.score_2;
-      await supabase
-        .from("rooms")
-        .update({ [scoreField]: currentScore + 1 })
-        .eq("id", room.id);
+      const update =
+        guesserSlot === 1
+          ? { score_1: room.score_1 + 1 }
+          : { score_2: room.score_2 + 1 };
+      await supabase.from("rooms").update(update).eq("id", room.id);
 
       setTimeout(() => advanceTurn(), 1800);
     } else {
