@@ -64,6 +64,14 @@ function rpsWinner(c1: Choice, c2: Choice): 0 | 1 | 2 {
   return 2;
 }
 
+function stableIndex(seed: string, max: number) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return hash % max;
+}
+
 type State = {
   phase?: "level_select" | "play" | "reveal" | "wheel" | "dare" | "done";
   level_1?: Level | null;
@@ -308,33 +316,30 @@ function PlayRound({
     return () => clearInterval(t);
   }, [phase, mySent, room.id]);
 
-  // Reveal → résolution. Égalité = on rejoue. Sinon, le GAGNANT tire le gage
-  // et écrit winner_slot + dare_text + phase=dare en une seule patch (source de vérité).
+  // Reveal → résolution immédiate. Égalité = on rejoue. Sinon, les deux clients
+  // calculent le même gage déterministe et écrivent la même vérité en BDD.
   useEffect(() => {
     if (phase !== "reveal") return;
     const c1 = state.choice_1 as Choice | null;
     const c2 = state.choice_2 as Choice | null;
     if (!c1 || !c2) return;
+    if (state.dare_text && state.winner_slot) return;
     const w = rpsWinner(c1, c2);
     console.log("[RPS] reveal resolved", { c1, c2, winner: w });
-    const t = setTimeout(() => {
-      if (w === 0) {
-        if (mySlot === 1) {
-          void patch(room.id, {
-            phase: "play",
-            choice_1: null, choice_2: null, sent_1: false, sent_2: false,
-          });
-        }
-      } else if (w === mySlot) {
-        // Seul le gagnant choisit le gage, pour éviter toute divergence
-        const level = (state.level ?? "easy") as Level;
-        const list = GAGES_RPS[level];
-        const dare = list[Math.floor(Math.random() * list.length)];
-        void patch(room.id, { phase: "dare", winner_slot: w, dare_text: dare });
+    if (w === 0) {
+      if (mySlot === 1) {
+        void patch(room.id, {
+          phase: "play",
+          choice_1: null, choice_2: null, sent_1: false, sent_2: false,
+        });
       }
-    }, 2200);
-    return () => clearTimeout(t);
-  }, [phase, room.id, state.choice_1, state.choice_2, state.level, mySlot]);
+      return;
+    }
+    const level = (state.level ?? "easy") as Level;
+    const list = GAGES_RPS[level];
+    const idx = stableIndex(`${room.id}-${room.minigame_round}-${level}-${c1}-${c2}-${w}`, list.length);
+    void patch(room.id, { phase: "dare", winner_slot: w, dare_text: list[idx] });
+  }, [phase, room.id, room.minigame_round, state.choice_1, state.choice_2, state.dare_text, state.level, state.winner_slot, mySlot]);
 
 
 
