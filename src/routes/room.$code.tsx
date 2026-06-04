@@ -15,6 +15,7 @@ import {
   LEURRES,
   LEVEL_LABELS,
   MINIGAME_IDS,
+  type ModeId,
   NB_GAGES_PERSO_MAX,
   NB_GAGES_PERSO_MIN,
   NB_MINIGAMES_FINALE,
@@ -41,11 +42,14 @@ import {
 
 import { FloatingHearts } from "@/components/FloatingHearts";
 import { ComplicityBar } from "@/components/ComplicityBar";
+import { MenuScreen } from "@/components/MenuScreen";
+import { MinigamesMenu } from "@/components/MinigamesMenu";
 import { Minigame } from "@/components/minigames";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
