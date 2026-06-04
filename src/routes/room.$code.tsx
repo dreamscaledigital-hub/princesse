@@ -764,6 +764,54 @@ function MinigameStage(ctx: Ctx) {
   );
 }
 
+// ───────────────────────────────────────────── MINIGAMES MODE (à la carte) ─────
+
+function MinigamesMode({ ctx }: { ctx: Ctx }) {
+  const { room, mySlot, players } = ctx;
+  const myName = players.find((p) => p.slot === mySlot)?.name ?? "Toi";
+  const otherName = players.find((p) => p.slot !== mySlot)?.name ?? "...";
+
+  const pickGame = async (id: MinigameId) => {
+    await supabase.from("rooms").update({
+      minigame_id: id,
+      minigame_state: {},
+    }).eq("id", room.id);
+  };
+
+  const finish = async (winnerSlot: number | null) => {
+    if (mySlot !== 1) return;
+    await bumpComplicity(room, COMPLICITY_GAINS.minigame);
+    if (winnerSlot === null) {
+      await supabase.from("rooms").update({
+        minigame_id: null, minigame_state: {},
+      }).eq("id", room.id);
+      return;
+    }
+    const loser = winnerSlot === 1 ? 2 : 1;
+    await supabase.from("rooms").update({
+      phase: "dare",
+      current_dare: null,
+      current_dare_for: loser,
+      minigame_state: { dare_level: "medium" },
+    }).eq("id", room.id);
+  };
+
+  if (!room.minigame_id) {
+    return <MinigamesMenu onPick={pickGame} onBack={() => void 0} />;
+  }
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <Minigame
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onFinish={finish}
+      />
+    </div>
+  );
+
 // ───────────────────────────────────────────── DARE ─────
 
 function DareScreen({ room, players, customDares, customQuestions, mySlot }: Ctx) {
