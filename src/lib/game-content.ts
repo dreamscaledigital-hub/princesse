@@ -41,7 +41,7 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     id: "wouldyou",
     emoji: "💞",
     title: "Tu préfères ?",
-    subtitle: "A ou B — êtes-vous compatibles ?",
+    subtitle: "A ou B — jusqu'où iriez-vous ?",
     gradient: "from-fuchsia-200/80 to-rose-300/80",
   },
   {
