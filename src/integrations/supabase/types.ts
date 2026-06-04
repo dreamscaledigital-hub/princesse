@@ -54,6 +54,7 @@ export type Database = {
           author_slot: number
           created_at: string
           id: string
+          level: string
           room_id: string
           text: string
         }
@@ -61,6 +62,7 @@ export type Database = {
           author_slot: number
           created_at?: string
           id?: string
+          level?: string
           room_id: string
           text: string
         }
@@ -68,6 +70,7 @@ export type Database = {
           author_slot?: number
           created_at?: string
           id?: string
+          level?: string
           room_id?: string
           text?: string
         }
@@ -195,46 +198,64 @@ export type Database = {
       rooms: {
         Row: {
           code: string
+          complicity: number
           created_at: string
           current_dare: string | null
           current_dare_for: number | null
           current_player: number
           current_turn: number
+          finale_scores: Json
           id: string
+          minigame_id: string | null
+          minigame_round: number
+          minigame_state: Json
           phase: string
           score_1: number
           score_2: number
           secrets_ready: Json
+          stage: string
           turn_order: Json
           turn_plan: Json
         }
         Insert: {
           code: string
+          complicity?: number
           created_at?: string
           current_dare?: string | null
           current_dare_for?: number | null
           current_player?: number
           current_turn?: number
+          finale_scores?: Json
           id?: string
+          minigame_id?: string | null
+          minigame_round?: number
+          minigame_state?: Json
           phase?: string
           score_1?: number
           score_2?: number
           secrets_ready?: Json
+          stage?: string
           turn_order?: Json
           turn_plan?: Json
         }
         Update: {
           code?: string
+          complicity?: number
           created_at?: string
           current_dare?: string | null
           current_dare_for?: number | null
           current_player?: number
           current_turn?: number
+          finale_scores?: Json
           id?: string
+          minigame_id?: string | null
+          minigame_round?: number
+          minigame_state?: Json
           phase?: string
           score_1?: number
           score_2?: number
           secrets_ready?: Json
+          stage?: string
           turn_order?: Json
           turn_plan?: Json
         }
