@@ -282,28 +282,30 @@ function Phase1({ room, players, answers, mySlot, otherSlot }: Ctx) {
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Trigger phase2 when both have answered all questions
-  // Les deux clients tentent la mise à jour ; le filtre phase=phase1 garantit l'idempotence.
-  useEffect(() => {
-    if (
-      myAnswers.length >= QUESTIONS_PHASE1.length &&
-      otherAnswers.length >= QUESTIONS_PHASE1.length &&
-      room.phase === "phase1"
-    ) {
-      const order: number[] = [];
-      for (let i = 0; i < NB_TOURS_PHASE2; i++) order.push((i % 2) + 1);
-      supabase
-        .from("rooms")
-        .update({
-          phase: "phase2",
-          current_turn: 0,
-          current_player: order[0],
-          turn_order: order,
-        })
-        .eq("id", room.id)
-        .eq("phase", "phase1");
+  const bothDone =
+    myAnswers.length >= QUESTIONS_PHASE1.length &&
+    otherAnswers.length >= QUESTIONS_PHASE1.length;
+
+  const [starting, setStarting] = useState(false);
+  const startGame = async () => {
+    setStarting(true);
+    const order: number[] = [];
+    for (let i = 0; i < NB_TOURS_PHASE2; i++) order.push((i % 2) + 1);
+    const { error } = await supabase
+      .from("rooms")
+      .update({
+        phase: "phase2",
+        current_turn: 0,
+        current_player: order[0],
+        turn_order: order,
+      })
+      .eq("id", room.id)
+      .eq("phase", "phase1");
+    if (error) {
+      toast.error(error.message);
+      setStarting(false);
     }
-  }, [myAnswers.length, otherAnswers.length, room.phase, room.id]);
+  };
 
   const submit = async () => {
     if (!text.trim()) return;
@@ -327,18 +329,39 @@ function Phase1({ room, players, answers, mySlot, otherSlot }: Ctx) {
           transition={{ repeat: Infinity, duration: 2.5 }}
           className="text-7xl"
         >
-          🥰
+          {bothDone ? "💞" : "🥰"}
         </motion.div>
-        <h2 className="mt-6 font-script text-4xl text-primary">
-          On attend que {otherName} finisse...
-        </h2>
-        <p className="mt-2 text-muted-foreground">
-          {otherAnswers.length} / {QUESTIONS_PHASE1.length} questions
-        </p>
-        <Progress
-          value={(otherAnswers.length / QUESTIONS_PHASE1.length) * 100}
-          className="mt-4 w-3/4"
-        />
+        {bothDone ? (
+          <>
+            <h2 className="mt-6 font-script text-4xl text-primary">
+              Vous avez tous les deux fini !
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              Prêts à voir à quel point vous vous connaissez ?
+            </p>
+            <Button
+              size="lg"
+              onClick={startGame}
+              disabled={starting}
+              className="mt-6"
+            >
+              {starting ? "C'est parti..." : "Commencer le jeu 💕"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-6 font-script text-4xl text-primary">
+              On attend que {otherName} finisse...
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              {otherAnswers.length} / {QUESTIONS_PHASE1.length} questions
+            </p>
+            <Progress
+              value={(otherAnswers.length / QUESTIONS_PHASE1.length) * 100}
+              className="mt-4 w-3/4"
+            />
+          </>
+        )}
       </div>
     );
   }
