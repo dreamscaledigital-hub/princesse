@@ -47,6 +47,7 @@ import { Minigame } from "@/components/minigames";
 import { RPSExtreme } from "@/components/RPSExtreme";
 import { Mastermind } from "@/components/Mastermind";
 import { Hangman } from "@/components/Hangman";
+import { WouldYouRather } from "@/components/WouldYouRather";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -222,7 +223,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou") {
       await supabase
         .from("rooms")
         .update({
@@ -810,6 +811,18 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
         otherName={otherName}
         onBackToMenu={backToMenu}
         onDareDone={onDareDone}
+      />
+    );
+  }
+
+  if (room.mode === "wouldyou") {
+    return (
+      <WouldYouRather
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
       />
     );
   }
