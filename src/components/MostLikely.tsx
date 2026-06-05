@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { GAGES_BY_LEVEL, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
+import { useGenerateAIContent, type AIMostLikely, type Ambiance } from "@/lib/use-ai-content";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -53,7 +54,7 @@ const LEVEL_INFO: Record<DareLevel, { emoji: string; gradient: string; desc: str
 
 type MLState = {
   game?: "mostlikely";
-  phase?: "level_select" | "play" | "reveal" | "dare" | "done";
+  phase?: "level_select" | "loading" | "play" | "reveal" | "dare" | "done";
   level_1?: DareLevel | null;
   level_2?: DareLevel | null;
   level?: DareLevel | null;
@@ -66,6 +67,7 @@ type MLState = {
   winner_slot?: 0 | 1 | 2 | null;
   wheel_index?: number | null;
   dare_text?: string | null;
+  ai_statements?: string[] | null;
 };
 
 type Props = {
@@ -127,6 +129,15 @@ export function MostLikely({ room, mySlot, myName, otherName, onBackToMenu, onDa
   if (phase === "level_select") {
     return <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
   }
+  if (phase === "loading") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="text-7xl">🤔</motion.div>
+        <p className="mt-4 font-script text-2xl text-primary">L'IA invente vos affirmations…</p>
+        <p className="mt-1 text-xs text-muted-foreground">Une fournée fraîche pour vous deux ✨</p>
+      </div>
+    );
+  }
   if (phase === "play" || phase === "reveal") {
     return <PlayView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
   }
@@ -144,6 +155,8 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
   const both = state.level_1 && state.level_2;
   const match = both && state.level_1 === state.level_2;
 
+  const generate = useGenerateAIContent();
+
   const choose = async (l: DareLevel) => {
     await patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
   };
@@ -151,16 +164,36 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
   const start = async () => {
     if (!match || mySlot !== 1) return;
     const chosen = state.level_1 as DareLevel;
-    const idxs = shuffle(STATEMENTS.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, STATEMENTS.length));
-    await patch(room.id, {
-      phase: "play",
-      level: chosen,
-      order: idxs,
-      index: 0,
-      vote_1: null, vote_2: null,
-      designations: { "1": 0, "2": 0 },
-      agreements: 0,
-    });
+    const ambiance: Ambiance = chosen === "simple" ? "mignon" : chosen === "medium" ? "coquin" : "hot";
+
+    await patch(room.id, { phase: "loading", level: chosen });
+    const ai = await generate<AIMostLikely>("mostlikely", ambiance, NB_QUESTIONS);
+
+    const list = ai?.statements?.length ? ai.statements.slice(0, NB_QUESTIONS) : null;
+    if (list) {
+      await patch(room.id, {
+        phase: "play",
+        level: chosen,
+        ai_statements: list,
+        order: list.map((_, i) => i),
+        index: 0,
+        vote_1: null, vote_2: null,
+        designations: { "1": 0, "2": 0 },
+        agreements: 0,
+      });
+    } else {
+      const idxs = shuffle(STATEMENTS.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, STATEMENTS.length));
+      await patch(room.id, {
+        phase: "play",
+        level: chosen,
+        ai_statements: null,
+        order: idxs,
+        index: 0,
+        vote_1: null, vote_2: null,
+        designations: { "1": 0, "2": 0 },
+        agreements: 0,
+      });
+    }
   };
 
   return (
@@ -220,7 +253,8 @@ function PlayView({ state, room, mySlot, myName, otherName }:
   const order = state.order ?? [];
   const idx = state.index ?? 0;
   const sIdx = order[idx];
-  const statement = sIdx != null ? STATEMENTS[sIdx] : null;
+  const bank: string[] = state.ai_statements?.length ? state.ai_statements : STATEMENTS;
+  const statement = sIdx != null ? bank[sIdx] : null;
 
   const myVote = (mySlot === 1 ? state.vote_1 : state.vote_2) ?? null;
   const otherVote = (mySlot === 1 ? state.vote_2 : state.vote_1) ?? null;

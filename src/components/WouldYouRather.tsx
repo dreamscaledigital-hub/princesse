@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
+import { useGenerateAIContent, type AIWouldYou, type Ambiance } from "@/lib/use-ai-content";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -59,15 +60,17 @@ const MODE_INFO: Record<Mode, { label: string; emoji: string; gradient: string; 
 
 type WYRState = {
   game?: "wouldyou";
-  phase?: "mode_select" | "play" | "reveal" | "done";
+  phase?: "mode_select" | "loading" | "play" | "reveal" | "done";
   mode_1?: Mode | null;
   mode_2?: Mode | null;
   mode?: Mode | null;
-  order?: number[];          // indices dans la banque
-  index?: number;            // index courant dans `order`
+  order?: number[];          // indices dans la banque (fallback uniquement)
+  index?: number;            // index courant dans `order` ou dans ai_questions
   choice_1?: "a" | "b" | null;
   choice_2?: "a" | "b" | null;
   matches?: number;
+  ai_questions?: Question[] | null;
+  ai_failed?: boolean;
 };
 
 type Props = {
@@ -104,6 +107,8 @@ function freshReset(): WYRState {
     order: [], index: 0,
     choice_1: null, choice_2: null,
     matches: 0,
+    ai_questions: null,
+    ai_failed: false,
   };
 }
 
@@ -120,6 +125,9 @@ export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }
   if (phase === "mode_select") {
     return <ModeSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
   }
+  if (phase === "loading") {
+    return <LoadingView />;
+  }
   if (phase === "play" || phase === "reveal") {
     return <PlayView state={s} room={room} mySlot={mySlot} otherName={otherName} />;
   }
@@ -132,6 +140,16 @@ export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }
   );
 }
 
+function LoadingView() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center text-center">
+      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="text-7xl">💞</motion.div>
+      <p className="mt-4 font-script text-2xl text-primary">L'IA prépare vos questions…</p>
+      <p className="mt-1 text-xs text-muted-foreground">Une nouvelle série rien que pour vous ✨</p>
+    </div>
+  );
+}
+
 // ─────────── Choix du mode ───────────
 function ModeSelect({ state, room, mySlot, myName, otherName }:
   { state: WYRState; room: Room; mySlot: number; myName: string; otherName: string }) {
@@ -140,6 +158,8 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
   const both = state.mode_1 && state.mode_2;
   const match = both && state.mode_1 === state.mode_2;
 
+  const generate = useGenerateAIContent();
+
   const choose = async (m: Mode) => {
     await patch(room.id, mySlot === 1 ? { mode_1: m } : { mode_2: m });
   };
@@ -147,16 +167,38 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
   const start = async () => {
     if (!match || mySlot !== 1) return;
     const chosen = state.mode_1 as Mode;
-    const bank = BANKS[chosen];
-    const idxs = shuffle(bank.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, bank.length));
-    await patch(room.id, {
-      phase: "play",
-      mode: chosen,
-      order: idxs,
-      index: 0,
-      choice_1: null, choice_2: null,
-      matches: 0,
-    });
+    const ambiance: Ambiance = chosen === "doux" ? "mignon" : "hot";
+
+    // Passe en loading et tente l'IA
+    await patch(room.id, { phase: "loading", mode: chosen });
+    const ai = await generate<AIWouldYou>("wouldyou", ambiance, NB_QUESTIONS);
+
+    if (ai?.questions?.length) {
+      await patch(room.id, {
+        phase: "play",
+        mode: chosen,
+        ai_questions: ai.questions.slice(0, NB_QUESTIONS),
+        order: ai.questions.slice(0, NB_QUESTIONS).map((_, i) => i),
+        index: 0,
+        choice_1: null, choice_2: null,
+        matches: 0,
+        ai_failed: false,
+      });
+    } else {
+      // Fallback banque locale
+      const bank = BANKS[chosen];
+      const idxs = shuffle(bank.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, bank.length));
+      await patch(room.id, {
+        phase: "play",
+        mode: chosen,
+        ai_questions: null,
+        order: idxs,
+        index: 0,
+        choice_1: null, choice_2: null,
+        matches: 0,
+        ai_failed: true,
+      });
+    }
   };
 
   return (
@@ -213,8 +255,9 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
 // ─────────── Phase de jeu ───────────
 function PlayView({ state, room, mySlot, otherName }:
   { state: WYRState; room: Room; mySlot: number; otherName: string }) {
-  const mode = (state.mode ?? "simple") as Mode;
-  const bank = BANKS[mode];
+  const mode = (state.mode ?? "doux") as Mode;
+  const aiQuestions = state.ai_questions ?? null;
+  const bank: Question[] = aiQuestions && aiQuestions.length ? aiQuestions : BANKS[mode];
   const order = state.order ?? [];
   const idx = state.index ?? 0;
   const qIndex = order[idx];
