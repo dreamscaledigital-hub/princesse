@@ -60,15 +60,17 @@ const MODE_INFO: Record<Mode, { label: string; emoji: string; gradient: string; 
 
 type WYRState = {
   game?: "wouldyou";
-  phase?: "mode_select" | "play" | "reveal" | "done";
+  phase?: "mode_select" | "loading" | "play" | "reveal" | "done";
   mode_1?: Mode | null;
   mode_2?: Mode | null;
   mode?: Mode | null;
-  order?: number[];          // indices dans la banque
-  index?: number;            // index courant dans `order`
+  order?: number[];          // indices dans la banque (fallback uniquement)
+  index?: number;            // index courant dans `order` ou dans ai_questions
   choice_1?: "a" | "b" | null;
   choice_2?: "a" | "b" | null;
   matches?: number;
+  ai_questions?: Question[] | null;
+  ai_failed?: boolean;
 };
 
 type Props = {
