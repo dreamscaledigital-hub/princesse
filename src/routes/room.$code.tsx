@@ -228,7 +228,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower") {
       await supabase
         .from("rooms")
         .update({
