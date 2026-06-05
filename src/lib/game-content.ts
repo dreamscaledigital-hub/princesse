@@ -73,6 +73,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     gradient: "from-lime-200/80 to-emerald-300/80",
   },
   {
+    id: "tower",
+    emoji: "🗼",
+    title: "La tour infinie",
+    subtitle: "Empile les blocs, la plus haute gagne",
+    gradient: "from-sky-200/80 to-rose-300/80",
+  },
+  {
     id: "full",
     emoji: "🏆",
     title: "Partie complète",
