@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "full" | "edit_secrets";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "full" | "edit_secrets";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -71,6 +71,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Duel de devinettes",
     subtitle: "Premier à résoudre l'énigme gagne",
     gradient: "from-lime-200/80 to-emerald-300/80",
+  },
+  {
+    id: "tower",
+    emoji: "🗼",
+    title: "La tour infinie",
+    subtitle: "Empile les blocs, la plus haute gagne",
+    gradient: "from-sky-200/80 to-rose-300/80",
   },
   {
     id: "full",

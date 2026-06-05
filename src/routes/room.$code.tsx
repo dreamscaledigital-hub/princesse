@@ -52,6 +52,7 @@ import { CupidonDuel } from "@/components/CupidonDuel";
 import { PaysVille } from "@/components/PaysVille";
 import { MostLikely } from "@/components/MostLikely";
 import { Riddles } from "@/components/Riddles";
+import { StackTower } from "@/components/StackTower";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -227,7 +228,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower") {
       await supabase
         .from("rooms")
         .update({
@@ -873,6 +874,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   if (room.mode === "riddles") {
     return (
       <Riddles
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
+  if (room.mode === "tower") {
+    return (
+      <StackTower
         room={room}
         mySlot={mySlot}
         myName={myName}
