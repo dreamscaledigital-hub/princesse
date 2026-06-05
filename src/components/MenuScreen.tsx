@@ -35,44 +35,58 @@ export function MenuScreen({ room, players, mySlot, onPick }: Props) {
   return (
     <div className="flex flex-1 flex-col">
       <div className="text-center">
-        <motion.h1
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="font-script text-4xl text-primary"
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-[10px] uppercase tracking-[0.35em] text-primary/70"
         >
-          {MENU_TITLE}
+          ✦ pour nous deux ✦
+        </motion.p>
+        <motion.h1
+          initial={{ y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="mt-2 font-serif text-5xl leading-[0.95] text-primary"
+        >
+          {MENU_TITLE.split(" ").map((w, i, arr) => (
+            <span key={i} className={i === arr.length - 1 ? "italic text-blossom-rose" : ""}>
+              {w}{i < arr.length - 1 ? " " : ""}
+            </span>
+          ))}
         </motion.h1>
-        <p className="mt-1 text-sm text-muted-foreground">{MENU_SUBTITLE}</p>
-        <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <div className="mx-auto mt-3 h-px w-12 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <p className="mt-3 text-sm text-muted-foreground text-balance px-6">{MENU_SUBTITLE}</p>
+        <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-white/60 px-3 py-1 text-xs font-medium text-primary backdrop-blur">
           <Heart className="h-3 w-3 fill-primary" />
-          {me?.name ?? "Toi"} &amp; {other?.name ?? "ton amour"} {bothHere ? "💕 en ligne" : "💭 en attente"}
+          {me?.name ?? "Toi"} &amp; {other?.name ?? "ton amour"} {bothHere ? "· en ligne" : "· en attente"}
         </p>
       </div>
 
-      <div className="mt-6 grid gap-3">
+      <div className="mt-7 grid grid-cols-2 gap-3">
         {MODES.map((m, i) => (
           <motion.button
             key={m.id}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06 }}
-            whileTap={{ scale: 0.97 }}
+            transition={{ delay: i * 0.05 }}
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ y: -2 }}
             disabled={!bothHere}
             onClick={() => onPick(m.id)}
-            className={`group relative overflow-hidden rounded-3xl border-2 border-white/60 bg-gradient-to-br ${m.gradient} p-5 text-left shadow-md backdrop-blur transition disabled:opacity-50`}
+            className="group relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white/55 p-3 text-center shadow-[0_10px_30px_-15px_rgba(196,92,124,0.35)] backdrop-blur-xl transition disabled:opacity-50"
           >
-            <div className="flex items-center gap-4">
-              <span className="text-5xl drop-shadow-sm">{m.emoji}</span>
-              <div className="flex-1">
-                <p className="font-script text-2xl text-primary-foreground/90 drop-shadow-sm">
-                  {m.title}
-                </p>
-                <p className="mt-0.5 text-xs font-medium text-foreground/80">{m.subtitle}</p>
-              </div>
-            </div>
+            <div className={`absolute inset-0 bg-gradient-to-br ${m.gradient} opacity-25 transition group-hover:opacity-40`} />
+            <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/40 blur-2xl" />
+            <span className="relative text-4xl drop-shadow-sm">{m.emoji}</span>
+            <p className="relative mt-2 font-serif text-xl leading-tight text-blossom-deep">
+              {m.title}
+            </p>
+            <p className="relative mt-1 text-[10px] font-medium uppercase tracking-wider text-foreground/60 line-clamp-2">
+              {m.subtitle}
+            </p>
           </motion.button>
         ))}
       </div>
+
 
       {!bothHere && (
         <p className="mt-4 text-center text-xs text-muted-foreground">

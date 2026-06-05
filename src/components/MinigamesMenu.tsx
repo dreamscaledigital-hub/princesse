@@ -32,31 +32,37 @@ export function MinigamesMenu({ onPick, onBack }: Props) {
   return (
     <div className="flex flex-1 flex-col">
       <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Mini-jeux à la carte</p>
-        <h1 className="mt-1 font-script text-4xl text-primary">Choisis un duel 🎮</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Le perdant tire un gage moyen 🟡
+        <p className="text-[10px] uppercase tracking-[0.35em] text-primary/70">✦ à la carte ✦</p>
+        <h1 className="mt-2 font-serif text-5xl leading-none text-primary">
+          Choisis un <span className="italic">duel</span>
+        </h1>
+        <div className="mx-auto mt-3 h-px w-12 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <p className="mt-3 text-xs text-muted-foreground">
+          Le perdant tire un gage moyen <span className="text-amber-500">●</span>
         </p>
       </div>
 
-      <div className="mt-6 grid gap-3">
+      <div className="mt-6 grid grid-cols-2 gap-3">
         {MINIGAME_IDS.map((id, i) => (
           <motion.button
             key={id}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ y: -2 }}
             onClick={() => onPick(id)}
-            className={`flex items-center gap-4 rounded-3xl border-2 border-white/60 bg-gradient-to-br ${GRADIENT[id]} p-4 text-left shadow-md backdrop-blur`}
+            className="group relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white/55 p-3 text-center shadow-[0_10px_30px_-15px_rgba(196,92,124,0.35)] backdrop-blur-xl"
           >
-            <span className="text-4xl">{EMOJI[id]}</span>
-            <div className="flex-1">
-              <p className="font-script text-2xl text-primary-foreground/90 drop-shadow-sm">
-                {MINIGAME_LABELS[id]}
-              </p>
-              <p className="text-xs text-foreground/80">{MINIGAME_DESCRIPTIONS[id]}</p>
-            </div>
+            <div className={`absolute inset-0 bg-gradient-to-br ${GRADIENT[id]} opacity-30 transition group-hover:opacity-50`} />
+            <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/40 blur-2xl" />
+            <span className="relative text-4xl drop-shadow-sm">{EMOJI[id]}</span>
+            <p className="relative mt-2 font-serif text-xl leading-tight text-blossom-deep">
+              {MINIGAME_LABELS[id]}
+            </p>
+            <p className="relative mt-1 text-[10px] font-medium uppercase tracking-wider text-foreground/60 line-clamp-2">
+              {MINIGAME_DESCRIPTIONS[id]}
+            </p>
           </motion.button>
         ))}
       </div>
@@ -69,3 +75,4 @@ export function MinigamesMenu({ onPick, onBack }: Props) {
     </div>
   );
 }
+
