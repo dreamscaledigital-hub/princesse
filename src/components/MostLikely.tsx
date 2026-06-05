@@ -54,7 +54,7 @@ const LEVEL_INFO: Record<DareLevel, { emoji: string; gradient: string; desc: str
 
 type MLState = {
   game?: "mostlikely";
-  phase?: "level_select" | "play" | "reveal" | "dare" | "done";
+  phase?: "level_select" | "loading" | "play" | "reveal" | "dare" | "done";
   level_1?: DareLevel | null;
   level_2?: DareLevel | null;
   level?: DareLevel | null;
@@ -67,6 +67,7 @@ type MLState = {
   winner_slot?: 0 | 1 | 2 | null;
   wheel_index?: number | null;
   dare_text?: string | null;
+  ai_statements?: string[] | null;
 };
 
 type Props = {
