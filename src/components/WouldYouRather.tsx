@@ -107,6 +107,8 @@ function freshReset(): WYRState {
     order: [], index: 0,
     choice_1: null, choice_2: null,
     matches: 0,
+    ai_questions: null,
+    ai_failed: false,
   };
 }
 
@@ -123,6 +125,9 @@ export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }
   if (phase === "mode_select") {
     return <ModeSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
   }
+  if (phase === "loading") {
+    return <LoadingView />;
+  }
   if (phase === "play" || phase === "reveal") {
     return <PlayView state={s} room={room} mySlot={mySlot} otherName={otherName} />;
   }
@@ -132,6 +137,16 @@ export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }
       onReplay={async () => { await update(room.id, freshReset()); }}
       onBackToMenu={onBackToMenu}
     />
+  );
+}
+
+function LoadingView() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center text-center">
+      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="text-7xl">💞</motion.div>
+      <p className="mt-4 font-script text-2xl text-primary">L'IA prépare vos questions…</p>
+      <p className="mt-1 text-xs text-muted-foreground">Une nouvelle série rien que pour vous ✨</p>
+    </div>
   );
 }
 
