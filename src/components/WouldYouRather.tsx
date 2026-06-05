@@ -255,8 +255,9 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
 // ─────────── Phase de jeu ───────────
 function PlayView({ state, room, mySlot, otherName }:
   { state: WYRState; room: Room; mySlot: number; otherName: string }) {
-  const mode = (state.mode ?? "simple") as Mode;
-  const bank = BANKS[mode];
+  const mode = (state.mode ?? "doux") as Mode;
+  const aiQuestions = state.ai_questions ?? null;
+  const bank: Question[] = aiQuestions && aiQuestions.length ? aiQuestions : BANKS[mode];
   const order = state.order ?? [];
   const idx = state.index ?? 0;
   const qIndex = order[idx];
