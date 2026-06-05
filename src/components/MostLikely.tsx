@@ -253,7 +253,8 @@ function PlayView({ state, room, mySlot, myName, otherName }:
   const order = state.order ?? [];
   const idx = state.index ?? 0;
   const sIdx = order[idx];
-  const statement = sIdx != null ? STATEMENTS[sIdx] : null;
+  const bank: string[] = state.ai_statements?.length ? state.ai_statements : STATEMENTS;
+  const statement = sIdx != null ? bank[sIdx] : null;
 
   const myVote = (mySlot === 1 ? state.vote_1 : state.vote_2) ?? null;
   const otherVote = (mySlot === 1 ? state.vote_2 : state.vote_1) ?? null;
