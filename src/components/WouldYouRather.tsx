@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
+import { useGenerateAIContent, type AIWouldYou, type Ambiance } from "@/lib/use-ai-content";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
