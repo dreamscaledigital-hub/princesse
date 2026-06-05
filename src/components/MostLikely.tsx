@@ -155,6 +155,8 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
   const both = state.level_1 && state.level_2;
   const match = both && state.level_1 === state.level_2;
 
+  const generate = useGenerateAIContent();
+
   const choose = async (l: DareLevel) => {
     await patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
   };
@@ -162,16 +164,36 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
   const start = async () => {
     if (!match || mySlot !== 1) return;
     const chosen = state.level_1 as DareLevel;
-    const idxs = shuffle(STATEMENTS.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, STATEMENTS.length));
-    await patch(room.id, {
-      phase: "play",
-      level: chosen,
-      order: idxs,
-      index: 0,
-      vote_1: null, vote_2: null,
-      designations: { "1": 0, "2": 0 },
-      agreements: 0,
-    });
+    const ambiance: Ambiance = chosen === "simple" ? "mignon" : chosen === "medium" ? "coquin" : "hot";
+
+    await patch(room.id, { phase: "loading", level: chosen });
+    const ai = await generate<AIMostLikely>("mostlikely", ambiance, NB_QUESTIONS);
+
+    const list = ai?.statements?.length ? ai.statements.slice(0, NB_QUESTIONS) : null;
+    if (list) {
+      await patch(room.id, {
+        phase: "play",
+        level: chosen,
+        ai_statements: list,
+        order: list.map((_, i) => i),
+        index: 0,
+        vote_1: null, vote_2: null,
+        designations: { "1": 0, "2": 0 },
+        agreements: 0,
+      });
+    } else {
+      const idxs = shuffle(STATEMENTS.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, STATEMENTS.length));
+      await patch(room.id, {
+        phase: "play",
+        level: chosen,
+        ai_statements: null,
+        order: idxs,
+        index: 0,
+        vote_1: null, vote_2: null,
+        designations: { "1": 0, "2": 0 },
+        agreements: 0,
+      });
+    }
   };
 
   return (
