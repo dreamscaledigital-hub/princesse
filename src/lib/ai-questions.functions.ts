@@ -83,15 +83,15 @@ export const generateGameContent = createServerFn({ method: "POST" })
       }
       const json = await resp.json();
       const content: string = json?.choices?.[0]?.message?.content ?? "";
-      let parsed: Record<string, unknown> | null = null;
+      // Validate it parses, then return as string for safe serialization
       try {
-        parsed = JSON.parse(content) as Record<string, unknown>;
+        JSON.parse(content);
+        return { ok: true as const, json: content };
       } catch {
         const match = content.match(/\{[\s\S]*\}/);
         if (!match) return { ok: false as const, error: "invalid_json" };
-        parsed = JSON.parse(match[0]) as Record<string, unknown>;
+        return { ok: true as const, json: match[0] };
       }
-      return { ok: true as const, data: parsed };
     } catch (e) {
       console.error("AI fetch failed", e);
       return { ok: false as const, error: "network" };
