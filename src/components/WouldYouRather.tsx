@@ -158,6 +158,8 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
   const both = state.mode_1 && state.mode_2;
   const match = both && state.mode_1 === state.mode_2;
 
+  const generate = useGenerateAIContent();
+
   const choose = async (m: Mode) => {
     await patch(room.id, mySlot === 1 ? { mode_1: m } : { mode_2: m });
   };
@@ -165,16 +167,38 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
   const start = async () => {
     if (!match || mySlot !== 1) return;
     const chosen = state.mode_1 as Mode;
-    const bank = BANKS[chosen];
-    const idxs = shuffle(bank.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, bank.length));
-    await patch(room.id, {
-      phase: "play",
-      mode: chosen,
-      order: idxs,
-      index: 0,
-      choice_1: null, choice_2: null,
-      matches: 0,
-    });
+    const ambiance: Ambiance = chosen === "doux" ? "mignon" : "hot";
+
+    // Passe en loading et tente l'IA
+    await patch(room.id, { phase: "loading", mode: chosen });
+    const ai = await generate<AIWouldYou>("wouldyou", ambiance, NB_QUESTIONS);
+
+    if (ai?.questions?.length) {
+      await patch(room.id, {
+        phase: "play",
+        mode: chosen,
+        ai_questions: ai.questions.slice(0, NB_QUESTIONS),
+        order: ai.questions.slice(0, NB_QUESTIONS).map((_, i) => i),
+        index: 0,
+        choice_1: null, choice_2: null,
+        matches: 0,
+        ai_failed: false,
+      });
+    } else {
+      // Fallback banque locale
+      const bank = BANKS[chosen];
+      const idxs = shuffle(bank.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, bank.length));
+      await patch(room.id, {
+        phase: "play",
+        mode: chosen,
+        ai_questions: null,
+        order: idxs,
+        index: 0,
+        choice_1: null, choice_2: null,
+        matches: 0,
+        ai_failed: true,
+      });
+    }
   };
 
   return (
