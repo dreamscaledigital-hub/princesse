@@ -83,14 +83,13 @@ export const generateGameContent = createServerFn({ method: "POST" })
       }
       const json = await resp.json();
       const content: string = json?.choices?.[0]?.message?.content ?? "";
-      let parsed: unknown;
+      let parsed: Record<string, unknown> | null = null;
       try {
-        parsed = JSON.parse(content);
+        parsed = JSON.parse(content) as Record<string, unknown>;
       } catch {
-        // tenter d'extraire un objet JSON s'il est entouré de texte
         const match = content.match(/\{[\s\S]*\}/);
         if (!match) return { ok: false as const, error: "invalid_json" };
-        parsed = JSON.parse(match[0]);
+        parsed = JSON.parse(match[0]) as Record<string, unknown>;
       }
       return { ok: true as const, data: parsed };
     } catch (e) {
