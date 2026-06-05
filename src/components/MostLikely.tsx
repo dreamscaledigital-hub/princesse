@@ -129,6 +129,15 @@ export function MostLikely({ room, mySlot, myName, otherName, onBackToMenu, onDa
   if (phase === "level_select") {
     return <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
   }
+  if (phase === "loading") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="text-7xl">🤔</motion.div>
+        <p className="mt-4 font-script text-2xl text-primary">L'IA invente vos affirmations…</p>
+        <p className="mt-1 text-xs text-muted-foreground">Une fournée fraîche pour vous deux ✨</p>
+      </div>
+    );
+  }
   if (phase === "play" || phase === "reveal") {
     return <PlayView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
   }
