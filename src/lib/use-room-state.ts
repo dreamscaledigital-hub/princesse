@@ -8,12 +8,12 @@ export type TurnPlanEntry =
 
 export type Stage = "round1" | "round2" | "finale" | "done";
 
-export type GameMode = "full" | "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "edit_secrets";
+export type GameMode = "full" | "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "edit_secrets" | "wishlist";
 
 export type Room = {
   id: string;
   code: string;
-  phase: "lobby" | "menu" | "secrets" | "phase1" | "phase2" | "dare" | "done" | "minigames";
+  phase: "lobby" | "menu" | "secrets" | "phase1" | "phase2" | "dare" | "done" | "minigames" | "wishlist";
   mode: GameMode | null;
   stage: Stage;
   current_turn: number;
