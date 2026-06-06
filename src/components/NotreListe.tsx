@@ -407,7 +407,7 @@ function WishCard({
   w: Wish;
   mySlot: number;
   nameBySlot: (slot: number) => string;
-  actions?: React.ReactNode;
+  actions?: ReactNode;
 }) {
   const proposerName = nameBySlot(w.proposed_by);
   const isMine = w.proposed_by === mySlot;
