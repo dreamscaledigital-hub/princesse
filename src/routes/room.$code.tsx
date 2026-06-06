@@ -54,6 +54,7 @@ import { MostLikely } from "@/components/MostLikely";
 import { Riddles } from "@/components/Riddles";
 import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
+import { NotreListe } from "@/components/NotreListe";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -282,7 +283,7 @@ function GamePage() {
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
         {room.phase === "minigames" && <MinigamesMode ctx={ctx} />}
-        {room.phase === "wishlist" && <NotreListe roomCode={room.code} mySlot={mySlot ?? 1} myName={name1} otherName={name2} />}
+        {room.phase === "wishlist" && <NotreListe roomCode={room.code} mySlot={mySlot ?? 1} name1={name1} name2={name2} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
         {room.phase === "done" && <Final {...ctx} onMenu={backToMenu} />}
       </div>
