@@ -30,6 +30,7 @@ export type Room = {
   minigame_state: Record<string, unknown>;
   minigame_round: number;
   finale_scores: { "1": number; "2": number };
+  next_date_at: string | null;
   created_at: string;
 };
 
