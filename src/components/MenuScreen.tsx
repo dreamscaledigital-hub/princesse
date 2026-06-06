@@ -62,7 +62,10 @@ export function MenuScreen({ room, players, mySlot, onPick }: Props) {
         </p>
       </div>
 
+      <DateCountdown roomId={room.id} nextDateAt={room.next_date_at} />
+
       <div className="mt-7 grid grid-cols-2 gap-3">
+
         {MODES.map((m, i) => (
           <motion.button
             key={m.id}
