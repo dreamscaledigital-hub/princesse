@@ -264,6 +264,45 @@ export type Database = {
         }
         Relationships: []
       }
+      wishlist_items: {
+        Row: {
+          category: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          proposed_by: number
+          room_code: string
+          status: string
+          title: string
+          validated_by: number | null
+        }
+        Insert: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          proposed_by: number
+          room_code: string
+          status?: string
+          title: string
+          validated_by?: number | null
+        }
+        Update: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          proposed_by?: number
+          room_code?: string
+          status?: string
+          title?: string
+          validated_by?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
