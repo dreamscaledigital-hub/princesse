@@ -210,6 +210,7 @@ export type Database = {
           minigame_round: number
           minigame_state: Json
           mode: string | null
+          next_date_at: string | null
           phase: string
           score_1: number
           score_2: number
@@ -232,6 +233,7 @@ export type Database = {
           minigame_round?: number
           minigame_state?: Json
           mode?: string | null
+          next_date_at?: string | null
           phase?: string
           score_1?: number
           score_2?: number
@@ -254,6 +256,7 @@ export type Database = {
           minigame_round?: number
           minigame_state?: Json
           mode?: string | null
+          next_date_at?: string | null
           phase?: string
           score_1?: number
           score_2?: number
