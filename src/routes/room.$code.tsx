@@ -250,6 +250,14 @@ function GamePage() {
           secrets_ready: [],
         })
         .eq("id", room.id);
+    } else if (mode === "wishlist") {
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "wishlist",
+          mode: "wishlist",
+        })
+        .eq("id", room.id);
     }
   };
 
@@ -274,6 +282,7 @@ function GamePage() {
         {room.phase === "phase1" && <Phase1 {...ctx} />}
         {room.phase === "phase2" && <Phase2 {...ctx} />}
         {room.phase === "minigames" && <MinigamesMode ctx={ctx} />}
+        {room.phase === "wishlist" && <NotreListe roomCode={room.code} mySlot={mySlot ?? 1} myName={name1} otherName={name2} />}
         {room.phase === "dare" && <DareScreen {...ctx} />}
         {room.phase === "done" && <Final {...ctx} onMenu={backToMenu} />}
       </div>
