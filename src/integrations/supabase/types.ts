@@ -197,6 +197,7 @@ export type Database = {
       }
       rooms: {
         Row: {
+          ambiance: string
           code: string
           complicity: number
           created_at: string
@@ -220,6 +221,7 @@ export type Database = {
           turn_plan: Json
         }
         Insert: {
+          ambiance?: string
           code: string
           complicity?: number
           created_at?: string
@@ -243,6 +245,7 @@ export type Database = {
           turn_plan?: Json
         }
         Update: {
+          ambiance?: string
           code?: string
           complicity?: number
           created_at?: string

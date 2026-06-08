@@ -100,20 +100,75 @@
   --shadow-soft: 0 10px 30px -15px oklch(0.62 0.14 0 / 0.25);
 }
 
+/* ── Ambiance "À DISTANCE" : nocturne, bleu nuit / violet / doré ── */
+body[data-ambiance="distance"] {
+  --blossom-veil: oklch(0.22 0.06 270);
+  --blossom-pale: oklch(0.42 0.10 280);
+  --blossom-pink: oklch(0.70 0.14 295);
+  --blossom-rose: oklch(0.78 0.13 80);   /* accent doré */
+  --blossom-deep: oklch(0.92 0.05 90);
+  --blossom-ink:  oklch(0.96 0.02 90);
+
+  --background: oklch(0.20 0.06 270);
+  --foreground: oklch(0.96 0.02 90);
+
+  --card: oklch(0.30 0.06 275 / 0.55);
+  --card-foreground: oklch(0.96 0.02 90);
+  --popover: oklch(0.26 0.06 275);
+  --popover-foreground: oklch(0.96 0.02 90);
+
+  --primary: oklch(0.82 0.13 85);          /* doré chaud */
+  --primary-foreground: oklch(0.20 0.05 270);
+
+  --secondary: oklch(0.32 0.07 275);
+  --secondary-foreground: oklch(0.94 0.03 90);
+
+  --muted: oklch(0.32 0.05 275);
+  --muted-foreground: oklch(0.78 0.04 275);
+
+  --accent: oklch(0.70 0.14 295);
+  --accent-foreground: oklch(0.18 0.05 270);
+
+  --border: oklch(0.70 0.10 280 / 0.35);
+  --input: oklch(0.32 0.06 275);
+  --ring: oklch(0.82 0.13 85);
+
+  --gradient-romance: linear-gradient(160deg,
+    oklch(0.18 0.06 265) 0%,
+    oklch(0.22 0.08 275) 35%,
+    oklch(0.30 0.10 295) 75%,
+    oklch(0.42 0.12 305) 100%);
+  --shadow-petal: 0 20px 50px -25px oklch(0.10 0.05 270 / 0.7),
+                  0 8px 20px -12px oklch(0.70 0.14 295 / 0.35);
+  --shadow-soft: 0 10px 30px -15px oklch(0.10 0.05 270 / 0.55);
+}
+
+body[data-ambiance="distance"]::before {
+  background-image:
+    radial-gradient(circle at 12% 18%, oklch(0.82 0.13 85 / 0.18) 0, transparent 22%),
+    radial-gradient(circle at 88% 12%, oklch(0.70 0.14 295 / 0.30) 0, transparent 28%),
+    radial-gradient(circle at 75% 85%, oklch(0.82 0.13 85 / 0.14) 0, transparent 30%),
+    radial-gradient(circle at 18% 92%, oklch(0.70 0.14 295 / 0.22) 0, transparent 26%) !important;
+}
+
+/* Fondu doux entre ambiances */
+html, body {
+  font-family: var(--font-sans);
+  background: var(--gradient-romance);
+  background-attachment: fixed;
+  color: var(--color-foreground);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  transition: background-color 800ms ease, color 600ms ease;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
+    transition: background-color 600ms ease, border-color 600ms ease, color 600ms ease;
   }
 
-  html, body {
-    font-family: var(--font-sans);
-    background: var(--gradient-romance);
-    background-attachment: fixed;
-    color: var(--color-foreground);
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-    letter-spacing: -0.005em;
-  }
 
   /* Petites fleurs décoratives en fond */
   body::before {

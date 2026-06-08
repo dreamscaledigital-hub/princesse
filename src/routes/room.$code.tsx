@@ -12,6 +12,8 @@ import {
   COMPLICITY_MAX,
   DEFAULT_NAMES,
   GAGES_BY_LEVEL,
+  getGagesPool,
+
   LEURRES,
   LEVEL_LABELS,
   MINIGAME_IDS,
@@ -55,6 +57,8 @@ import { Riddles } from "@/components/Riddles";
 import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
 import { NotreListe } from "@/components/NotreListe";
+import { AmbianceTheme } from "@/components/AmbianceTheme";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -264,8 +268,10 @@ function GamePage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
+      <AmbianceTheme ambiance={room.ambiance} />
       <FloatingHearts count={8} />
       <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col px-5 py-6">
+
         {showComplicity && (
           <ComplicityBar value={room.complicity ?? 0} name1={name1} name2={name2} />
         )}
@@ -956,7 +962,7 @@ function DareScreen({ room, players, customDares, customQuestions, mySlot }: Ctx
 
   const dareOptions = useMemo(() => {
     const customsTexts = myCustomDares.map((d) => `★${d.text}`);
-    const classics = shuffle(GAGES_BY_LEVEL[level] ?? []);
+    const classics = shuffle(getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level] ?? []);
     const pool = shuffle([...customsTexts, ...classics]).slice(0, 3);
     return pool;
     // eslint-disable-next-line react-hooks/exhaustive-deps

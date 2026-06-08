@@ -1,0 +1,1 @@
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS ambiance text NOT NULL DEFAULT 'irl';

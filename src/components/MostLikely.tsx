@@ -4,7 +4,7 @@ import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
-import { GAGES_BY_LEVEL, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
+import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
 import { useGenerateAIContent, type AIMostLikely, type Ambiance } from "@/lib/use-ai-content";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -303,7 +303,7 @@ function PlayView({ state, room, mySlot, myName, otherName }:
       else if (d["2"] > d["1"]) winner = 2;
       else winner = 0;
       const level = (state.level ?? "simple") as DareLevel;
-      const pool = GAGES_BY_LEVEL[level] ?? [];
+      const pool = (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level]) ?? [];
       const seed = `${room.id}-mostlikely-${level}-${winner}-${d["1"]}-${d["2"]}`;
       const wi = pool.length ? stableIndex(seed, pool.length) : 0;
       await patch(room.id, {

@@ -4,7 +4,7 @@ import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
-import { GAGES_BY_LEVEL, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
+import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -363,7 +363,7 @@ function PlayView({ state, room, mySlot, myName, otherName }:
       const s2 = state.score_2 ?? 0;
       const winner: 0 | 1 | 2 = s1 === s2 ? 0 : s1 > s2 ? 1 : 2;
       const lvl = (state.level ?? "simple") as DareLevel;
-      const pool = GAGES_BY_LEVEL[lvl];
+      const pool = (getGagesPool(room.ambiance, lvl) ?? GAGES_BY_LEVEL[lvl]);
       const seed = `${room.id}-tower-${lvl}-${s1}-${s2}-${winner}`;
       const idx = stableIndex(seed, pool.length);
       void patch(room.id, {
@@ -566,7 +566,7 @@ function DareView({ state, room, mySlot, myName, otherName, onDareDone }:
   const loserSlot = winner === 1 ? 2 : 1;
   const iLost = loserSlot === mySlot;
   const level = (state.level ?? "simple") as DareLevel;
-  const dare = state.dare_text ?? GAGES_BY_LEVEL[level][0];
+  const dare = state.dare_text ?? (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level])[0];
 
   const validate = async () => {
     onDareDone();

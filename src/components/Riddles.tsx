@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
-import { GAGES_BY_LEVEL, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
+import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -347,7 +347,7 @@ function PlayView({ state, room, mySlot, myName, otherName }:
         return;
       }
       const level = (state.level ?? "simple") as DareLevel;
-      const pool = GAGES_BY_LEVEL[level];
+      const pool = (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level]);
       const seed = `${room.id}-riddles-${level}-${s1}-${s2}-${winner}`;
       const idx = stableIndex(seed, pool.length);
       await patch(room.id, {

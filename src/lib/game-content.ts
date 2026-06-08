@@ -145,43 +145,95 @@ export const LEVEL_LABELS: Record<DareLevel, string> = {
   ultra: "Gage ultra 🔴",
 };
 
-export const GAGES_SIMPLE: string[] = [
-  "Fais un câlin de 15 secondes 🤗",
-  "Dis 3 qualités de l'autre ✨",
-  "Bisou sur le front 😘",
-  "Fais un compliment sincère 💌",
+// ── Ambiance partagée (en vrai / à distance) ──
+export type Ambiance = "irl" | "distance";
+
+export const AMBIANCE_LABELS: Record<Ambiance, string> = {
+  irl: "En vrai 💞",
+  distance: "À distance 🌙",
+};
+
+// ── Gages EN VRAI (présentiel — actions physiques) ──
+export const GAGES_IRL_SIMPLE: string[] = [
+  "Fais un câlin de 20 secondes 🤗",
+  "Dis 3 choses que tu adores chez l'autre ✨",
   "Bisou esquimau 👃",
+  "Fais un compliment sincère, dans les yeux 💌",
   "Imite ton/ta partenaire 🎭",
+  "Bisou sur le front, lentement 😘",
   "Fais une grimace mignonne 😜",
 ];
 
-export const GAGES_MEDIUM: string[] = [
-  "Massage d'1 minute 💆",
-  "Chante un bout de chanson 🎶",
+export const GAGES_IRL_MEDIUM: string[] = [
+  "Massage sensuel d'une minute 💆",
+  "Un baiser lent dans le cou 💋",
+  "Chuchote 5 choses à l'oreille de l'autre 🗣️",
+  "Slow improvisé sans musique 💃",
+  "Raconte ton fantasme le plus mignon 💭",
+  "Bisous sur 5 endroits de son choix 😘",
+];
+
+export const GAGES_IRL_ULTRA: string[] = [
+  "Enlève un vêtement 😏",
+  "L'autre choisit la suite 😈",
+  "1 minute de baiser non-stop 💋",
+  "Massage complet 10 min, peau contre peau 💆‍♀️",
+  "Un strip-tease de 30 secondes 🔥",
+  "Une caresse partout où l'autre l'indique ✨",
+];
+
+// ── Gages À DISTANCE (photos / vidéos / vocaux / messages) ──
+export const GAGES_DISTANCE_SIMPLE: string[] = [
+  "Envoie un selfie qui fait craquer l'autre 🤳",
   "Envoie un vocal trop mignon 🎤",
-  "Improvise une déclaration 💖",
-  "Danse 30 secondes sans musique 💃",
-  "Raconte ton plus beau souvenir de nous 💕",
-  "Écris un mini poème improvisé 📝",
+  "Écris 3 choses que tu adores chez l'autre ✨",
+  "Envoie une chanson qui te fait penser à nous 🎶",
+  "Envoie une photo de ta tenue du jour 👗",
+  "Vocal de 30s pour raconter ta journée 💕",
 ];
 
-export const GAGES_ULTRA: string[] = [
-  "Organise notre prochain rendez-vous de A à Z 🌹",
-  "Petit-déj au lit demain matin 🥐",
-  "Écris-moi une vraie lettre d'amour 💌",
-  "Réalise un vœu de l'autre 🌟",
-  "Massage complet 15 minutes 💆‍♀️",
-  "Prépare son plat préféré dans la semaine 🍝",
+export const GAGES_DISTANCE_MEDIUM: string[] = [
+  "Envoie une photo de toi en mode irrésistible 📸",
+  "Décris en vocal ce qui te manque chez l'autre 🎤",
+  "Petite vidéo souffle-bisou 🎥",
+  "Sexto sage mais qui fait monter la température 🌶️",
+  "Photo d'un endroit où tu rêves d'être avec l'autre 🌍",
+  "Vocal qui dit 5 choses que tu lui ferais ce soir 🌙",
 ];
 
-export const GAGES_BY_LEVEL: Record<DareLevel, string[]> = {
-  simple: GAGES_SIMPLE,
-  medium: GAGES_MEDIUM,
-  ultra: GAGES_ULTRA,
+export const GAGES_DISTANCE_ULTRA: string[] = [
+  "Une photo coquine 😏",
+  "Une petite vidéo rien que pour l'autre 🎥",
+  "Vocal hot de 30 secondes 🔥",
+  "Sexto sans filtre, dis tout 💋",
+  "Photo en sous-vêtements (cadrage de ton choix) 🩷",
+  "Appelle en vidéo et fais le 1er pas 📞",
+];
+
+export const GAGES_IRL_BY_LEVEL: Record<DareLevel, string[]> = {
+  simple: GAGES_IRL_SIMPLE,
+  medium: GAGES_IRL_MEDIUM,
+  ultra: GAGES_IRL_ULTRA,
 };
 
-// Compat (anciennes refs)
-export const GAGES = GAGES_SIMPLE;
+export const GAGES_DISTANCE_BY_LEVEL: Record<DareLevel, string[]> = {
+  simple: GAGES_DISTANCE_SIMPLE,
+  medium: GAGES_DISTANCE_MEDIUM,
+  ultra: GAGES_DISTANCE_ULTRA,
+};
+
+export function getGagesPool(ambiance: Ambiance | null | undefined, level: DareLevel): string[] {
+  const amb: Ambiance = ambiance === "distance" ? "distance" : "irl";
+  return (amb === "distance" ? GAGES_DISTANCE_BY_LEVEL : GAGES_IRL_BY_LEVEL)[level];
+}
+
+// Compat (anciennes refs — défaut "en vrai")
+export const GAGES_SIMPLE = GAGES_IRL_SIMPLE;
+export const GAGES_MEDIUM = GAGES_IRL_MEDIUM;
+export const GAGES_ULTRA = GAGES_IRL_ULTRA;
+export const GAGES_BY_LEVEL = GAGES_IRL_BY_LEVEL;
+export const GAGES = GAGES_IRL_SIMPLE;
+
 
 // ── Jauge de complicité ──
 export const COMPLICITY_MAX = 100;
