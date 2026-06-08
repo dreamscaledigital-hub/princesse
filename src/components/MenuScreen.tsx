@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MENU_TITLE, MENU_SUBTITLE, MODES, type ModeId } from "@/lib/game-content";
 import { DateCountdown } from "@/components/DateCountdown";
+import { AmbianceSelector } from "@/components/AmbianceSelector";
 import type { Player, Room } from "@/lib/use-room-state";
+
 
 type Props = {
   room: Room;
@@ -64,7 +66,10 @@ export function MenuScreen({ room, players, mySlot, onPick }: Props) {
 
       <DateCountdown roomId={room.id} nextDateAt={room.next_date_at} />
 
-      <div className="mt-7 grid grid-cols-2 gap-3">
+      <AmbianceSelector roomId={room.id} ambiance={room.ambiance} />
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+
 
         {MODES.map((m, i) => (
           <motion.button
