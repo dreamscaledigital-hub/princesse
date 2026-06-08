@@ -31,7 +31,9 @@ export type Room = {
   minigame_round: number;
   finale_scores: { "1": number; "2": number };
   next_date_at: string | null;
+  ambiance: "irl" | "distance" | null;
   created_at: string;
+
 };
 
 export type Player = {
