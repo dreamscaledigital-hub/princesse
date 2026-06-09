@@ -32,9 +32,10 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {
     const publicKey = await fetchVapidPublicKey();
+    const keyBytes = urlBase64ToUint8Array(publicKey);
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey: keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
     });
   }
 
