@@ -1,11 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Sparkles } from "lucide-react";
+import { Heart, Sparkles, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getClientId, generateRoomCode } from "@/lib/player-id";
 import { DEFAULT_NAMES } from "@/lib/game-content";
 import { FloatingHearts } from "@/components/FloatingHearts";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -149,10 +150,18 @@ function HomePage() {
           </div>
         </motion.div>
 
+        <Link
+          to="/hub"
+          className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-white/70 px-4 py-2 text-sm font-medium text-primary shadow-sm backdrop-blur transition active:scale-95"
+        >
+          <Mail className="h-4 w-4" /> Mon compte & notifications 💌
+        </Link>
+
         <p className="mt-10 text-center font-script text-2xl text-primary/70">
           Fait avec 💖
         </p>
       </div>
+      <InstallPrompt />
     </div>
   );
 }
