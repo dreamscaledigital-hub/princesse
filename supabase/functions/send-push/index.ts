@@ -24,7 +24,7 @@ function ensureVapid() {
   vapidConfigured = true;
 }
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
