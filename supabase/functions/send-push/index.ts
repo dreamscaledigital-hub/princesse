@@ -46,10 +46,12 @@ Deno.serve(async (req) => {
     const action = body.action;
 
     if (action === "vapid_public_key") {
-      return json(200, { key: VAPID_PUBLIC });
+      return json(200, { key: VAPID_PUBLIC, len: VAPID_PUBLIC?.length ?? 0 });
     }
 
     if (action !== "send") return json(400, { ok: false, reason: "action inconnue" });
+
+    ensureVapid();
 
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader.startsWith("Bearer ")) return json(401, { ok: false, reason: "non authentifié" });
