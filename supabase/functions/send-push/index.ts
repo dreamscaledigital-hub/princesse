@@ -17,9 +17,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+let vapidConfigured = false;
+function ensureVapid() {
+  if (vapidConfigured) return;
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+  vapidConfigured = true;
+}
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -41,10 +46,12 @@ Deno.serve(async (req) => {
     const action = body.action;
 
     if (action === "vapid_public_key") {
-      return json(200, { key: VAPID_PUBLIC });
+      return json(200, { key: VAPID_PUBLIC, len: VAPID_PUBLIC?.length ?? 0 });
     }
 
     if (action !== "send") return json(400, { ok: false, reason: "action inconnue" });
+
+    ensureVapid();
 
     const authHeader = req.headers.get("Authorization") || "";
     if (!authHeader.startsWith("Bearer ")) return json(401, { ok: false, reason: "non authentifié" });
