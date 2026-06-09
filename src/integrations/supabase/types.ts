@@ -49,6 +49,38 @@ export type Database = {
           },
         ]
       }
+      couples: {
+        Row: {
+          created_at: string
+          id: string
+          room_id: string | null
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          room_id?: string | null
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          room_id?: string | null
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "couples_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_dares: {
         Row: {
           author_slot: number
@@ -160,6 +192,33 @@ export type Database = {
           },
         ]
       }
+      pairing_codes: {
+        Row: {
+          code: string
+          consumed_at: string | null
+          consumed_by: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+        }
+        Insert: {
+          code: string
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          created_by: string
+          expires_at?: string
+        }
+        Update: {
+          code?: string
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           client_id: string
@@ -195,6 +254,60 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_emoji: string
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_emoji?: string
+          created_at?: string
+          display_name?: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_emoji?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       rooms: {
         Row: {
           ambiance: string
@@ -212,6 +325,7 @@ export type Database = {
           minigame_state: Json
           mode: string | null
           next_date_at: string | null
+          owner_couple_id: string | null
           phase: string
           score_1: number
           score_2: number
@@ -236,6 +350,7 @@ export type Database = {
           minigame_state?: Json
           mode?: string | null
           next_date_at?: string | null
+          owner_couple_id?: string | null
           phase?: string
           score_1?: number
           score_2?: number
@@ -260,6 +375,7 @@ export type Database = {
           minigame_state?: Json
           mode?: string | null
           next_date_at?: string | null
+          owner_couple_id?: string | null
           phase?: string
           score_1?: number
           score_2?: number
@@ -268,7 +384,15 @@ export type Database = {
           turn_order?: Json
           turn_plan?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rooms_owner_couple_id_fkey"
+            columns: ["owner_couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wishlist_items: {
         Row: {
@@ -314,6 +438,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_pairing_code: { Args: { _code: string }; Returns: string }
+      couple_for_user: { Args: { _uid: string }; Returns: string }
       increment_tap: {
         Args: { _delta: number; _room_id: string; _slot: number }
         Returns: undefined
@@ -322,6 +448,7 @@ export type Database = {
         Args: { _patch: Json; _room_id: string }
         Returns: undefined
       }
+      partner_of: { Args: { _uid: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never

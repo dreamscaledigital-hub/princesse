@@ -77,22 +77,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "A real-time web game for couples to test how well they know each other, with fun challenges." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "A real-time web game for couples to test how well they know each other, with fun challenges." },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#e88aab" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Princesse" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { title: "Princesse 💕 — Notre nid à deux" },
+      { name: "description", content: "Quiz, jeux et pensées tendres pour Eloise et toi." },
+      { property: "og:title", content: "Princesse 💕" },
+      { property: "og:description", content: "Notre nid à deux : jeux, listes et pensées tendres." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
-      { name: "twitter:description", content: "A real-time web game for couples to test how well they know each other, with fun challenges." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/56763f4c-5bcd-4ace-802a-03ca9ecd3d9e/id-preview-0aef2fa1--9f9d411c-5790-40a4-a68c-36e0ab0a2b57.lovable.app-1780576970840.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/56763f4c-5bcd-4ace-802a-03ca9ecd3d9e/id-preview-0aef2fa1--9f9d411c-5790-40a4-a68c-36e0ab0a2b57.lovable.app-1780576970840.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "icon", href: "/icon-192.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -123,6 +124,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    import("../lib/sw-register").then((m) => m.registerServiceWorker());
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
