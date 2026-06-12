@@ -463,17 +463,7 @@ function Phase1({ room, players, answers, customQuestions, mySlot, otherSlot }: 
   const [starting, setStarting] = useState(false);
   const startGame = async () => {
     setStarting(true);
-    const customTurns: TurnPlanEntry[] = customQuestions.map((q) => ({
-      kind: "custom" as const, guesser: q.author_slot === 1 ? 2 : 1, custom_id: q.id,
-    }));
-    const remaining = Math.max(0, NB_TOURS_PHASE2 - customTurns.length);
-    const classicTurns: TurnPlanEntry[] = [];
-    let next = 1;
-    for (let i = 0; i < remaining; i++) {
-      classicTurns.push({ kind: "classic" as const, guesser: next, qi: i % QUESTIONS_PHASE1.length });
-      next = next === 1 ? 2 : 1;
-    }
-    const plan = shuffle([...customTurns, ...classicTurns]).slice(0, NB_TOURS_PHASE2);
+    const plan = buildQuizPlan(customQuestions).slice(0, NB_TOURS_PHASE2);
     const order = plan.map((p) => p.guesser);
     const { error } = await supabase.from("rooms")
       .update({ phase: "phase2", stage: "round1", current_turn: 0, current_player: order[0] ?? 1, turn_order: order, turn_plan: plan })
@@ -970,11 +960,13 @@ function DareScreen({ room, players, customDares, customQuestions, mySlot }: Ctx
 
   const dareOptions = useMemo(() => {
     const customsTexts = myCustomDares.map((d) => `★${d.text}`);
-    const classics = shuffle(getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level] ?? []);
-    const pool = shuffle([...customsTexts, ...classics]).slice(0, 3);
+    const classics = getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level] ?? [];
+    const scope = `dare:options:${room.ambiance ?? "irl"}:${level}`;
+    const pool = nonRepeatingSample([...customsTexts, ...classics], 3, scope, (dare) => dare.replace(/^★/, ""));
+    markItemsUsed(scope, pool, (dare) => dare.replace(/^★/, ""));
     return pool;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.id, room.current_turn, room.minigame_round, myCustomDares.length, level]);
+  }, [room.id, room.current_turn, room.minigame_round, myCustomDares.length, room.ambiance, level]);
 
   const isCustomDare = !!room.current_dare && myCustomDares.some((d) => d.text === room.current_dare);
 
