@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
+import { markItemsUsed, nonRepeatingSample, pickNonRepeating } from "@/lib/non-repeating";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -77,21 +78,6 @@ async function patch(roomId: string, partial: RState) {
   await update(roomId, { ...current, ...partial });
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function stableIndex(seed: string, max: number) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return h % max;
-}
-
 function normalize(s: string): string {
   return (s ?? "")
     .toLowerCase()
@@ -161,7 +147,9 @@ function LevelSelect({ state, room, mySlot, otherName }:
   const start = async () => {
     if (!match || mySlot !== 1) return;
     const chosen = state.level_1 as DareLevel;
-    const idxs = shuffle(RIDDLES.map((_, i) => i)).slice(0, Math.min(NB_RIDDLES, RIDDLES.length));
+    const picked = nonRepeatingSample(RIDDLES, Math.min(NB_RIDDLES, RIDDLES.length), `riddles:${chosen}`, (r) => r.q);
+    markItemsUsed(`riddles:${chosen}`, picked, (r) => r.q);
+    const idxs = picked.map((riddle) => RIDDLES.indexOf(riddle));
     await patch(room.id, {
       phase: "play",
       level: chosen,
@@ -348,13 +336,15 @@ function PlayView({ state, room, mySlot, myName, otherName }:
       }
       const level = (state.level ?? "simple") as DareLevel;
       const pool = (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level]);
-      const seed = `${room.id}-riddles-${level}-${s1}-${s2}-${winner}`;
-      const idx = stableIndex(seed, pool.length);
+      const dareScope = `dare:riddles:${room.ambiance ?? "irl"}:${level}`;
+      const selectedDare = pickNonRepeating(pool, dareScope, (x) => x);
+      if (selectedDare) markItemsUsed(dareScope, [selectedDare], (x) => x);
+      const idx = selectedDare ? pool.indexOf(selectedDare) : 0;
       await patch(room.id, {
         phase: "dare",
         winner_slot: winner,
         wheel_index: idx,
-        dare_text: pool[idx],
+        dare_text: selectedDare ?? pool[idx],
       });
     } else {
       await patch(room.id, {
