@@ -6,6 +6,7 @@ import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
 import { useGenerateAIContent, type AIMostLikely, type Ambiance } from "@/lib/use-ai-content";
+import { markItemsUsed, nonRepeatingSample, pickNonRepeating } from "@/lib/non-repeating";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -88,21 +89,6 @@ async function patch(roomId: string, partial: MLState) {
   await update(roomId, { ...current, ...partial });
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function stableIndex(seed: string, max: number) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return hash % max;
-}
-
 function freshReset(): MLState {
   return {
     game: "mostlikely",
@@ -167,10 +153,12 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
     const ambiance: Ambiance = chosen === "simple" ? "mignon" : chosen === "medium" ? "coquin" : "hot";
 
     await patch(room.id, { phase: "loading", level: chosen });
-    const ai = await generate<AIMostLikely>("mostlikely", ambiance, NB_QUESTIONS);
+    const questionScope = `mostlikely:${chosen}`;
+    const ai = await generate<AIMostLikely>("mostlikely", ambiance, NB_QUESTIONS * 3);
 
-    const list = ai?.statements?.length ? ai.statements.slice(0, NB_QUESTIONS) : null;
+    const list = ai?.statements?.length ? nonRepeatingSample(ai.statements, NB_QUESTIONS, questionScope, (x) => x) : null;
     if (list) {
+      markItemsUsed(questionScope, list, (x) => x);
       await patch(room.id, {
         phase: "play",
         level: chosen,
@@ -182,7 +170,9 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
         agreements: 0,
       });
     } else {
-      const idxs = shuffle(STATEMENTS.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, STATEMENTS.length));
+      const picked = nonRepeatingSample(STATEMENTS, Math.min(NB_QUESTIONS, STATEMENTS.length), `${questionScope}:local`, (x) => x);
+      markItemsUsed(`${questionScope}:local`, picked, (x) => x);
+      const idxs = picked.map((statement) => STATEMENTS.indexOf(statement));
       await patch(room.id, {
         phase: "play",
         level: chosen,
@@ -304,13 +294,15 @@ function PlayView({ state, room, mySlot, myName, otherName }:
       else winner = 0;
       const level = (state.level ?? "simple") as DareLevel;
       const pool = (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level]) ?? [];
-      const seed = `${room.id}-mostlikely-${level}-${winner}-${d["1"]}-${d["2"]}`;
-      const wi = pool.length ? stableIndex(seed, pool.length) : 0;
+      const dareScope = `dare:mostlikely:${room.ambiance ?? "irl"}:${level}`;
+      const selectedDare = pickNonRepeating(pool, dareScope, (x) => x);
+      if (selectedDare) markItemsUsed(dareScope, [selectedDare], (x) => x);
+      const wi = selectedDare ? pool.indexOf(selectedDare) : 0;
       await patch(room.id, {
         phase: "dare",
         winner_slot: winner,
         wheel_index: wi,
-        dare_text: pool[wi] ?? null,
+        dare_text: selectedDare ?? null,
       });
     } else {
       await patch(room.id, { phase: "play", index: idx + 1, vote_1: null, vote_2: null });

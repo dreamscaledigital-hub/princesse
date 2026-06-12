@@ -58,6 +58,7 @@ import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
 import { NotreListe } from "@/components/NotreListe";
 import { AmbianceTheme } from "@/components/AmbianceTheme";
+import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -343,10 +344,17 @@ function buildQuizPlan(customQuestions: CustomQuestion[]): TurnPlanEntry[] {
     custom_id: q.id,
   }));
   const classics: TurnPlanEntry[] = [];
+  const classicCount = Math.max(0, NB_TOURS_PHASE2 - customs.length);
+  const pickedQuestions = nonRepeatingSample(
+    QUESTIONS_PHASE1.map((q, qi) => ({ q, qi })),
+    Math.min(classicCount, QUESTIONS_PHASE1.length),
+    "quiz:classic-questions",
+    ({ q }) => q.self,
+  );
+  markItemsUsed("quiz:classic-questions", pickedQuestions, ({ q }) => q.self);
   let next = 1;
-  const target = Math.max(NB_TOURS_PHASE2, QUESTIONS_PHASE1.length * 2);
-  for (let i = 0; i < target; i++) {
-    classics.push({ kind: "classic" as const, guesser: next, qi: i % QUESTIONS_PHASE1.length });
+  for (const picked of pickedQuestions) {
+    classics.push({ kind: "classic" as const, guesser: next, qi: picked.qi });
     next = next === 1 ? 2 : 1;
   }
   return shuffle([...customs, ...classics]);
@@ -455,17 +463,7 @@ function Phase1({ room, players, answers, customQuestions, mySlot, otherSlot }: 
   const [starting, setStarting] = useState(false);
   const startGame = async () => {
     setStarting(true);
-    const customTurns: TurnPlanEntry[] = customQuestions.map((q) => ({
-      kind: "custom" as const, guesser: q.author_slot === 1 ? 2 : 1, custom_id: q.id,
-    }));
-    const remaining = Math.max(0, NB_TOURS_PHASE2 - customTurns.length);
-    const classicTurns: TurnPlanEntry[] = [];
-    let next = 1;
-    for (let i = 0; i < remaining; i++) {
-      classicTurns.push({ kind: "classic" as const, guesser: next, qi: i % QUESTIONS_PHASE1.length });
-      next = next === 1 ? 2 : 1;
-    }
-    const plan = shuffle([...customTurns, ...classicTurns]).slice(0, NB_TOURS_PHASE2);
+    const plan = buildQuizPlan(customQuestions).slice(0, NB_TOURS_PHASE2);
     const order = plan.map((p) => p.guesser);
     const { error } = await supabase.from("rooms")
       .update({ phase: "phase2", stage: "round1", current_turn: 0, current_player: order[0] ?? 1, turn_order: order, turn_plan: plan })
@@ -962,11 +960,13 @@ function DareScreen({ room, players, customDares, customQuestions, mySlot }: Ctx
 
   const dareOptions = useMemo(() => {
     const customsTexts = myCustomDares.map((d) => `★${d.text}`);
-    const classics = shuffle(getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level] ?? []);
-    const pool = shuffle([...customsTexts, ...classics]).slice(0, 3);
+    const classics = getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level] ?? [];
+    const scope = `dare:options:${room.ambiance ?? "irl"}:${level}`;
+    const pool = nonRepeatingSample([...customsTexts, ...classics], 3, scope, (dare) => dare.replace(/^★/, ""));
+    markItemsUsed(scope, pool, (dare) => dare.replace(/^★/, ""));
     return pool;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.id, room.current_turn, room.minigame_round, myCustomDares.length, level]);
+  }, [room.id, room.current_turn, room.minigame_round, myCustomDares.length, room.ambiance, level]);
 
   const isCustomDare = !!room.current_dare && myCustomDares.some((d) => d.text === room.current_dare);
 

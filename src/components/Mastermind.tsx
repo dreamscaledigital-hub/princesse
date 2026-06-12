@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import { GAGES_RPS } from "@/components/RPSExtreme";
 import type { Room } from "@/lib/use-room-state";
+import { markItemsUsed, pickNonRepeating } from "@/lib/non-repeating";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -90,12 +91,6 @@ function evaluate(code: string[], guess: string[]): { black: number; white: numb
     if ((counts[g] ?? 0) > 0) { white += 1; counts[g] -= 1; }
   }
   return { black, white };
-}
-
-function stableIndex(seed: string, max: number) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return hash % max;
 }
 
 export function Mastermind({ room, mySlot, myName, otherName, onBackToMenu, onDareDone }: Props) {
@@ -329,9 +324,11 @@ function Round({ state, room, mySlot, otherName }: { state: MMState; room: Room;
             winner = 0;
           }
 
-          const gageList = GAGES_RPS[level];
-          const seed = `${room.id}-mm-${level}-${(state.code_1 ?? []).join("")}-${(state.code_2 ?? []).join("")}-${winner}`;
-          const wheel_index = stableIndex(seed, gageList.length);
+          const gageList: string[] = [...GAGES_RPS[level]];
+          const dareScope = `dare:mastermind:${level}`;
+          const selectedDare = pickNonRepeating(gageList, dareScope, (x) => x);
+          if (selectedDare) markItemsUsed(dareScope, [selectedDare], (x) => x);
+          const wheel_index = selectedDare ? gageList.indexOf(selectedDare) : 0;
 
           await patch(room.id, {
             [attemptsKey]: newAttempts,
@@ -340,7 +337,7 @@ function Round({ state, room, mySlot, otherName }: { state: MMState; room: Room;
             phase: "dare",
             winner_slot: winner,
             wheel_index,
-            dare_text: gageList[wheel_index],
+            dare_text: winner === 0 ? null : selectedDare ?? gageList[wheel_index],
           } as MMState);
         }
       }}

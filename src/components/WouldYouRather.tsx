@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { useGenerateAIContent, type AIWouldYou, type Ambiance } from "@/lib/use-ai-content";
+import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -90,15 +91,6 @@ async function patch(roomId: string, partial: WYRState) {
   await update(roomId, { ...current, ...partial });
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function freshReset(): WYRState {
   return {
     game: "wouldyou",
@@ -171,14 +163,18 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
 
     // Passe en loading et tente l'IA
     await patch(room.id, { phase: "loading", mode: chosen });
-    const ai = await generate<AIWouldYou>("wouldyou", ambiance, NB_QUESTIONS);
+    const scope = `wouldyou:${chosen}`;
+    const keyOf = (q: Question) => `${q.a}|${q.b}`;
+    const ai = await generate<AIWouldYou>("wouldyou", ambiance, NB_QUESTIONS * 3);
 
     if (ai?.questions?.length) {
+      const questions = nonRepeatingSample(ai.questions, NB_QUESTIONS, scope, keyOf);
+      markItemsUsed(scope, questions, keyOf);
       await patch(room.id, {
         phase: "play",
         mode: chosen,
-        ai_questions: ai.questions.slice(0, NB_QUESTIONS),
-        order: ai.questions.slice(0, NB_QUESTIONS).map((_, i) => i),
+        ai_questions: questions,
+        order: questions.map((_, i) => i),
         index: 0,
         choice_1: null, choice_2: null,
         matches: 0,
@@ -187,7 +183,9 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
     } else {
       // Fallback banque locale
       const bank = BANKS[chosen];
-      const idxs = shuffle(bank.map((_, i) => i)).slice(0, Math.min(NB_QUESTIONS, bank.length));
+      const chosenQuestions = nonRepeatingSample(bank, Math.min(NB_QUESTIONS, bank.length), `${scope}:local`, keyOf);
+      markItemsUsed(`${scope}:local`, chosenQuestions, keyOf);
+      const idxs = chosenQuestions.map((q) => bank.indexOf(q));
       await patch(room.id, {
         phase: "play",
         mode: chosen,

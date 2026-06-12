@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
+import { markItemsUsed, nonRepeatingSample, pickNonRepeating } from "@/lib/non-repeating";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
@@ -20,6 +21,34 @@ const CATEGORIES_DEFAULT = [
   "Objet",
   "Marque",
 ] as const;
+
+const CATEGORIES_POOL: string[] = [
+  ...CATEGORIES_DEFAULT,
+  "Lieu romantique",
+  "Surnom mignon",
+  "Tenue",
+  "Dessert",
+  "Film",
+  "Chanson",
+  "Activité à deux",
+  "Destination rêve",
+  "Objet coquin",
+  "Partie du corps",
+  "Compliment",
+  "Boisson",
+  "Souvenir",
+  "Parfum",
+  "Mot doux",
+  "Défi",
+  "Cadeau",
+  "Emoji",
+  "Position yoga",
+  "Série",
+  "Plat",
+  "Lieu secret",
+  "Vêtement",
+  "Animal mignon",
+];
 
 // Lettres tirables (on évite K, W, X, Y, Z trop difficiles)
 const LETTERS_POOL = "ABCDEFGHIJLMNOPRSTUV".split("");
@@ -102,12 +131,6 @@ function normFirst(s: string): string {
   return t[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 }
 
-function stableIndex(seed: string, max: number) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return hash % max;
-}
-
 // ─────────── Composant principal ───────────
 export function PaysVille({ room, mySlot, myName, otherName, onBackToMenu, onDareDone }: Props) {
   const s = (room.minigame_state ?? {}) as PVState;
@@ -148,11 +171,14 @@ function IntroView({ state, room, mySlot, otherName }:
 
   const start = async () => {
     if (mySlot !== 1) return;
-    const letter = LETTERS_POOL[Math.floor(Math.random() * LETTERS_POOL.length)];
+    const letter = pickNonRepeating(LETTERS_POOL, "paysville:letters", (x) => x) ?? LETTERS_POOL[Math.floor(Math.random() * LETTERS_POOL.length)];
+    markItemsUsed("paysville:letters", [letter], (x) => x);
+    const categories = nonRepeatingSample(CATEGORIES_POOL, CATEGORIES_DEFAULT.length, "paysville:categories", (x) => x);
+    markItemsUsed("paysville:categories", categories, (x) => x);
     await patch(room.id, {
       phase: "play",
       letter,
-      categories: [...CATEGORIES_DEFAULT],
+      categories,
       answers_1: {},
       answers_2: {},
       stopped_by: null,
@@ -347,12 +373,14 @@ function RevealView({ state, room, mySlot, myName, otherName }:
       await patch(room.id, { winner_slot: 0, phase: "dare" });
       return;
     }
-    const seed = `${room.id}-paysville-${letter}-${s1}-${s2}-${winner}`;
-    const idx = stableIndex(seed, GAGES_EROTIQUES.length);
+    const dareScope = "dare:paysville:erotique";
+    const selectedDare = pickNonRepeating(GAGES_EROTIQUES, dareScope, (x) => x);
+    if (selectedDare) markItemsUsed(dareScope, [selectedDare], (x) => x);
+    const idx = selectedDare ? GAGES_EROTIQUES.indexOf(selectedDare) : 0;
     await patch(room.id, {
       winner_slot: winner,
       wheel_index: idx,
-      dare_text: GAGES_EROTIQUES[idx],
+      dare_text: selectedDare ?? GAGES_EROTIQUES[idx],
       phase: "dare",
     });
   };
