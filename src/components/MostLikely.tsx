@@ -6,7 +6,7 @@ import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
 import { useGenerateAIContent, type AIMostLikely, type Ambiance } from "@/lib/use-ai-content";
-import { markItemsUsed, nonRepeatingSample, pickNonRepeating, shuffle } from "@/lib/non-repeating";
+import { markItemsUsed, nonRepeatingSample, pickNonRepeating } from "@/lib/non-repeating";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;

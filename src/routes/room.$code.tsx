@@ -58,7 +58,7 @@ import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
 import { NotreListe } from "@/components/NotreListe";
 import { AmbianceTheme } from "@/components/AmbianceTheme";
-import { markItemsUsed, nonRepeatingSample, pickNonRepeating } from "@/lib/non-repeating";
+import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

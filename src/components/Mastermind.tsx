@@ -324,9 +324,9 @@ function Round({ state, room, mySlot, otherName }: { state: MMState; room: Room;
             winner = 0;
           }
 
-          const gageList = GAGES_RPS[level];
+          const gageList: string[] = [...GAGES_RPS[level]];
           const dareScope = `dare:mastermind:${level}`;
-          const selectedDare = pickNonRepeating([...gageList], dareScope, (x) => x);
+          const selectedDare = pickNonRepeating(gageList, dareScope, (x) => x);
           if (selectedDare) markItemsUsed(dareScope, [selectedDare], (x) => x);
           const wheel_index = selectedDare ? gageList.indexOf(selectedDare) : 0;
 
