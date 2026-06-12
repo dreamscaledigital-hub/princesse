@@ -58,6 +58,7 @@ import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
 import { NotreListe } from "@/components/NotreListe";
 import { AmbianceTheme } from "@/components/AmbianceTheme";
+import { markItemsUsed, nonRepeatingSample, pickNonRepeating } from "@/lib/non-repeating";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -343,10 +344,17 @@ function buildQuizPlan(customQuestions: CustomQuestion[]): TurnPlanEntry[] {
     custom_id: q.id,
   }));
   const classics: TurnPlanEntry[] = [];
+  const classicCount = Math.max(0, NB_TOURS_PHASE2 - customs.length);
+  const pickedQuestions = nonRepeatingSample(
+    QUESTIONS_PHASE1.map((q, qi) => ({ q, qi })),
+    Math.min(classicCount, QUESTIONS_PHASE1.length),
+    "quiz:classic-questions",
+    ({ q }) => q.self,
+  );
+  markItemsUsed("quiz:classic-questions", pickedQuestions, ({ q }) => q.self);
   let next = 1;
-  const target = Math.max(NB_TOURS_PHASE2, QUESTIONS_PHASE1.length * 2);
-  for (let i = 0; i < target; i++) {
-    classics.push({ kind: "classic" as const, guesser: next, qi: i % QUESTIONS_PHASE1.length });
+  for (const picked of pickedQuestions) {
+    classics.push({ kind: "classic" as const, guesser: next, qi: picked.qi });
     next = next === 1 ? 2 : 1;
   }
   return shuffle([...customs, ...classics]);
