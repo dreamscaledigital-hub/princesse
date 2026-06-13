@@ -13,7 +13,7 @@ type Props = {
 };
 
 const EMOJI: Record<MinigameId, string> = {
-  tap: "💞",
+  tap: "⚡",
   memory: "💞",
   green: "🚦",
   culture: "🧠",
@@ -21,7 +21,7 @@ const EMOJI: Record<MinigameId, string> = {
 };
 
 const GRADIENT: Record<MinigameId, string> = {
-  tap: "from-pink-200/80 to-rose-300/80",
+  tap: "from-yellow-200/80 to-amber-300/80",
   memory: "from-pink-200/80 to-rose-300/80",
   green: "from-emerald-200/80 to-lime-300/80",
   culture: "from-sky-200/80 to-indigo-300/80",
