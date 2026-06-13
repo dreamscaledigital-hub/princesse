@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Sparkles, Mail, KeyRound } from "lucide-react";
+import { Heart, Sparkles, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getClientId, generateRoomCode } from "@/lib/player-id";
 import { DEFAULT_NAMES } from "@/lib/game-content";
@@ -134,7 +134,7 @@ function HomePage() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       <FloatingHearts />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 py-10">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 pb-28 pt-10">
         <motion.div
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -235,7 +235,6 @@ function HomePage() {
               className="h-12 rounded-xl text-center tracking-widest"
             />
             <Button onClick={joinGame} disabled={busy} className="h-12 rounded-xl">
-              <Mail className="mr-2 h-4 w-4" />
               Rejoindre
             </Button>
           </div>
@@ -243,9 +242,7 @@ function HomePage() {
           {/* Compte + Installation */}
           <div className="flex flex-col gap-3 pt-4">
             <InstallButton />
-            <Link to="/auth" className="text-center text-sm text-muted-foreground underline">
-              Créer un compte / se connecter
-            </Link>
+
           </div>
         </motion.div>
       </div>
