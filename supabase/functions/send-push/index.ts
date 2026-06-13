@@ -35,12 +35,25 @@ function validateVapidPublicKey() {
   return null;
 }
 
+function validateVapidPrivateKey() {
+  if (!VAPID_PRIVATE) return "Clé VAPID privée non configurée";
+  const byteLength = decodedBase64UrlLength(VAPID_PRIVATE);
+  if (byteLength !== 32) {
+    return `Clé VAPID privée invalide : elle fait ${byteLength} octets décodés au lieu de 32`;
+  }
+  return null;
+}
+
+function validateVapidKeys() {
+  return validateVapidPublicKey() || validateVapidPrivateKey();
+}
+
 let vapidSet = false;
 function ensureVapid() {
   if (vapidSet) return;
   if (!vapidConfigured) throw new Error("Clés VAPID non configurées dans les secrets Supabase");
-  const publicKeyError = validateVapidPublicKey();
-  if (publicKeyError) throw new Error(publicKeyError);
+  const keyError = validateVapidKeys();
+  if (keyError) throw new Error(keyError);
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
   vapidSet = true;
 }
@@ -78,8 +91,8 @@ Deno.serve(async (req) => {
 
     // ── Clé publique VAPID ──────────────────────────────────────────────────
     if (action === "vapid_public_key") {
-      const publicKeyError = validateVapidPublicKey();
-      if (publicKeyError) return ok({ ok: false, reason: publicKeyError });
+      const keyError = validateVapidKeys();
+      if (keyError) return ok({ ok: false, reason: keyError });
       return ok({ key: VAPID_PUBLIC });
     }
 
@@ -101,7 +114,7 @@ Deno.serve(async (req) => {
       }
 
       return ok({
-        vapidOk: vapidConfigured && !validateVapidPublicKey(),
+        vapidOk: vapidConfigured && !validateVapidKeys(),
         coupled: !!couple,
         mySubCount:      mySubs?.length ?? 0,
         partnerSubCount,
