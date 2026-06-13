@@ -3,7 +3,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-const VAPID_PUBLIC  = Deno.env.get("VAPID_PUBLIC_KEY")  || "";
+const DEFAULT_VAPID_PUBLIC = "BPQYTPJgYODhRYDEcsuO22ONyEA7cStENzPLOooiX6MaTziKqsjtcflgb0mtbQQXtkAz4Li4PK45mew4i35RYZE";
+const RAW_VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") || "";
+const VAPID_PUBLIC = RAW_VAPID_PUBLIC.length > 40 ? RAW_VAPID_PUBLIC : DEFAULT_VAPID_PUBLIC;
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") || "";
 const RAW_SUBJECT   = Deno.env.get("VAPID_SUBJECT")     || "";
 const VAPID_SUBJECT = RAW_SUBJECT.startsWith("mailto:") || RAW_SUBJECT.startsWith("http")
