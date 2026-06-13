@@ -248,7 +248,20 @@ function GamePage() {
         })
         .eq("id", room.id);
     } else if (mode === "tap") {
-      router.navigate({ to: "/duel" });
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "minigames",
+          mode: "tap",
+          minigame_id: "tap",
+          minigame_state: {},
+          minigame_round: 0,
+          score_1: 0,
+          score_2: 0,
+          current_dare: null,
+          current_dare_for: null,
+        })
+        .eq("id", room.id);
     } else if (mode === "edit_secrets") {
       await supabase
         .from("rooms")
@@ -927,6 +940,18 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
     );
   }
 
+  if (room.mode === "tap") {
+    return (
+      <TapMode
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+      />
+    );
+  }
+
   return (
     <RPSExtreme
       room={room}
@@ -936,6 +961,70 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
       onBackToMenu={backToMenu}
       onDareDone={onDareDone}
     />
+  );
+}
+
+
+// ───────────────────────────────────────────── TAP ÉCLAIR MODE (Best of 5) ─────
+
+function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room; mySlot: number; myName: string; otherName: string; onBackToMenu: () => void }) {
+  const target = 3;
+  const score1 = room.score_1 ?? 0;
+  const score2 = room.score_2 ?? 0;
+  const gameOver = score1 >= target || score2 >= target;
+  const iWon = (score1 >= target && mySlot === 1) || (score2 >= target && mySlot === 2);
+
+  const onFinish = async (winner: number | null) => {
+    if (mySlot !== 1) return; // host drives transitions
+    if (winner === null) {
+      // tie → just restart round
+      await supabase.from("rooms").update({ minigame_state: {} }).eq("id", room.id);
+      return;
+    }
+    const newScore1 = score1 + (winner === 1 ? 1 : 0);
+    const newScore2 = score2 + (winner === 2 ? 1 : 0);
+    const finished = newScore1 >= target || newScore2 >= target;
+    await supabase.from("rooms").update({
+      score_1: newScore1,
+      score_2: newScore2,
+      minigame_state: finished ? { phase: "game_over" } : {},
+      minigame_round: (room.minigame_round ?? 0) + 1,
+    }).eq("id", room.id);
+  };
+
+  if (gameOver) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} className="text-8xl">
+          {iWon ? "🏆" : "🥹"}
+        </motion.div>
+        <h2 className="mt-4 font-script text-4xl text-primary">
+          {iWon ? "Bravo, c'est toi !" : `${score1 > score2 ? (mySlot === 1 ? myName : otherName) : (mySlot === 2 ? myName : otherName)} gagne !`}
+        </h2>
+        <p className="mt-2 text-muted-foreground">Score final : {score1} – {score2}</p>
+        <Button onClick={onBackToMenu} className="mt-8 h-14 w-full max-w-xs rounded-2xl text-base font-semibold">
+          Retour au menu 💕
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Tap éclair ⚡ — Best of 5</p>
+        <p className="text-sm font-semibold text-primary">{score1} – {score2}</p>
+      </div>
+      <Minigame
+        key={room.minigame_round ?? 0}
+        room={{ ...room, minigame_id: "tap" }}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onFinish={onFinish}
+      />
+      <button onClick={onBackToMenu} className="mt-3 text-xs text-muted-foreground underline">Retour au menu</button>
+    </div>
   );
 }
 

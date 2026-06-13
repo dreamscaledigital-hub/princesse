@@ -8,7 +8,7 @@ export type TurnPlanEntry =
 
 export type Stage = "round1" | "round2" | "finale" | "done";
 
-export type GameMode = "full" | "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "edit_secrets" | "wishlist";
+export type GameMode = "full" | "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "edit_secrets" | "wishlist" | "tap";
 
 export type Room = {
   id: string;
