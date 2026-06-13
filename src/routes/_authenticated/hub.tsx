@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Bell, BellOff, Send, LogOut, Copy, Sparkles, ArrowLeft, Share2, RefreshCw, Unlink } from "lucide-react";
+import { Heart, Bell, BellOff, Send, LogOut, Copy, Sparkles, ArrowLeft, Share2, RefreshCw, Unlink, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   subscribeToPush,
   sendPensee,
   pushPermissionState,
+  getNotifStatus,
   isIOS,
   isStandalonePWA,
 } from "@/lib/push-client";
@@ -56,6 +57,7 @@ function HubPage() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
 
   useEffect(() => {
     setPerm(pushPermissionState());
@@ -181,6 +183,26 @@ function HubPage() {
     }
   }
 
+  async function diagnose() {
+    setDiagnosing(true);
+    const status = await getNotifStatus();
+    setDiagnosing(false);
+    if (!status) {
+      toast.error("Impossible de contacter le serveur");
+      return;
+    }
+    const lines: string[] = [];
+    lines.push(status.vapidOk ? "✅ Clés VAPID configurées" : "❌ Clés VAPID MANQUANTES dans Supabase");
+    lines.push(status.coupled ? "✅ Couple trouvé" : "❌ Pas encore appairé");
+    lines.push(status.mySubCount > 0
+      ? `✅ Ton abonnement actif (${status.mySubCount})`
+      : "❌ Tu n'as pas d'abonnement push actif");
+    lines.push(status.partnerSubCount > 0
+      ? `✅ Abonnement partenaire actif (${status.partnerSubCount})`
+      : "❌ Ton amour n'a pas activé ses notifications");
+    toast(lines.join("\n"), { duration: 8000 });
+  }
+
   async function send(text: string) {
     const msg = text.trim();
     if (!msg) return;
@@ -254,6 +276,8 @@ function HubPage() {
           perm={perm}
           onEnable={enablePush}
           subscribing={subscribing}
+          diagnosing={diagnosing}
+          onDiagnose={diagnose}
           quick={QUICK_MESSAGES}
           message={message}
           setMessage={setMessage}
@@ -348,12 +372,14 @@ function PairUI({
 }
 
 function PenseeUI({
-  partnerName, perm, onEnable, subscribing, quick, message, setMessage, send, sending, justPaired, onUnpair,
+  partnerName, perm, onEnable, subscribing, diagnosing, onDiagnose, quick, message, setMessage, send, sending, justPaired, onUnpair,
 }: {
   partnerName: string;
   perm: NotificationPermission | "unsupported";
   onEnable: () => void;
   subscribing: boolean;
+  diagnosing: boolean;
+  onDiagnose: () => void;
   quick: string[];
   message: string;
   setMessage: (s: string) => void;
@@ -418,6 +444,16 @@ function PenseeUI({
             Activer
           </Button>
         )}
+        <button
+          onClick={onDiagnose}
+          disabled={diagnosing}
+          className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
+        >
+          {diagnosing
+            ? <RefreshCw className="h-3 w-3 animate-spin" />
+            : <Stethoscope className="h-3 w-3" />}
+          {diagnosing ? "Diagnostic…" : "Diagnostiquer les notifications"}
+        </button>
       </div>
 
       {/* Message */}

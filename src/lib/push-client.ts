@@ -14,24 +14,34 @@ export async function fetchVapidPublicKey(): Promise<string> {
   const { data, error } = await supabase.functions.invoke<{ key: string }>("send-push", {
     body: { action: "vapid_public_key" },
   });
-  if (error || !data?.key) throw new Error(error?.message || "Clé VAPID introuvable");
+  if (error || !data?.key) throw new Error(error?.message || "Clé VAPID introuvable — vérifie les secrets Supabase");
   return data.key;
 }
 
 export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string }> {
   if (typeof window === "undefined") return { ok: false, reason: "ssr" };
-  if (!("Notification" in window)) return { ok: false, reason: "non-supporté" };
-  if (!canRegisterSW()) return { ok: false, reason: "Disponible uniquement sur l'app publiée (pas en preview)" };
+  if (!("Notification" in window)) return { ok: false, reason: "Notifications non supportées sur cet appareil" };
+  if (!canRegisterSW()) {
+    return {
+      ok: false,
+      reason: "Les notifications fonctionnent uniquement sur l'app publiée (pas dans la prévisualisation Lovable). Ouvre l'URL de production.",
+    };
+  }
 
   const perm = await Notification.requestPermission();
-  if (perm !== "granted") return { ok: false, reason: "Permission refusée" };
+  if (perm !== "granted") return { ok: false, reason: "Permission refusée — autorise les notifications dans ton navigateur" };
 
   const reg = await getSWRegistration();
   if (!reg) return { ok: false, reason: "Service worker indisponible" };
 
   let sub = await reg.pushManager.getSubscription();
   if (!sub) {
-    const publicKey = await fetchVapidPublicKey();
+    let publicKey: string;
+    try {
+      publicKey = await fetchVapidPublicKey();
+    } catch (e) {
+      return { ok: false, reason: (e as Error).message };
+    }
     const keyBytes = urlBase64ToUint8Array(publicKey);
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -40,7 +50,7 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   }
 
   const json = sub.toJSON() as { endpoint: string; keys?: { p256dh: string; auth: string } };
-  if (!json.endpoint || !json.keys) return { ok: false, reason: "Abonnement invalide" };
+  if (!json.endpoint || !json.keys) return { ok: false, reason: "Abonnement push invalide" };
 
   const { data: userRes } = await supabase.auth.getUser();
   const userId = userRes.user?.id;
@@ -58,7 +68,7 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
       },
       { onConflict: "endpoint" }
     );
-  if (error) return { ok: false, reason: error.message };
+  if (error) return { ok: false, reason: `Erreur DB : ${error.message}` };
   return { ok: true };
 }
 
@@ -67,7 +77,25 @@ export async function sendPensee(message: string): Promise<{ ok: boolean; reason
     body: { action: "send", message },
   });
   if (error) return { ok: false, reason: error.message };
-  return data ?? { ok: false, reason: "Réponse vide" };
+  return data ?? { ok: false, reason: "Réponse vide du serveur" };
+}
+
+export async function getNotifStatus(): Promise<{
+  vapidOk: boolean;
+  coupled: boolean;
+  mySubCount: number;
+  partnerSubCount: number;
+} | null> {
+  const { data, error } = await supabase.functions.invoke<{
+    vapidOk: boolean;
+    coupled: boolean;
+    mySubCount: number;
+    partnerSubCount: number;
+  }>("send-push", {
+    body: { action: "status" },
+  });
+  if (error || !data) return null;
+  return data;
 }
 
 export function pushPermissionState(): NotificationPermission | "unsupported" {
