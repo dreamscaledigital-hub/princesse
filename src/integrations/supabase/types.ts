@@ -154,6 +154,63 @@ export type Database = {
           },
         ]
       }
+      duels: {
+        Row: {
+          code: string
+          created_at: string
+          current_round: number
+          gage: string
+          game_winner_id: string | null
+          id: string
+          p1_id: string
+          p1_name: string
+          p1_score: number
+          p2_id: string | null
+          p2_name: string | null
+          p2_score: number
+          round_winner_id: string | null
+          signal_at: string | null
+          status: string
+          total_rounds: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_round?: number
+          gage?: string
+          game_winner_id?: string | null
+          id?: string
+          p1_id: string
+          p1_name?: string
+          p1_score?: number
+          p2_id?: string | null
+          p2_name?: string | null
+          p2_score?: number
+          round_winner_id?: string | null
+          signal_at?: string | null
+          status?: string
+          total_rounds?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_round?: number
+          gage?: string
+          game_winner_id?: string | null
+          id?: string
+          p1_id?: string
+          p1_name?: string
+          p1_score?: number
+          p2_id?: string | null
+          p2_name?: string | null
+          p2_score?: number
+          round_winner_id?: string | null
+          signal_at?: string | null
+          status?: string
+          total_rounds?: number
+        }
+        Relationships: []
+      }
       guesses: {
         Row: {
           chosen_text: string
@@ -449,6 +506,11 @@ export type Database = {
         Returns: undefined
       }
       partner_of: { Args: { _uid: string }; Returns: string }
+      register_tap: {
+        Args: { _code: string; _player_id: string }
+        Returns: string
+      }
+      start_duel_round: { Args: { _code: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
