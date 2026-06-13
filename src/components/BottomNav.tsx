@@ -26,8 +26,8 @@ const TABS = [
 export function BottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // Masquer dans les rooms de jeu et sur la page auth
-  if (pathname.startsWith("/room/") || pathname === "/auth") return null;
+  // Masquer uniquement sur la page auth
+  if (pathname === "/auth") return null;
 
   return (
     <nav

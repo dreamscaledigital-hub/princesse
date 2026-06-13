@@ -72,7 +72,7 @@ const supabase = _supabase as any;
 export const Route = createFileRoute("/room/$code")({
   component: GamePage,
   errorComponent: ({ error }) => (
-    <div className="flex min-h-screen items-center justify-center p-6 text-center">
+    <div className="flex min-h-screen items-center justify-center p-6 pb-28 text-center">
       <p className="text-muted-foreground">Oups : {error.message}</p>
     </div>
   ),
@@ -121,7 +121,7 @@ function GamePage() {
 
   if (error || !room) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 pb-28 text-center">
         <p className="text-lg">{error ?? "Partie introuvable"}</p>
         <Button onClick={() => router.navigate({ to: "/" })}>Retour</Button>
       </div>
@@ -130,7 +130,7 @@ function GamePage() {
 
   if (!mySlot && players.length >= 2) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 pb-28 text-center">
         <p className="text-lg">Cette partie est déjà complète 💛</p>
         <Button onClick={() => router.navigate({ to: "/" })}>Créer ma partie</Button>
       </div>
@@ -271,7 +271,7 @@ function GamePage() {
     <div className="relative min-h-screen overflow-hidden">
       <AmbianceTheme ambiance={room.ambiance} />
       <FloatingHearts count={8} />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col px-5 py-6">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col px-5 py-6 pb-28">
 
         {showComplicity && (
           <ComplicityBar value={room.complicity ?? 0} name1={name1} name2={name2} />
