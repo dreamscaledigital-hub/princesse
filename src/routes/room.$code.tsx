@@ -247,6 +247,8 @@ function GamePage() {
           current_dare_for: null,
         })
         .eq("id", room.id);
+    } else if (mode === "tap") {
+      router.navigate({ to: "/duel" });
     } else if (mode === "edit_secrets") {
       await supabase
         .from("rooms")
