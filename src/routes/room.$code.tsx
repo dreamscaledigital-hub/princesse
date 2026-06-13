@@ -940,6 +940,18 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
     );
   }
 
+  if (room.mode === "tap") {
+    return (
+      <TapMode
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+      />
+    );
+  }
+
   return (
     <RPSExtreme
       room={room}
