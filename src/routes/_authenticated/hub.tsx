@@ -388,10 +388,75 @@ function PenseeUI({
       )}
 
       {/* Notifications */}
-      <div className="rounded-3xl border border-primary/20 bg-white/70 p-4 shadow-sm backdrop-blur">
+      <div className="rounded-3xl border border-primary/20 bg-card/80 p-4 shadow-sm backdrop-blur">
         <div className="flex items-center gap-3">
-          {notifActive
-            ? <Bell className="h-5 w-5 shrink-0 text-primary" />
-            : <BellOff className="h-5 w-5 shrink-0 text-muted-foreground" />}
+          {notifActive ? (
+            <Bell className="h-5 w-5 shrink-0 text-primary" />
+          ) : (
+            <BellOff className="h-5 w-5 shrink-0 text-muted-foreground" />
+          )}
           <div className="min-w-0 flex-1">
-            <p 
+            <p className="text-sm font-medium text-foreground">
+              {notifActive ? "Notifications activées" : "Notifications à activer"}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {needsInstall
+                ? "Sur iPhone, ajoute l'app à l'écran d'accueil avant d'activer les notifications."
+                : notifDenied
+                  ? "Les notifications sont bloquées dans les réglages du navigateur."
+                  : `Pour recevoir les pensées de ${partnerName}.`}
+            </p>
+          </div>
+        </div>
+        {!notifActive && !needsInstall && !notifDenied && (
+          <Button onClick={onEnable} disabled={subscribing} className="mt-4 h-11 w-full rounded-2xl">
+            {subscribing ? (
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Bell className="mr-2 h-4 w-4" />
+            )}
+            Activer
+          </Button>
+        )}
+      </div>
+
+      {/* Message */}
+      <div className="rounded-3xl border border-primary/20 bg-card/80 p-4 shadow-sm backdrop-blur">
+        <h2 className="font-serif text-2xl text-primary">Pensée pour {partnerName}</h2>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {quick.map((text) => (
+            <Button
+              key={text}
+              type="button"
+              variant="outline"
+              disabled={sending}
+              onClick={() => send(text)}
+              className="min-h-11 rounded-2xl px-3 text-sm"
+            >
+              {text}
+            </Button>
+          ))}
+        </div>
+        <Textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          maxLength={140}
+          placeholder="Écris-lui une petite pensée…"
+          className="mt-3 min-h-24 resize-none rounded-2xl"
+        />
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-[10px] text-muted-foreground">{message.length}/140</span>
+          <Button onClick={() => send(message)} disabled={sending || !message.trim()} className="h-11 rounded-2xl px-5">
+            <Send className="mr-2 h-4 w-4" />
+            Envoyer
+          </Button>
+        </div>
+      </div>
+
+      <Button type="button" variant="ghost" onClick={onUnpair} className="h-11 w-full rounded-2xl text-muted-foreground">
+        <Unlink className="mr-2 h-4 w-4" />
+        Se désappairer
+      </Button>
+    </div>
+  );
+}
