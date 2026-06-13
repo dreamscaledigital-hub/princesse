@@ -14,6 +14,8 @@ import {
   MINIGAME_DESCRIPTIONS,
   MINIGAME_LABELS,
   RPS_WINS_NEEDED,
+  TAP_MAX_DELAY_MS,
+  TAP_MIN_DELAY_MS,
   type MinigameId,
 } from "@/lib/game-content";
 import type { Room } from "@/lib/use-room-state";
