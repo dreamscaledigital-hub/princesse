@@ -171,4 +171,85 @@ function HomePage() {
           <Button
             onClick={createGame}
             disabled={busy || showCustomCode}
-            className="h-14 w-full rounded-2xl text-base font-semibold shadow-md transition-transform active:
+            className="h-14 w-full rounded-2xl text-base font-semibold shadow-md transition-transform active:scale-[0.98]"
+          >
+            <Sparkles className="mr-2 h-5 w-5" />
+            Créer une partie
+          </Button>
+
+          {/* Code personnalisé */}
+          <AnimatePresence initial={false}>
+            {showCustomCode ? (
+              <motion.div
+                key="custom"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="space-y-2 overflow-hidden"
+              >
+                <Input
+                  value={customCode}
+                  onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+                  placeholder="VOTRE-CODE"
+                  maxLength={8}
+                  className="h-12 rounded-xl text-center text-lg tracking-widest"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => { setShowCustomCode(false); setCustomCode(""); }}
+                    className="flex-1 rounded-xl"
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={createOrJoinWithCustomCode}
+                    disabled={busy}
+                    className="flex-1 rounded-xl"
+                  >
+                    Valider
+                  </Button>
+                </div>
+              </motion.div>
+            ) : (
+              <Button
+                key="show-custom"
+                variant="outline"
+                onClick={() => setShowCustomCode(true)}
+                disabled={busy}
+                className="h-12 w-full rounded-xl"
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Utiliser un code à nous
+              </Button>
+            )}
+          </AnimatePresence>
+
+          {/* Rejoindre */}
+          <div className="flex gap-2 pt-2">
+            <Input
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="Code d'invitation"
+              maxLength={8}
+              className="h-12 rounded-xl text-center tracking-widest"
+            />
+            <Button onClick={joinGame} disabled={busy} className="h-12 rounded-xl">
+              <Mail className="mr-2 h-4 w-4" />
+              Rejoindre
+            </Button>
+          </div>
+
+          {/* Compte + Installation */}
+          <div className="flex flex-col gap-3 pt-4">
+            <InstallButton />
+            <Link to="/auth" className="text-center text-sm text-muted-foreground underline">
+              Créer un compte / se connecter
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+      <InstallPrompt />
+    </div>
+  );
+}
