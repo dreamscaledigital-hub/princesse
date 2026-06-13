@@ -61,16 +61,61 @@ function HubPage() {
     void loadAll();
   }, []);
 
+  // Realtime + poll de secours : dès qu'un couple m'inclut, recharger
+  useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    (async () => {
+      const { data: ures } = await supabase.auth.getUser();
+      const uid = ures.user?.id;
+      if (!uid || cancelled) return;
+      channel = supabase
+        .channel(`couples-watch-${uid}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "couples" },
+          (payload) => {
+            const row = payload.new as Couple;
+            if (row.user_a === uid || row.user_b === uid) void loadAll();
+          },
+        )
+        .subscribe();
+      pollId = setInterval(() => {
+        if (!couple) void loadAll();
+      }, 4000);
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+      if (pollId) clearInterval(pollId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [couple?.id]);
+
   async function loadAll() {
-    setLoading(true);
     const { data: ures } = await supabase.auth.getUser();
     const uid = ures.user?.id;
     if (!uid) {
       navigate({ to: "/auth", replace: true });
       return;
     }
+
+    // Crée le profil si absent (au cas où le trigger n'a pas tourné)
+    const meta = (ures.user?.user_metadata || {}) as { display_name?: string; full_name?: string; name?: string };
+    const fallbackName =
+      meta.display_name || meta.full_name || meta.name || ures.user?.email?.split("@")[0] || "Mon amour";
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
-    setMe((prof as Profile) || { id: uid, display_name: "Moi", avatar_emoji: "💕" });
+    if (!prof) {
+      const { data: created } = await supabase
+        .from("profiles")
+        .upsert({ id: uid, display_name: fallbackName }, { onConflict: "id" })
+        .select("*")
+        .maybeSingle();
+      setMe((created as Profile) || { id: uid, display_name: fallbackName, avatar_emoji: "💕" });
+    } else {
+      setMe(prof as Profile);
+    }
 
     const { data: c } = await supabase
       .from("couples")
