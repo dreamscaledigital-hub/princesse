@@ -394,6 +394,69 @@ function PenseeUI({
       {/* Notifications card */}
       <div className="rounded-3xl border border-primary/20 bg-white/70 p-4 shadow-sm backdrop-blur">
         <div className="flex items-center gap-3">
-          {notifActive
-            ? <Bell className="h-5 w-5 shrink-0 text-primary" />
-            : <
+          {notifActive ? (
+            <Bell className="h-5 w-5 shrink-0 text-primary" />
+          ) : (
+            <BellOff className="h-5 w-5 shrink-0 text-muted-foreground" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-serif text-base text-primary">Notifications</p>
+            <p className="text-[11px] text-muted-foreground">
+              {notifActive
+                ? `Tu reçois les pensées de ${partnerName} 💕`
+                : notifDenied
+                  ? "Bloquées — autorise-les dans les réglages de ton navigateur."
+                  : perm === "unsupported"
+                    ? "Non supporté sur cet appareil."
+                    : needsInstall
+                      ? "Installe l'app sur ton iPhone pour activer les notifications."
+                      : "Active-les pour recevoir les pensées de ton amour."}
+            </p>
+          </div>
+          {!notifActive && !notifDenied && perm !== "unsupported" && !needsInstall && (
+            <Button onClick={onEnable} disabled={subscribing} size="sm" className="rounded-2xl">
+              Activer
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Envoyer une pensée */}
+      <div className="rounded-3xl border border-primary/20 bg-white/70 p-4 shadow-sm backdrop-blur">
+        <h2 className="font-serif text-xl text-primary">
+          Envoyer une <i>pensée</i> 💌
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">à {partnerName}</p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {quick.map((q) => (
+            <button
+              key={q}
+              onClick={() => send(q)}
+              disabled={sending}
+              className="rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary transition active:scale-95 disabled:opacity-50"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        <Textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          maxLength={140}
+          placeholder="Écris-lui quelque chose de tendre…"
+          className="mt-3 min-h-[90px] rounded-2xl"
+        />
+        <div className="mt-1 text-right text-[10px] text-muted-foreground">{message.length}/140</div>
+        <Button
+          onClick={() => send(message)}
+          disabled={sending || !message.trim()}
+          className="mt-2 h-12 w-full rounded-2xl"
+        >
+          <Send className="mr-2 h-4 w-4" /> Envoyer
+        </Button>
+      </div>
+    </div>
+  );
+}
