@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Heart, Sparkles, Mail } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Heart, Sparkles, Mail, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getClientId, generateRoomCode } from "@/lib/player-id";
 import { DEFAULT_NAMES } from "@/lib/game-content";
@@ -24,6 +24,8 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState("");
+  const [customCode, setCustomCode] = useState("");
+  const [showCustomCode, setShowCustomCode] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Si on arrive avec ?room=XXXX, on rejoint direct
@@ -65,6 +67,54 @@ function HomePage() {
         client_id: clientId,
       });
 
+      navigate({ to: "/room/$code", params: { code } });
+    } catch (e) {
+      toast.error((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  const createOrJoinWithCustomCode = async () => {
+    const code = customCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (code.length < 4 || code.length > 8) {
+      toast.error("Le code doit faire entre 4 et 8 caractères");
+      return;
+    }
+    setBusy(true);
+    try {
+      const clientId = getClientId();
+
+      // Vérifier si la room existe déjà
+      const { data: existing } = await supabase
+        .from("rooms")
+        .select("id, code")
+        .eq("code", code)
+        .maybeSingle();
+
+      if (existing) {
+        // Room existe → rejoindre directement
+        toast.success(`Bienvenue dans votre session "${code}" 💕`);
+        navigate({ to: "/room/$code", params: { code } });
+        return;
+      }
+
+      // Room n'existe pas → la créer avec ce code
+      const { data, error } = await supabase
+        .from("rooms")
+        .insert({ code, phase: "lobby" })
+        .select()
+        .single();
+
+      if (error || !data) throw new Error("Impossible de créer la partie");
+
+      await supabase.from("players").insert({
+        room_id: (data as { id: string }).id,
+        slot: 1,
+        name: DEFAULT_NAMES[0],
+        client_id: clientId,
+      });
+
+      toast.success(`Session "${code}" créée 💕`);
       navigate({ to: "/room/$code", params: { code } });
     } catch (e) {
       toast.error((e as Error).message);
@@ -117,54 +167,8 @@ function HomePage() {
           transition={{ delay: 0.4 }}
           className="mt-10 w-full space-y-4"
         >
+          {/* Créer une partie (code aléatoire) */}
           <Button
             onClick={createGame}
-            disabled={busy}
-            className="h-14 w-full rounded-2xl text-base font-semibold shadow-md transition-transform active:scale-95"
-          >
-            <Sparkles className="mr-2 h-5 w-5" />
-            Créer une partie
-          </Button>
-
-          <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            ou
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="space-y-2">
-            <Input
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Code à 6 caractères"
-              maxLength={6}
-              className="h-14 rounded-2xl text-center text-lg font-semibold tracking-[0.4em]"
-            />
-            <Button
-              onClick={joinGame}
-              variant="secondary"
-              className="h-12 w-full rounded-2xl text-base font-semibold"
-            >
-              Rejoindre la partie
-            </Button>
-          </div>
-        </motion.div>
-
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <Link
-            to="/hub"
-            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-white/70 px-4 py-2 text-sm font-medium text-primary shadow-sm backdrop-blur transition active:scale-95"
-          >
-            <Mail className="h-4 w-4" /> Mon compte & notifications 💌
-          </Link>
-          <InstallButton />
-        </div>
-
-        <p className="mt-10 text-center font-script text-2xl text-primary/70">
-          Fait avec 💖
-        </p>
-      </div>
-      <InstallPrompt />
-    </div>
-  );
-}
+            disabled={busy || showCustomCode}
+            className="h-14 w-full rounded-2xl text-base font-semibold shadow-md transition-transform active:
