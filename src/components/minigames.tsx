@@ -105,6 +105,7 @@ export function Minigame(props: Props) {
   // play phase — dispatch
   switch (room.minigame_id) {
     case "tap":
+      return <TapEclair {...props} state={state} />;
     case "memory":
       return <HeartMemory {...props} state={state} />;
     case "green":
