@@ -248,7 +248,20 @@ function GamePage() {
         })
         .eq("id", room.id);
     } else if (mode === "tap") {
-      router.navigate({ to: "/duel" });
+      await supabase
+        .from("rooms")
+        .update({
+          phase: "minigames",
+          mode: "tap",
+          minigame_id: "tap",
+          minigame_state: {},
+          minigame_round: 0,
+          score_1: 0,
+          score_2: 0,
+          current_dare: null,
+          current_dare_for: null,
+        })
+        .eq("id", room.id);
     } else if (mode === "edit_secrets") {
       await supabase
         .from("rooms")
