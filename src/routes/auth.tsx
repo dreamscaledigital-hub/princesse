@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -358,7 +358,7 @@ function AuthPage() {
   );
 }
 
-function AuthShell({ children }: { children: React.ReactNode }) {
+function AuthShell({ children }: { children: ReactNode }) {
   return (
     <main className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-8">
       <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
@@ -368,7 +368,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FieldIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function FieldIcon({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <div className="relative">
       <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground">
