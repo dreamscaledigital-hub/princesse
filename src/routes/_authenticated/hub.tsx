@@ -185,22 +185,48 @@ function HubPage() {
 
   async function diagnose() {
     setDiagnosing(true);
-    const status = await getNotifStatus();
-    setDiagnosing(false);
-    if (!status) {
-      toast.error("Impossible de contacter le serveur");
-      return;
-    }
     const lines: string[] = [];
-    lines.push(status.vapidOk ? "✅ Clés VAPID configurées" : "❌ Clés VAPID MANQUANTES dans Supabase");
-    lines.push(status.coupled ? "✅ Couple trouvé" : "❌ Pas encore appairé");
-    lines.push(status.mySubCount > 0
-      ? `✅ Ton abonnement actif (${status.mySubCount})`
-      : "❌ Tu n'as pas d'abonnement push actif");
-    lines.push(status.partnerSubCount > 0
-      ? `✅ Abonnement partenaire actif (${status.partnerSubCount})`
-      : "❌ Ton amour n'a pas activé ses notifications");
-    toast(lines.join("\n"), { duration: 8000 });
+
+    // 1. URL de production ?
+    const { canRegisterSW } = await import("@/lib/sw-register");
+    if (canRegisterSW()) {
+      lines.push("✅ URL de production détectée");
+    } else {
+      lines.push("❌ URL de prévisualisation — les notifications sont désactivées ici");
+      lines.push("   👉 Ouvre l'URL de production Lovable (pas la preview)");
+    }
+
+    // 2. Permission navigateur
+    const p = pushPermissionState();
+    if (p === "granted") lines.push("✅ Permission notifications accordée");
+    else if (p === "denied") lines.push("❌ Permission refusée — autorise dans les réglages du navigateur");
+    else if (p === "unsupported") lines.push("❌ Notifications non supportées sur cet appareil");
+    else lines.push("⚠️  Permission pas encore demandée — clique Activer");
+
+    // 3. Clés VAPID (fonctionne avec ancienne et nouvelle version de la fonction)
+    try {
+      await (await import("@/lib/push-client")).fetchVapidPublicKey();
+      lines.push("✅ Clés VAPID configurées dans Supabase");
+    } catch (e) {
+      lines.push(`❌ VAPID: ${(e as Error).message}`);
+    }
+
+    // 4. Diagnostic complet (nécessite la nouvelle version de la fonction)
+    const status = await getNotifStatus();
+    if (status) {
+      lines.push(status.coupled ? "✅ Couple trouvé en base" : "❌ Pas encore appairé");
+      lines.push(status.mySubCount > 0
+        ? `✅ Ton abonnement push actif (${status.mySubCount})`
+        : "❌ Tu n'as pas d'abonnement push — clique Activer sur l'URL de prod");
+      lines.push(status.partnerSubCount > 0
+        ? `✅ Abonnement partenaire actif (${status.partnerSubCount})`
+        : "❌ Ton amour n'a pas encore activé ses notifications");
+    } else {
+      lines.push("⚠️  Diagnostic DB indisponible (redéploie la fonction dans Supabase)");
+    }
+
+    setDiagnosing(false);
+    toast(lines.join("\n"), { duration: 12000 });
   }
 
   async function send(text: string) {
