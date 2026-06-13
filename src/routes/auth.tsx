@@ -160,4 +160,62 @@ function AuthPage() {
         disabled={busy}
         onClick={google}
       >
-        Continue
+        Continuer avec Google
+      </Button>
+
+      <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-3">
+        {mode === "signup" && (
+          <div className="relative">
+            <Heart className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Ton prénom"
+              className="h-12 rounded-2xl pl-10"
+            />
+          </div>
+        )}
+        <div className="relative">
+          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            className="h-12 rounded-2xl pl-10"
+          />
+        </div>
+        <div className="relative">
+          <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="password"
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mot de passe (6+ caractères)"
+            className="h-12 rounded-2xl pl-10"
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="h-12 w-full rounded-2xl">
+          {mode === "signin" ? "Se connecter" : "Créer mon compte 💕"}
+        </Button>
+      </form>
+
+      <button
+        type="button"
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        className="mt-5 text-center text-xs text-primary underline-offset-4 hover:underline"
+      >
+        {mode === "signin"
+          ? "Pas encore de compte ? Créer un compte"
+          : "Déjà un compte ? Se connecter"}
+      </button>
+    </div>
+  );
+}
