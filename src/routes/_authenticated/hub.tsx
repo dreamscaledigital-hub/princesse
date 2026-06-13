@@ -60,8 +60,15 @@ function HubPage() {
   const [diagnosing, setDiagnosing] = useState(false);
 
   useEffect(() => {
-    setPerm(pushPermissionState());
+    const p = pushPermissionState();
+    setPerm(p);
     void loadAll();
+    // Si la permission est déjà accordée, on s'assure que l'abonnement est en base
+    if (p === "granted") {
+      subscribeToPush().then((res) => {
+        if (res.ok) setPerm("granted");
+      });
+    }
   }, []);
 
   // Realtime + poll de secours : dès qu'un couple m'inclut, recharger
