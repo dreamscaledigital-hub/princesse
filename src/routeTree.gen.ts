@@ -9,12 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as DuelRouteImport } from './routes/duel'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomCodeRouteImport } from './routes/room.$code'
+import { Route as DuelCodeRouteImport } from './routes/duel.$code'
+import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated/profil'
+import { Route as AuthenticatedPenseesRouteImport } from './routes/_authenticated/pensees'
 import { Route as AuthenticatedHubRouteImport } from './routes/_authenticated/hub'
 
+const DuelRoute = DuelRouteImport.update({
+  id: '/duel',
+  path: '/duel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -34,6 +43,21 @@ const RoomCodeRoute = RoomCodeRouteImport.update({
   path: '/room/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DuelCodeRoute = DuelCodeRouteImport.update({
+  id: '/$code',
+  path: '/$code',
+  getParentRoute: () => DuelRoute,
+} as any)
+const AuthenticatedProfilRoute = AuthenticatedProfilRouteImport.update({
+  id: '/profil',
+  path: '/profil',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPenseesRoute = AuthenticatedPenseesRouteImport.update({
+  id: '/pensees',
+  path: '/pensees',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHubRoute = AuthenticatedHubRouteImport.update({
   id: '/hub',
   path: '/hub',
@@ -43,13 +67,21 @@ const AuthenticatedHubRoute = AuthenticatedHubRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/duel': typeof DuelRouteWithChildren
   '/hub': typeof AuthenticatedHubRoute
+  '/pensees': typeof AuthenticatedPenseesRoute
+  '/profil': typeof AuthenticatedProfilRoute
+  '/duel/$code': typeof DuelCodeRoute
   '/room/$code': typeof RoomCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/duel': typeof DuelRouteWithChildren
   '/hub': typeof AuthenticatedHubRoute
+  '/pensees': typeof AuthenticatedPenseesRoute
+  '/profil': typeof AuthenticatedProfilRoute
+  '/duel/$code': typeof DuelCodeRoute
   '/room/$code': typeof RoomCodeRoute
 }
 export interface FileRoutesById {
@@ -57,20 +89,44 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/duel': typeof DuelRouteWithChildren
   '/_authenticated/hub': typeof AuthenticatedHubRoute
+  '/_authenticated/pensees': typeof AuthenticatedPenseesRoute
+  '/_authenticated/profil': typeof AuthenticatedProfilRoute
+  '/duel/$code': typeof DuelCodeRoute
   '/room/$code': typeof RoomCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/hub' | '/room/$code'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/duel'
+    | '/hub'
+    | '/pensees'
+    | '/profil'
+    | '/duel/$code'
+    | '/room/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/hub' | '/room/$code'
+  to:
+    | '/'
+    | '/auth'
+    | '/duel'
+    | '/hub'
+    | '/pensees'
+    | '/profil'
+    | '/duel/$code'
+    | '/room/$code'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/duel'
     | '/_authenticated/hub'
+    | '/_authenticated/pensees'
+    | '/_authenticated/profil'
+    | '/duel/$code'
     | '/room/$code'
   fileRoutesById: FileRoutesById
 }
@@ -78,11 +134,19 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DuelRoute: typeof DuelRouteWithChildren
   RoomCodeRoute: typeof RoomCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/duel': {
+      id: '/duel'
+      path: '/duel'
+      fullPath: '/duel'
+      preLoaderRoute: typeof DuelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -111,6 +175,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/duel/$code': {
+      id: '/duel/$code'
+      path: '/$code'
+      fullPath: '/duel/$code'
+      preLoaderRoute: typeof DuelCodeRouteImport
+      parentRoute: typeof DuelRoute
+    }
+    '/_authenticated/profil': {
+      id: '/_authenticated/profil'
+      path: '/profil'
+      fullPath: '/profil'
+      preLoaderRoute: typeof AuthenticatedProfilRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pensees': {
+      id: '/_authenticated/pensees'
+      path: '/pensees'
+      fullPath: '/pensees'
+      preLoaderRoute: typeof AuthenticatedPenseesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/hub': {
       id: '/_authenticated/hub'
       path: '/hub'
@@ -123,19 +208,34 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedHubRoute: typeof AuthenticatedHubRoute
+  AuthenticatedPenseesRoute: typeof AuthenticatedPenseesRoute
+  AuthenticatedProfilRoute: typeof AuthenticatedProfilRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHubRoute: AuthenticatedHubRoute,
+  AuthenticatedPenseesRoute: AuthenticatedPenseesRoute,
+  AuthenticatedProfilRoute: AuthenticatedProfilRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface DuelRouteChildren {
+  DuelCodeRoute: typeof DuelCodeRoute
+}
+
+const DuelRouteChildren: DuelRouteChildren = {
+  DuelCodeRoute: DuelCodeRoute,
+}
+
+const DuelRouteWithChildren = DuelRoute._addFileChildren(DuelRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DuelRoute: DuelRouteWithChildren,
   RoomCodeRoute: RoomCodeRoute,
 }
 export const routeTree = rootRouteImport
