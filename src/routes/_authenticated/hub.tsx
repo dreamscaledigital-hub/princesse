@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Bell, BellOff, Send, LogOut, Copy, Sparkles, ArrowLeft, Share2, RefreshCw } from "lucide-react";
+import { Heart, Bell, BellOff, Send, LogOut, Copy, Sparkles, ArrowLeft, Share2, RefreshCw, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -197,6 +197,19 @@ function HubPage() {
     }
   }
 
+  async function unpair() {
+    if (!couple) return;
+    const confirmed = window.confirm("Se désappairer ? Vous pourrez vous réappairer avec quelqu'un d'autre.");
+    if (!confirmed) return;
+    const { error } = await supabase.from("couples").delete().eq("id", couple.id);
+    if (error) { toast.error(error.message); return; }
+    setCouple(null);
+    setPartner(null);
+    setJustPaired(false);
+    setMyCode(null);
+    toast.success("Désappairés — tu peux te réappairer 💔");
+  }
+
   async function logout() {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
@@ -248,6 +261,7 @@ function HubPage() {
           send={send}
           sending={sending}
           justPaired={justPaired}
+          onUnpair={unpair}
         />
       )}
 
@@ -338,7 +352,7 @@ function PairUI({
 }
 
 function PenseeUI({
-  partnerName, perm, onEnable, subscribing, quick, message, setMessage, send, sending, justPaired,
+  partnerName, perm, onEnable, subscribing, quick, message, setMessage, send, sending, justPaired, onUnpair,
 }: {
   partnerName: string;
   perm: NotificationPermission | "unsupported";
@@ -350,6 +364,7 @@ function PenseeUI({
   send: (s: string) => void;
   sending: boolean;
   justPaired: boolean;
+  onUnpair: () => void;
 }) {
   const ios = isIOS();
   const standalone = isStandalonePWA();
@@ -381,14 +396,4 @@ function PenseeUI({
         <div className="flex items-center gap-3">
           {notifActive
             ? <Bell className="h-5 w-5 shrink-0 text-primary" />
-            : <BellOff className="h-5 w-5 shrink-0 text-muted-foreground" />}
-          <div className="flex-1 min-w-0">
-            <p className="font-serif text-base text-primary">Notifications</p>
-            <p className="text-[11px] text-muted-foreground">
-              {notifActive
-                ? `Tu reçois les pensées de ${partnerName} 💕`
-                : notifDenied
-                  ? "Bloquées — autorise-les dans les réglages de ton navigateur."
-                  : perm === "unsupported"
-                    ? "Non supporté sur cet appareil."
-        
+            : <
