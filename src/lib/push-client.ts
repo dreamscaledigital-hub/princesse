@@ -11,10 +11,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export async function fetchVapidPublicKey(): Promise<string> {
-  const { data, error } = await supabase.functions.invoke<{ key: string }>("send-push", {
+  const { data, error } = await supabase.functions.invoke<{ key?: string; reason?: string }>("send-push", {
     body: { action: "vapid_public_key" },
   });
-  if (error || !data?.key) throw new Error(error?.message || "Clé VAPID introuvable — vérifie les secrets Supabase");
+  if (error || !data?.key) throw new Error(error?.message || data?.reason || "Clé VAPID introuvable — vérifie les secrets backend");
   return data.key;
 }
 

@@ -3,7 +3,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-const VAPID_PUBLIC  = Deno.env.get("VAPID_PUBLIC_KEY")  || "";
+const DEFAULT_VAPID_PUBLIC = "BPQYTPJgYODhRYDEcsuO22ONyEA7cStENzPLOooiX6MaTziKqsjtcflgb0mtbQQXtkAz4Li4PK45mew4i35RYZE";
+const RAW_VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") || "";
+const VAPID_PUBLIC = RAW_VAPID_PUBLIC.length > 40 ? RAW_VAPID_PUBLIC : DEFAULT_VAPID_PUBLIC;
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") || "";
 const RAW_SUBJECT   = Deno.env.get("VAPID_SUBJECT")     || "";
 const VAPID_SUBJECT = RAW_SUBJECT.startsWith("mailto:") || RAW_SUBJECT.startsWith("http")
@@ -14,10 +16,31 @@ const SERVICE_ROLE  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON          = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
 const vapidConfigured = !!(VAPID_PUBLIC && VAPID_PRIVATE);
+function decodedBase64UrlLength(value: string) {
+  try {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    return atob(padded).length;
+  } catch {
+    return 0;
+  }
+}
+
+function validateVapidPublicKey() {
+  if (!VAPID_PUBLIC) return "Clé VAPID publique non configurée";
+  const byteLength = decodedBase64UrlLength(VAPID_PUBLIC);
+  if (byteLength !== 65) {
+    return `Clé VAPID publique invalide : elle fait ${byteLength} octets décodés au lieu de 65`;
+  }
+  return null;
+}
+
 let vapidSet = false;
 function ensureVapid() {
   if (vapidSet) return;
   if (!vapidConfigured) throw new Error("Clés VAPID non configurées dans les secrets Supabase");
+  const publicKeyError = validateVapidPublicKey();
+  if (publicKeyError) throw new Error(publicKeyError);
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
   vapidSet = true;
 }
@@ -55,7 +78,8 @@ Deno.serve(async (req) => {
 
     // ── Clé publique VAPID ──────────────────────────────────────────────────
     if (action === "vapid_public_key") {
-      if (!VAPID_PUBLIC) return ok({ ok: false, reason: "Clé VAPID publique non configurée" });
+      const publicKeyError = validateVapidPublicKey();
+      if (publicKeyError) return ok({ ok: false, reason: publicKeyError });
       return ok({ key: VAPID_PUBLIC });
     }
 
@@ -77,7 +101,7 @@ Deno.serve(async (req) => {
       }
 
       return ok({
-        vapidOk: vapidConfigured,
+        vapidOk: vapidConfigured && !validateVapidPublicKey(),
         coupled: !!couple,
         mySubCount:      mySubs?.length ?? 0,
         partnerSubCount,
