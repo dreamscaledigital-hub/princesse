@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Bell, BellOff, Send, LogOut, Copy, Sparkles, ArrowLeft } from "lucide-react";
+import { Heart, Bell, BellOff, Send, LogOut, Copy, Sparkles, ArrowLeft, Share2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ function HubPage() {
   const [partner, setPartner] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("default");
+  const [justPaired, setJustPaired] = useState(false);
 
   // Pair state
   const [myCode, setMyCode] = useState<string | null>(null);
@@ -93,7 +94,7 @@ function HubPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [couple?.id]);
 
-  async function loadAll() {
+  async function loadAll(fromPairing = false) {
     const { data: ures } = await supabase.auth.getUser();
     const uid = ures.user?.id;
     if (!uid) {
@@ -124,6 +125,7 @@ function HubPage() {
       .maybeSingle();
     if (c) {
       setCouple(c as Couple);
+      if (fromPairing) setJustPaired(true);
       const partnerId = c.user_a === uid ? c.user_b : c.user_a;
       const { data: p } = await supabase.from("profiles").select("*").eq("id", partnerId).maybeSingle();
       setPartner((p as Profile) || null);
@@ -159,7 +161,7 @@ function HubPage() {
       const { error } = await supabase.rpc("consume_pairing_code", { _code: code });
       if (error) throw error;
       toast.success("Appairés 💞");
-      await loadAll();
+      await loadAll(true);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -172,8 +174,12 @@ function HubPage() {
     const res = await subscribeToPush();
     setPerm(pushPermissionState());
     setSubscribing(false);
-    if (res.ok) toast.success("Notifications activées 🔔");
-    else toast.error(res.reason || "Impossible d'activer");
+    if (res.ok) {
+      toast.success("Notifications activées 🔔");
+      setJustPaired(false);
+    } else {
+      toast.error(res.reason || "Impossible d'activer");
+    }
   }
 
   async function send(text: string) {
@@ -241,6 +247,7 @@ function HubPage() {
           setMessage={setMessage}
           send={send}
           sending={sending}
+          justPaired={justPaired}
         />
       )}
 
@@ -259,46 +266,71 @@ function PairUI({
   onConsume: () => void;
   busy: boolean;
 }) {
+  async function shareCode() {
+    if (!myCode) return;
+    const text = `Rejoins-moi sur Princesse 💕 — entre le code ${myCode} dans l'appli !`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch {}
+    }
+    await navigator.clipboard.writeText(myCode);
+    toast.success("Code copié 💖");
+  }
+
   return (
     <div className="mt-8 space-y-6">
       <div className="rounded-3xl border border-primary/20 bg-white/70 p-5 shadow-sm backdrop-blur">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-primary/70">étape 1</p>
-        <h2 className="mt-2 text-center font-serif text-2xl text-primary">S'appairer 💞</h2>
+        <h2 className="text-center font-serif text-2xl text-primary">S'appairer 💞</h2>
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          Un seul d'entre vous génère un code, l'autre le saisit. Ensuite vous êtes liés pour toujours.
+          L'un génère un code, l'autre le saisit. Vous serez liés pour toujours 💕
         </p>
 
         {myCode ? (
           <div className="mt-5 rounded-2xl bg-primary/10 p-4 text-center">
             <p className="text-[10px] uppercase tracking-wider text-primary/70">Donne ce code à ton amour</p>
-            <p className="mt-1 font-mono text-3xl font-bold tracking-[0.4em] text-primary">{myCode}</p>
+            <p className="mt-2 font-mono text-4xl font-bold tracking-[0.4em] text-primary">{myCode}</p>
             <p className="mt-1 text-[10px] text-muted-foreground">Valide 15 minutes</p>
-            <button
-              className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              onClick={() => { navigator.clipboard.writeText(myCode); toast.success("Copié 💖"); }}
-            >
-              <Copy className="h-3 w-3" /> Copier
-            </button>
+            <div className="mt-3 flex justify-center gap-3">
+              <button
+                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-primary shadow-sm transition active:scale-95"
+                onClick={shareCode}
+              >
+                <Share2 className="h-3 w-3" /> Partager
+              </button>
+              <button
+                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-primary shadow-sm transition active:scale-95"
+                onClick={() => { navigator.clipboard.writeText(myCode); toast.success("Copié 💖"); }}
+              >
+                <Copy className="h-3 w-3" /> Copier
+              </button>
+            </div>
           </div>
         ) : (
           <Button onClick={onCreate} disabled={busy} className="mt-4 h-12 w-full rounded-2xl">
-            <Sparkles className="mr-2 h-4 w-4" /> Générer un code
+            <Sparkles className="mr-2 h-4 w-4" /> Générer mon code
           </Button>
         )}
 
         <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-          <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
+          <div className="h-px flex-1 bg-border" /> j'ai reçu un code <div className="h-px flex-1 bg-border" />
         </div>
 
         <Input
-          placeholder="Code reçu de ton amour"
+          placeholder="Entre le code de ton amour"
           value={enteredCode}
           onChange={(e) => setEnteredCode(e.target.value.toUpperCase())}
           maxLength={6}
           className="h-12 rounded-2xl text-center text-lg font-semibold tracking-[0.4em]"
         />
-        <Button onClick={onConsume} disabled={busy} variant="secondary" className="mt-2 h-12 w-full rounded-2xl">
-          Nous appairer
+        <Button
+          onClick={onConsume}
+          disabled={busy || enteredCode.trim().length < 4}
+          variant="secondary"
+          className="mt-2 h-12 w-full rounded-2xl"
+        >
+          Nous appairer 💞
         </Button>
       </div>
     </div>
@@ -306,7 +338,7 @@ function PairUI({
 }
 
 function PenseeUI({
-  partnerName, perm, onEnable, subscribing, quick, message, setMessage, send, sending,
+  partnerName, perm, onEnable, subscribing, quick, message, setMessage, send, sending, justPaired,
 }: {
   partnerName: string;
   perm: NotificationPermission | "unsupported";
@@ -317,72 +349,46 @@ function PenseeUI({
   setMessage: (s: string) => void;
   send: (s: string) => void;
   sending: boolean;
+  justPaired: boolean;
 }) {
   const ios = isIOS();
   const standalone = isStandalonePWA();
   const needsInstall = ios && !standalone;
+  const notifActive = perm === "granted";
+  const notifDenied = perm === "denied";
 
   return (
     <div className="mt-6 space-y-5">
+      {/* Bannière post-appairage : activer les notifs */}
+      {justPaired && !notifActive && !needsInstall && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl bg-primary/10 p-4 text-center"
+        >
+          <p className="font-serif text-lg text-primary">Vous êtes appairés 💞</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Active les notifications pour recevoir les pensées de {partnerName}.
+          </p>
+          <Button onClick={onEnable} disabled={subscribing} className="mt-3 h-10 rounded-2xl px-6">
+            <Bell className="mr-2 h-4 w-4" /> Activer les notifications
+          </Button>
+        </motion.div>
+      )}
+
       {/* Notifications card */}
       <div className="rounded-3xl border border-primary/20 bg-white/70 p-4 shadow-sm backdrop-blur">
         <div className="flex items-center gap-3">
-          {perm === "granted" ? <Bell className="h-5 w-5 text-primary" /> : <BellOff className="h-5 w-5 text-muted-foreground" />}
-          <div className="flex-1">
+          {notifActive
+            ? <Bell className="h-5 w-5 shrink-0 text-primary" />
+            : <BellOff className="h-5 w-5 shrink-0 text-muted-foreground" />}
+          <div className="flex-1 min-w-0">
             <p className="font-serif text-base text-primary">Notifications</p>
             <p className="text-[11px] text-muted-foreground">
-              {perm === "granted"
-                ? "Tu reçois les pensées de ton amour 💕"
-                : perm === "denied"
-                  ? "Refusées — autorise-les dans les réglages du navigateur."
-                  : "Active pour recevoir les pensées."}
-            </p>
-          </div>
-          {perm !== "granted" && perm !== "denied" && perm !== "unsupported" && (
-            <Button size="sm" onClick={onEnable} disabled={subscribing}>Activer</Button>
-          )}
-        </div>
-        {needsInstall && (
-          <p className="mt-3 rounded-xl bg-blossom-cream/60 p-2 text-[11px] text-primary/80">
-            📲 Sur iPhone : il faut <b>installer l'appli sur l'écran d'accueil</b> (Partager → Sur l'écran d'accueil) <i>avant</i> d'activer les notifs.
-          </p>
-        )}
-      </div>
-
-      {/* Envoyer une pensée */}
-      <div className="rounded-3xl border border-primary/20 bg-white/70 p-5 shadow-sm backdrop-blur">
-        <h2 className="text-center font-serif text-2xl text-primary">
-          Envoyer une pensée <i className="text-blossom-rose">à {partnerName}</i> 💌
-        </h2>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {quick.map((q) => (
-            <button
-              key={q}
-              onClick={() => send(q)}
-              disabled={sending}
-              className="rounded-2xl border border-primary/15 bg-white/60 px-3 py-3 text-sm font-medium text-primary shadow-sm transition active:scale-95 disabled:opacity-50"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Textarea
-            placeholder="…ou écris ton petit mot"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            maxLength={140}
-            rows={2}
-            className="resize-none rounded-2xl"
-          />
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">{message.length}/140</span>
-            <Button size="sm" onClick={() => send(message)} disabled={sending || !message.trim()}>
-              <Send className="mr-1 h-3 w-3" /> Envoyer
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+              {notifActive
+                ? `Tu reçois les pensées de ${partnerName} 💕`
+                : notifDenied
+                  ? "Bloquées — autorise-les dans les réglages de ton navigateur."
+                  : perm === "unsupported"
+                    ? "Non supporté sur cet appareil."
+        
