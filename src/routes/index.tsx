@@ -39,18 +39,33 @@ function HomePage() {
     }
   }, [navigate]);
 
+  const getCoupleIdOrThrow = async (): Promise<string> => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      navigate({ to: "/auth" });
+      throw new Error("Connecte-toi pour créer une partie 💕");
+    }
+    const { data: coupleId, error } = await supabase.rpc("couple_for_user", { _uid: auth.user.id });
+    if (error) throw new Error(error.message);
+    if (!coupleId) {
+      navigate({ to: "/hub" });
+      throw new Error("Appaire-toi avec ton amour d'abord 💕");
+    }
+    return coupleId as string;
+  };
+
   const createGame = async () => {
     setBusy(true);
     try {
       const clientId = getClientId();
+      const coupleId = await getCoupleIdOrThrow();
       let code = "";
       let roomId = "";
-      // Try up to 5 times to avoid collision
       for (let i = 0; i < 5; i++) {
         const c = generateRoomCode();
         const { data, error } = await supabase
           .from("rooms")
-          .insert({ code: c, phase: "lobby" })
+          .insert({ code: c, phase: "lobby", owner_couple_id: coupleId })
           .select()
           .single();
         if (!error && data) {
@@ -84,8 +99,8 @@ function HomePage() {
     setBusy(true);
     try {
       const clientId = getClientId();
+      const coupleId = await getCoupleIdOrThrow();
 
-      // Vérifier si la room existe déjà
       const { data: existing } = await supabase
         .from("rooms")
         .select("id, code")
@@ -93,16 +108,14 @@ function HomePage() {
         .maybeSingle();
 
       if (existing) {
-        // Room existe → rejoindre directement
         toast.success(`Bienvenue dans votre session "${code}" 💕`);
         navigate({ to: "/room/$code", params: { code } });
         return;
       }
 
-      // Room n'existe pas → la créer avec ce code
       const { data, error } = await supabase
         .from("rooms")
-        .insert({ code, phase: "lobby" })
+        .insert({ code, phase: "lobby", owner_couple_id: coupleId })
         .select()
         .single();
 
