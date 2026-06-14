@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "full" | "edit_secrets" | "wishlist";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "full" | "edit_secrets" | "wishlist";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -87,6 +87,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     gradient: "from-fuchsia-300/80 to-cyan-300/80",
   },
   {
+    id: "tap",
+    emoji: "⚡",
+    title: "Tap Éclair",
+    subtitle: "Réflexes éclair — best of 5, gage à la clé",
+    gradient: "from-yellow-200/80 to-rose-300/80",
+  },
+  {
     id: "full",
     emoji: "🏆",
     title: "Partie complète",
@@ -99,13 +106,6 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Nos pièges",
     subtitle: "Crée tes questions & gages secrets",
     gradient: "from-violet-200/80 to-fuchsia-300/80",
-  },
-  {
-    id: "wishlist",
-    emoji: "💕",
-    title: "Notre liste",
-    subtitle: "Nos envies à deux, validées ensemble",
-    gradient: "from-rose-200/80 to-emerald-200/80",
   },
   {
     id: "wishlist",
