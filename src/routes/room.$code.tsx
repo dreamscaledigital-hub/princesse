@@ -1000,24 +1000,26 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
     }
   }, [isHost, gameOver, state.phase, room.id, round]);
 
+  const count = state.count ?? 3;
+  const winnerSlot = state.winner_slot;
+
   // Host pilote countdown 3→2→1 puis wait
   useEffect(() => {
     if (!isHost) return;
     if (phase !== "countdown") return;
-    const c = state.count ?? 3;
     const t = setTimeout(() => {
-      if (c > 1) {
+      if (count > 1) {
         void supabase.from("rooms").update({
-          minigame_state: { ...state, phase: "countdown", count: c - 1 },
+          minigame_state: { phase: "countdown", count: count - 1, round } as TapState,
         }).eq("id", room.id);
       } else {
         void supabase.from("rooms").update({
-          minigame_state: { ...state, phase: "wait", count: undefined },
+          minigame_state: { phase: "wait", round } as TapState,
         }).eq("id", room.id);
       }
     }, 1000);
     return () => clearTimeout(t);
-  }, [isHost, phase, state, room.id]);
+  }, [isHost, phase, count, round, room.id]);
 
   // Host : après délai aléatoire pendant "wait" → "go"
   useEffect(() => {
@@ -1026,20 +1028,21 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
     const delay = 1500 + Math.random() * 3500;
     const t = setTimeout(() => {
       void supabase.from("rooms").update({
-        minigame_state: { ...state, phase: "go" },
+        minigame_state: { phase: "go", round } as TapState,
       }).eq("id", room.id);
     }, delay);
     return () => clearTimeout(t);
-  }, [isHost, phase, state, room.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, phase, round, room.id]);
 
   // Host : après "result", attend 1.6s puis avance (score + manche ou fin)
   useEffect(() => {
     if (!isHost) return;
     if (phase !== "result") return;
-    const winner = state.winner_slot;
+    if (!winnerSlot) return;
     const t = setTimeout(() => {
-      const newScore1 = score1 + (winner === 1 ? 1 : 0);
-      const newScore2 = score2 + (winner === 2 ? 1 : 0);
+      const newScore1 = score1 + (winnerSlot === 1 ? 1 : 0);
+      const newScore2 = score2 + (winnerSlot === 2 ? 1 : 0);
       const finished = newScore1 >= target || newScore2 >= target;
       void supabase.from("rooms").update({
         score_1: newScore1,
@@ -1051,7 +1054,7 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
       }).eq("id", room.id);
     }, 1600);
     return () => clearTimeout(t);
-  }, [isHost, phase, state.winner_slot, score1, score2, room.id, room.minigame_round, round]);
+  }, [isHost, phase, winnerSlot, score1, score2, room.id, room.minigame_round, round]);
 
   const onTap = async () => {
     if (phase !== "wait" && phase !== "go") return;
@@ -1061,12 +1064,12 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
     if (phase === "wait") {
       // Faux départ : l'autre gagne
       await supabase.from("rooms").update({
-        minigame_state: { ...state, phase: "result", winner_slot: otherSlot, early: true } as TapState,
+        minigame_state: { phase: "result", winner_slot: otherSlot, early: true, round } as TapState,
       }).eq("id", room.id);
     } else {
       // Go : premier à taper gagne
       await supabase.from("rooms").update({
-        minigame_state: { ...state, phase: "result", winner_slot: mySlot, early: false } as TapState,
+        minigame_state: { phase: "result", winner_slot: mySlot, early: false, round } as TapState,
       }).eq("id", room.id);
     }
   };
