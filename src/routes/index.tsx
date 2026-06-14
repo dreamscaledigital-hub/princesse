@@ -252,43 +252,6 @@ function HomePage() {
             </Button>
           </div>
 
-          {/* Séparateur Duel */}
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground pt-2">
-            <div className="h-px flex-1 bg-border" />
-            Duel rapide
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          {/* Tap éclair */}
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="h-4 w-4 text-amber-500" />
-              <span className="text-sm font-semibold text-amber-700">Tap éclair</span>
-              <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-600">New ⚡</span>
-            </div>
-            <p className="text-xs text-amber-700/70 mb-3">Annonce un gage · Tape le cœur en premier · Best of 5</p>
-            <Button
-              onClick={() => navigate({ to: "/duel" })}
-              disabled={busy}
-              className="h-11 w-full rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-semibold mb-2"
-            >
-              <Zap className="mr-2 h-4 w-4" /> Créer un duel
-            </Button>
-            <div className="flex gap-2">
-              <Input
-                value={duelCode}
-                onChange={(e) => setDuelCode(e.target.value.toUpperCase())}
-                placeholder="Code du duel"
-                maxLength={6}
-                className="h-9 rounded-xl text-center text-sm font-semibold tracking-[0.3em] flex-1"
-              />
-              <Button onClick={joinDuel} variant="outline" size="sm"
-                className="h-9 rounded-xl border-amber-300 text-amber-700 hover:bg-amber-50">
-                Rejoindre
-              </Button>
-            </div>
-          </div>
-
           {/* Installation */}
           <div className="flex justify-center pt-2">
             <InstallButton />
