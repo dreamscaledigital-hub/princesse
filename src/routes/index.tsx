@@ -144,12 +144,6 @@ function HomePage() {
     navigate({ to: "/room/$code", params: { code } });
   };
 
-  const joinDuel = () => {
-    const code = duelCode.trim().toUpperCase();
-    if (code.length < 6) { toast.error("Entre un code de duel valide"); return; }
-    navigate({ to: "/duel/$code", params: { code } });
-  };
-
   return (
     <div className="relative min-h-screen overflow-hidden">
       <FloatingHearts />
