@@ -91,11 +91,12 @@ function DuelPage() {
   // ── Confirmer le gage (P2) ────────────────────────────────────────────────
   async function confirmGage() {
     await supabase.from("duels").update({ status: "countdown" }).eq("code", code);
-    void startCountdown();
+    // Le useEffect sur duel?.status démarre le countdown pour les deux joueurs
   }
 
   // ── Démarrer le countdown puis le round ──────────────────────────────────
   const startCountdown = useCallback(async () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
     setCountdown(3);
     let n = 3;
     countdownRef.current = setInterval(async () => {
@@ -203,7 +204,7 @@ function DuelPage() {
   if (duel.status === "lobby") {
     return (
       <Screen title="Duel Tap ⚡" icon="⚡" subtitle={`Tu es ${isP1 ? duel.p1_name : duel.p2_name}`}>
-        {!duel.p2_id ? (
+        {!duel.p2_id && !joined ? (
           <>
             <div className="rounded-2xl bg-primary/10 p-5 text-center">
               <p className="text-xs text-muted-foreground mb-2">Code à partager</p>
@@ -289,7 +290,7 @@ function DuelPage() {
   // Countdown 3-2-1
   if (duel.status === "countdown" || countdown !== null) {
     return (
-      <Screen title={`Round ${duel.current_round}/${duel.total_rounds}`} icon="⏱">
+      <Screen title={`Round ${duel.current_round + 1}/${duel.total_rounds}`} icon="⏱">
         <ScoreBar duel={duel} myId={myId} />
         <AnimatePresence mode="wait">
           {countdown !== null && (
@@ -308,7 +309,7 @@ function DuelPage() {
   // Phase ready / tap
   if (duel.status === "ready") {
     return (
-      <Screen title={`Round ${duel.current_round}/${duel.total_rounds}`} icon="">
+      <Screen title={`Round ${duel.current_round + 1}/${duel.total_rounds}`} icon="">
         <ScoreBar duel={duel} myId={myId} />
         <div className="flex flex-1 flex-col items-center justify-center gap-6 py-8">
           <AnimatePresence mode="wait">
@@ -341,7 +342,7 @@ function DuelPage() {
   if (duel.status === "round_result") {
     const iWon = duel.round_winner_id === myId;
     return (
-      <Screen title={`Round ${duel.current_round}/${duel.total_rounds}`} icon={iWon ? "🏆" : "💨"}>
+      <Screen title={`Round ${duel.current_round + 1}/${duel.total_rounds}`} icon={iWon ? "🏆" : "💨"}>
         <ScoreBar duel={duel} myId={myId} />
         <div className="flex flex-col items-center justify-center gap-4 py-10">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}
