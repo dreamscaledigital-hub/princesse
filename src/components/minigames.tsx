@@ -117,10 +117,6 @@ export function Minigame(props: Props) {
 function initialPlayState(id: MinigameId): Record<string, unknown> {
   const now = Date.now();
   switch (id) {
-    case "tap": {
-      const delay = TAP_MIN_DELAY_MS + Math.random() * (TAP_MAX_DELAY_MS - TAP_MIN_DELAY_MS);
-      return { phase: "play", started_at: now, signal_at: now + delay };
-    }
     case "memory": {
       const cardIndex = Math.floor(Math.random() * HEART_MEMORY_CARDS.length);
       return { phase: "play", started_at: now, reveal_until: now + HEART_MEMORY_SHOW_MS, card_index: cardIndex };
