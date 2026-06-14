@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "full" | "edit_secrets" | "wishlist" | "tap";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "full" | "edit_secrets" | "wishlist";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -275,11 +275,10 @@ export const BADGE_GAGE_PERSO = (auteur: string) =>
   `💕 Gage spécial de ${auteur}`;
 
 // ── Mini-jeux ──
-export const MINIGAME_IDS = ["tap", "green", "culture", "rps", "memory"] as const;
+export const MINIGAME_IDS = ["green", "culture", "rps", "memory"] as const;
 export type MinigameId = (typeof MINIGAME_IDS)[number];
 
 export const MINIGAME_LABELS: Record<MinigameId, string> = {
-  tap: "Tap éclair ⚡",
   green: "Réflexe Feu Vert 🚦",
   culture: "Quiz Flash 🧠",
   rps: "Pierre-Feuille-Ciseaux ✌️",
@@ -287,15 +286,12 @@ export const MINIGAME_LABELS: Record<MinigameId, string> = {
 };
 
 export const MINIGAME_DESCRIPTIONS: Record<MinigameId, string> = {
-  tap: "Attends l'éclair ⚡, puis tape le plus vite ! Faux départ = défaite.",
   green: "Attends que l'écran devienne vert. Premier à taper gagne !",
   culture: "Une question surprise. Premier à répondre juste gagne.",
   rps: "Best-of-3. Choix simultané, qui va gagner ?",
   memory: "Mémorise la suite d'émojis, puis retrouve-la avant l'autre.",
 };
 
-export const TAP_MIN_DELAY_MS = 1800;
-export const TAP_MAX_DELAY_MS = 5200;
 export const HEART_MEMORY_SHOW_MS = 2600;
 export const GREEN_MIN_DELAY_MS = 2000;
 export const GREEN_MAX_DELAY_MS = 6000;
