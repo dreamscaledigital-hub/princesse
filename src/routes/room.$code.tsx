@@ -56,6 +56,7 @@ import { MostLikely } from "@/components/MostLikely";
 import { Riddles } from "@/components/Riddles";
 import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
+import { TapEclair } from "@/components/TapEclair";
 import { NotreListe } from "@/components/NotreListe";
 import { AmbianceTheme } from "@/components/AmbianceTheme";
 import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
