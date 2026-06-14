@@ -312,55 +312,6 @@ function GreenLight({ room, mySlot, myName, otherName, state }: Props & { state:
   );
 }
 
-// ── TAP ÉCLAIR ─────────────────────────────────
-function TapEclair({ room, mySlot, myName, otherName, state }: Props & { state: Record<string, unknown> }) {
-  const signalAt = (state.signal_at as number) ?? Date.now();
-  const [now, setNow] = useState(Date.now());
-  const actedRef = useRef(false);
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30);
-    return () => clearInterval(t);
-  }, []);
-  const flash = now >= signalAt;
-
-  const tap = async () => {
-    if (actedRef.current) return;
-    actedRef.current = true;
-    const otherSlot = mySlot === 1 ? 2 : 1;
-    const winner = flash ? mySlot : otherSlot;
-    await supabase
-      .from("rooms")
-      .update({ minigame_state: { ...state, phase: "result", winner_slot: winner, early: !flash, by: mySlot } })
-      .eq("id", room.id);
-  };
-
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Tap éclair ⚡</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {myName} vs {otherName} — attends l'éclair, puis tape !
-        </p>
-      </div>
-      <motion.button
-        onClick={tap}
-        whileTap={{ scale: 0.97 }}
-        animate={{
-          backgroundColor: flash ? "#fde047" : "#1e1b4b",
-          color: flash ? "#1e1b4b" : "#fde047",
-        }}
-        transition={{ duration: 0.12 }}
-        className="mt-6 flex flex-1 items-center justify-center rounded-3xl text-6xl font-bold shadow-lg"
-        style={{ minHeight: 320 }}
-      >
-        {flash ? "⚡ TAPE !" : "🌙 patience…"}
-      </motion.button>
-    </div>
-  );
-}
-
-
-
 // ── CULTURE FLASH ─────────────────────────────────
 function CultureFlash({ room, mySlot, state }: Props & { state: Record<string, unknown> }) {
   const qi = (state.qi as number) ?? 0;
