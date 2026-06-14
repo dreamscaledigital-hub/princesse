@@ -108,11 +108,11 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     gradient: "from-rose-200/80 to-emerald-200/80",
   },
   {
-    id: "tap",
-    emoji: "⚡",
-    title: "Tap éclair",
-    subtitle: "Annonce un gage, puis premier à taper le cœur gagne. Best of 5.",
-    gradient: "from-amber-200/80 to-yellow-300/80",
+    id: "wishlist",
+    emoji: "💕",
+    title: "Notre liste",
+    subtitle: "Nos envies à deux, validées ensemble",
+    gradient: "from-rose-200/80 to-emerald-200/80",
   },
 ];
 
