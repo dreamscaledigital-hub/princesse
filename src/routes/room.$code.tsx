@@ -1007,10 +1007,12 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
   const winnerSlot = state.winner_slot;
   const phase = state.phase;
 
-  // L'hôte démarre la première manche (ou la suivante si l'état est vide)
+  // N'importe quel joueur peut démarrer la manche (le 2nd attend 400ms pour éviter les collisions)
   useEffect(() => {
-    if (!isHost || gameOver) return;
-    if (!state.round_started_at || !state.go_at) {
+    if (gameOver) return;
+    if (state.round_started_at && state.go_at) return;
+    const delay = isHost ? 0 : 400;
+    const t = setTimeout(() => {
       const start = Date.now();
       const wait = TAP_WAIT_MIN_MS + Math.random() * (TAP_WAIT_MAX_MS - TAP_WAIT_MIN_MS);
       void supabase.from("rooms").update({
@@ -1020,14 +1022,15 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
           go_at: start + TAP_COUNTDOWN_MS + wait,
         } as TapState,
       }).eq("id", room.id);
-    }
+    }, delay);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, gameOver, state.round_started_at, state.go_at, room.id]);
 
-  // L'hôte avance après résultat (score + manche suivante / fin)
+  // N'importe quel joueur peut avancer après le résultat (le 2nd attend un peu plus)
   useEffect(() => {
-    if (!isHost) return;
     if (phase !== "result" || !winnerSlot) return;
+    const extra = isHost ? 0 : 250;
     const t = setTimeout(() => {
       const ns1 = score1 + (winnerSlot === 1 ? 1 : 0);
       const ns2 = score2 + (winnerSlot === 2 ? 1 : 0);
@@ -1051,9 +1054,10 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
           } as TapState,
         }).eq("id", room.id);
       }
-    }, TAP_RESULT_MS);
+    }, TAP_RESULT_MS + extra);
     return () => clearTimeout(t);
   }, [isHost, phase, winnerSlot, score1, score2, round, room.id, room.minigame_round]);
+
 
   // Calculs locaux d'affichage
   const elapsed = startedAt ? now - startedAt : 0;
