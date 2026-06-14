@@ -162,7 +162,6 @@ export type Database = {
           gage: string
           game_winner_id: string | null
           id: string
-          owner_user_id: string | null
           p1_id: string
           p1_name: string
           p1_score: number
@@ -181,7 +180,6 @@ export type Database = {
           gage?: string
           game_winner_id?: string | null
           id?: string
-          owner_user_id?: string | null
           p1_id: string
           p1_name?: string
           p1_score?: number
@@ -200,7 +198,6 @@ export type Database = {
           gage?: string
           game_winner_id?: string | null
           id?: string
-          owner_user_id?: string | null
           p1_id?: string
           p1_name?: string
           p1_score?: number
@@ -504,8 +501,6 @@ export type Database = {
         Args: { _delta: number; _room_id: string; _slot: number }
         Returns: undefined
       }
-      is_room_code_member: { Args: { _code: string }; Returns: boolean }
-      is_room_member: { Args: { _room_id: string }; Returns: boolean }
       minigame_patch: {
         Args: { _patch: Json; _room_id: string }
         Returns: undefined
