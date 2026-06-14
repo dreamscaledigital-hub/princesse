@@ -926,6 +926,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
     );
   }
 
+  if (room.mode === "tap") {
+    return (
+      <TapEclair
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
   return (
     <RPSExtreme
       room={room}
