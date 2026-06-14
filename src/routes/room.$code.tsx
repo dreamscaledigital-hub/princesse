@@ -966,110 +966,113 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
 
 
 // ───────────────────────────────────────────── TAP ÉCLAIR MODE (Best of 5) ─────
-// Self-contained, host-driven (slot 1). No reliance on shared timestamps to avoid
-// clock-skew bugs. Phases : countdown → wait → go → result.
+// Compte à rebours 100% local basé sur `round_started_at` (timestamp posé une
+// seule fois par manche). Plus aucune écriture intermédiaire pour décrémenter
+// le chrono → impossible de rester figé sur 3.
 
-type TapPhase = "countdown" | "wait" | "go" | "result" | "game_over";
+type TapPhase = "go" | "result" | "game_over";
 type TapState = {
+  round?: number;
+  round_started_at?: number; // ms epoch, posé par l'hôte au début de la manche
+  go_at?: number;            // ms epoch, instant où l'éclair tombera
   phase?: TapPhase;
-  count?: number;          // countdown number (3,2,1)
-  winner_slot?: number;    // 1 or 2
-  early?: boolean;         // false start
-  round?: number;          // current round id, used to avoid stale taps
+  winner_slot?: number;
+  early?: boolean;
 };
 
+const TAP_COUNTDOWN_MS = 3000;
+const TAP_WAIT_MIN_MS = 1500;
+const TAP_WAIT_MAX_MS = 5000;
+const TAP_RESULT_MS = 1800;
+const TAP_TARGET = 3;
+
 function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room; mySlot: number; myName: string; otherName: string; onBackToMenu: () => void }) {
-  const target = 3;
   const score1 = room.score_1 ?? 0;
   const score2 = room.score_2 ?? 0;
   const state = (room.minigame_state ?? {}) as TapState;
-  const phase: TapPhase = state.phase ?? "countdown";
-  const round = state.round ?? 0;
   const isHost = mySlot === 1;
-  const gameOver = phase === "game_over" || score1 >= target || score2 >= target;
-  const iWon = (score1 >= target && mySlot === 1) || (score2 >= target && mySlot === 2);
+  const gameOver = state.phase === "game_over" || score1 >= TAP_TARGET || score2 >= TAP_TARGET;
+  const iWon = (score1 >= TAP_TARGET && mySlot === 1) || (score2 >= TAP_TARGET && mySlot === 2);
 
-  // Host initialise la 1ère manche si l'état est vide
+  // Tick local pour rafraîchir compte à rebours + détection éclair
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!isHost) return;
-    if (gameOver) return;
-    if (!state.phase) {
+    const id = setInterval(() => setNow(Date.now()), 80);
+    return () => clearInterval(id);
+  }, []);
+
+  const round = state.round ?? 0;
+  const startedAt = state.round_started_at ?? 0;
+  const goAt = state.go_at ?? 0;
+  const winnerSlot = state.winner_slot;
+  const phase = state.phase;
+
+  // L'hôte démarre la première manche (ou la suivante si l'état est vide)
+  useEffect(() => {
+    if (!isHost || gameOver) return;
+    if (!state.round_started_at || !state.go_at) {
+      const start = Date.now();
+      const wait = TAP_WAIT_MIN_MS + Math.random() * (TAP_WAIT_MAX_MS - TAP_WAIT_MIN_MS);
       void supabase.from("rooms").update({
-        minigame_state: { phase: "countdown", count: 3, round: round + 1 } as TapState,
+        minigame_state: {
+          round: round + 1,
+          round_started_at: start,
+          go_at: start + TAP_COUNTDOWN_MS + wait,
+        } as TapState,
       }).eq("id", room.id);
     }
-  }, [isHost, gameOver, state.phase, room.id, round]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, gameOver, state.round_started_at, state.go_at, room.id]);
 
-  const count = state.count ?? 3;
-  const winnerSlot = state.winner_slot;
-
-  // Host pilote countdown 3→2→1 puis wait
+  // L'hôte avance après résultat (score + manche suivante / fin)
   useEffect(() => {
     if (!isHost) return;
-    if (phase !== "countdown") return;
+    if (phase !== "result" || !winnerSlot) return;
     const t = setTimeout(() => {
-      if (count > 1) {
+      const ns1 = score1 + (winnerSlot === 1 ? 1 : 0);
+      const ns2 = score2 + (winnerSlot === 2 ? 1 : 0);
+      const finished = ns1 >= TAP_TARGET || ns2 >= TAP_TARGET;
+      if (finished) {
         void supabase.from("rooms").update({
-          minigame_state: { phase: "countdown", count: count - 1, round } as TapState,
+          score_1: ns1, score_2: ns2,
+          minigame_round: (room.minigame_round ?? 0) + 1,
+          minigame_state: { phase: "game_over", round } as TapState,
         }).eq("id", room.id);
       } else {
+        const start = Date.now();
+        const wait = TAP_WAIT_MIN_MS + Math.random() * (TAP_WAIT_MAX_MS - TAP_WAIT_MIN_MS);
         void supabase.from("rooms").update({
-          minigame_state: { phase: "wait", round } as TapState,
+          score_1: ns1, score_2: ns2,
+          minigame_round: (room.minigame_round ?? 0) + 1,
+          minigame_state: {
+            round: round + 1,
+            round_started_at: start,
+            go_at: start + TAP_COUNTDOWN_MS + wait,
+          } as TapState,
         }).eq("id", room.id);
       }
-    }, 1000);
+    }, TAP_RESULT_MS);
     return () => clearTimeout(t);
-  }, [isHost, phase, count, round, room.id]);
+  }, [isHost, phase, winnerSlot, score1, score2, round, room.id, room.minigame_round]);
 
-  // Host : après délai aléatoire pendant "wait" → "go"
-  useEffect(() => {
-    if (!isHost) return;
-    if (phase !== "wait") return;
-    const delay = 1500 + Math.random() * 3500;
-    const t = setTimeout(() => {
-      void supabase.from("rooms").update({
-        minigame_state: { phase: "go", round } as TapState,
-      }).eq("id", room.id);
-    }, delay);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, phase, round, room.id]);
-
-  // Host : après "result", attend 1.6s puis avance (score + manche ou fin)
-  useEffect(() => {
-    if (!isHost) return;
-    if (phase !== "result") return;
-    if (!winnerSlot) return;
-    const t = setTimeout(() => {
-      const newScore1 = score1 + (winnerSlot === 1 ? 1 : 0);
-      const newScore2 = score2 + (winnerSlot === 2 ? 1 : 0);
-      const finished = newScore1 >= target || newScore2 >= target;
-      void supabase.from("rooms").update({
-        score_1: newScore1,
-        score_2: newScore2,
-        minigame_round: (room.minigame_round ?? 0) + 1,
-        minigame_state: finished
-          ? ({ phase: "game_over" } as TapState)
-          : ({ phase: "countdown", count: 3, round: round + 1 } as TapState),
-      }).eq("id", room.id);
-    }, 1600);
-    return () => clearTimeout(t);
-  }, [isHost, phase, winnerSlot, score1, score2, room.id, room.minigame_round, round]);
+  // Calculs locaux d'affichage
+  const elapsed = startedAt ? now - startedAt : 0;
+  const inCountdown = !phase && startedAt > 0 && elapsed < TAP_COUNTDOWN_MS;
+  const countNum = Math.max(1, Math.ceil((TAP_COUNTDOWN_MS - elapsed) / 1000));
+  const flash = !phase && startedAt > 0 && now >= goAt;
+  const waiting = !phase && startedAt > 0 && !inCountdown && !flash;
 
   const onTap = async () => {
-    if (phase !== "wait" && phase !== "go") return;
-    // Verrou : si quelqu'un a déjà gagné, on ignore
-    if (state.winner_slot) return;
+    if (phase) return;
+    if (!startedAt || inCountdown) return;
     const otherSlot = mySlot === 1 ? 2 : 1;
-    if (phase === "wait") {
-      // Faux départ : l'autre gagne
+    if (flash) {
       await supabase.from("rooms").update({
-        minigame_state: { phase: "result", winner_slot: otherSlot, early: true, round } as TapState,
+        minigame_state: { ...state, phase: "result", winner_slot: mySlot, early: false } as TapState,
       }).eq("id", room.id);
-    } else {
-      // Go : premier à taper gagne
+    } else if (waiting) {
       await supabase.from("rooms").update({
-        minigame_state: { phase: "result", winner_slot: mySlot, early: false, round } as TapState,
+        minigame_state: { ...state, phase: "result", winner_slot: otherSlot, early: true } as TapState,
       }).eq("id", room.id);
     }
   };
@@ -1099,49 +1102,55 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
         <p className="text-sm font-semibold text-primary">{score1} – {score2}</p>
       </div>
 
-      {phase === "countdown" && (
+      {inCountdown && (
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <p className="text-sm text-muted-foreground">{myName} vs {otherName}</p>
           <p className="mt-1 max-w-xs text-xs text-muted-foreground">Attends l'éclair ⚡ puis tape le plus vite ! Faux départ = défaite.</p>
           <motion.div
-            key={state.count ?? 3}
+            key={countNum}
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="mt-8 font-script text-9xl text-primary"
           >
-            {state.count ?? 3}
+            {countNum}
           </motion.div>
           <p className="mt-4 text-muted-foreground">Prêt·e ?</p>
         </div>
       )}
 
-      {(phase === "wait" || phase === "go") && (
+      {(waiting || flash) && (
         <motion.button
           onClick={onTap}
           whileTap={{ scale: 0.97 }}
           animate={{
-            backgroundColor: phase === "go" ? "#fde047" : "#1e1b4b",
-            color: phase === "go" ? "#1e1b4b" : "#fde047",
+            backgroundColor: flash ? "#fde047" : "#1e1b4b",
+            color: flash ? "#1e1b4b" : "#fde047",
           }}
           transition={{ duration: 0.12 }}
           className="mt-6 flex flex-1 items-center justify-center rounded-3xl text-5xl font-bold shadow-lg"
           style={{ minHeight: 320 }}
         >
-          {phase === "go" ? "⚡ TAPE !" : "🌙 patience…"}
+          {flash ? "⚡ TAPE !" : "🌙 patience…"}
         </motion.button>
       )}
 
       {phase === "result" && (
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} className="text-7xl">
-            {state.winner_slot === mySlot ? "🏆" : "🥹"}
+            {winnerSlot === mySlot ? "🏆" : "🥹"}
           </motion.div>
           <h3 className="mt-4 font-script text-3xl text-primary">
             {state.early
-              ? (state.winner_slot === mySlot ? "Faux départ adverse !" : "Faux départ…")
-              : (state.winner_slot === mySlot ? "Bravo, c'est toi !" : `${otherName} gagne !`)}
+              ? (winnerSlot === mySlot ? "Faux départ adverse !" : "Faux départ…")
+              : (winnerSlot === mySlot ? "Bravo, c'est toi !" : `${otherName} gagne !`)}
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">Prochaine manche…</p>
+        </div>
+      )}
+
+      {!phase && !startedAt && (
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       )}
 
@@ -1149,6 +1158,7 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
     </div>
   );
 }
+
 
 
 
