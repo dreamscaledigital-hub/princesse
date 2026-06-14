@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Sparkles, KeyRound, Zap } from "lucide-react";
+import { Heart, Sparkles, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getClientId, generateRoomCode } from "@/lib/player-id";
 import { DEFAULT_NAMES } from "@/lib/game-content";
