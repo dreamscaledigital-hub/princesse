@@ -23,6 +23,7 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const navigate = useNavigate();
+  const [joinCode, setJoinCode] = useState("");
   const [customCode, setCustomCode] = useState("");
   const [showCustomCode, setShowCustomCode] = useState(false);
   const [busy, setBusy] = useState(false);
