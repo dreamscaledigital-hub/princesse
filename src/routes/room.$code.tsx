@@ -1064,12 +1064,12 @@ function TapMode({ room, mySlot, myName, otherName, onBackToMenu }: { room: Room
     if (phase === "wait") {
       // Faux départ : l'autre gagne
       await supabase.from("rooms").update({
-        minigame_state: { ...state, phase: "result", winner_slot: otherSlot, early: true } as TapState,
+        minigame_state: { phase: "result", winner_slot: otherSlot, early: true, round } as TapState,
       }).eq("id", room.id);
     } else {
       // Go : premier à taper gagne
       await supabase.from("rooms").update({
-        minigame_state: { ...state, phase: "result", winner_slot: mySlot, early: false } as TapState,
+        minigame_state: { phase: "result", winner_slot: mySlot, early: false, round } as TapState,
       }).eq("id", room.id);
     }
   };
