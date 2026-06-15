@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar } from "@/components/Avatar";
 import {
   subscribeToPush,
   sendPensee,
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/hub")({
   component: HubPage,
 });
 
-type Profile = { id: string; display_name: string; avatar_emoji: string };
+type Profile = { id: string; display_name: string; avatar_emoji: string; avatar_style?: string | null; avatar_options?: Record<string, unknown> | null };
 type Couple = { id: string; user_a: string; user_b: string };
 
 function genCode(): string {
@@ -285,8 +286,8 @@ function HubPage() {
       </div>
 
       <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-4 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/15">
-          <Heart className="h-8 w-8 fill-primary text-primary" />
+        <div className="mx-auto inline-flex items-center justify-center rounded-full border-4 border-white bg-white/70 p-1 shadow-md">
+          <Avatar style={me?.avatar_style} options={(me?.avatar_options as never) || {}} fallbackEmoji={me?.avatar_emoji} size={72} />
         </div>
         <h1 className="mt-3 font-serif text-4xl text-primary">
           Notre <i>nid</i>
