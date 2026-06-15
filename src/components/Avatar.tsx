@@ -48,10 +48,8 @@ const RESERVED_KEYS = new Set(["seed", "backgroundColor", "backgroundType", "fli
 export function buildAvatarUrl(style: string, options: AvatarOptions = {}) {
   const params = new URLSearchParams();
   params.set("seed", options.seed?.trim() || "Amour");
-  if (options.backgroundColor && options.backgroundColor !== "transparent") {
-    params.set("backgroundColor", options.backgroundColor);
-  } else {
-    params.set("backgroundType", "solid");
+  if (options.backgroundColor) {
+    params.set("backgroundColor", options.backgroundColor === "transparent" ? "transparent" : options.backgroundColor);
   }
   if (options.flip) params.set("flip", "true");
   if (typeof options.radius === "number") params.set("radius", String(options.radius));
