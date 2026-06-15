@@ -10,6 +10,7 @@ export type AvatarOptions = {
 };
 
 export const AVATAR_STYLES = [
+  { id: "custom-cute", label: "IA" },
   { id: "lorelei", label: "Lorelei" },
   { id: "adventurer", label: "Aventure" },
   { id: "big-smile", label: "Sourire" },
@@ -45,13 +46,50 @@ export const SEED_PRESETS = [
 
 const RESERVED_KEYS = new Set(["seed", "backgroundColor", "backgroundType", "flip", "radius"]);
 
+function safeHex(value: string | undefined, fallback: string) {
+  const v = (value || "").replace(/^#/, "").toLowerCase();
+  return /^[0-9a-f]{6}$/.test(v) ? `#${v}` : fallback;
+}
+
+function buildCustomCuteAvatarUrl(options: AvatarOptions = {}) {
+  const extras = options.extras || {};
+  const bg = options.backgroundColor === "transparent" ? "transparent" : safeHex(options.backgroundColor, "#f8c8d8");
+  const skin = safeHex(extras.skinColor, "#ffdbb4");
+  const hair = safeHex(extras.hairColor, "#724133");
+  const eyes = safeHex(extras.eyesColor, "#2c1b18");
+  const shirt = safeHex(extras.shirtColor, "#ffafb9");
+  const longHair = extras.hairLength === "long";
+  const curly = extras.hairTexture === "curly";
+  const glasses = extras.glasses === "true";
+  const beard = extras.beard === "true";
+  const freckles = extras.freckles === "true";
+  const smile = extras.mouth !== "sad";
+  const radius = typeof options.radius === "number" ? options.radius : 50;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+    <rect width="256" height="256" rx="${radius * 2.2}" fill="${bg}"/>
+    <ellipse cx="128" cy="224" rx="62" ry="38" fill="${shirt}"/>
+    ${longHair ? `<ellipse cx="128" cy="107" rx="70" ry="82" fill="${hair}"/>` : ""}
+    <circle cx="128" cy="112" r="58" fill="${skin}"/>
+    ${longHair ? `<path d="M70 116c6-51 30-78 61-78 35 0 56 29 58 78-18-22-44-32-75-32-18 0-32 9-44 32Z" fill="${hair}"/>` : `<path d="M72 102c7-42 35-66 67-60 27 5 44 25 47 60-26-20-75-25-114 0Z" fill="${hair}"/>`}
+    ${curly ? `<g fill="${hair}"><circle cx="78" cy="82" r="15"/><circle cx="100" cy="58" r="16"/><circle cx="128" cy="50" r="17"/><circle cx="156" cy="58" r="16"/><circle cx="179" cy="84" r="15"/></g>` : ""}
+    <circle cx="106" cy="117" r="7" fill="${eyes}"/><circle cx="150" cy="117" r="7" fill="${eyes}"/>
+    <circle cx="108" cy="115" r="2.4" fill="#fff"/><circle cx="152" cy="115" r="2.4" fill="#fff"/>
+    ${glasses ? `<g fill="none" stroke="#8a4f63" stroke-width="5" stroke-linecap="round"><circle cx="106" cy="118" r="17"/><circle cx="150" cy="118" r="17"/><path d="M123 118h10"/></g>` : ""}
+    <ellipse cx="94" cy="142" rx="12" ry="7" fill="#f59797" opacity=".45"/><ellipse cx="162" cy="142" rx="12" ry="7" fill="#f59797" opacity=".45"/>
+    ${freckles ? `<g fill="#b58143" opacity=".65"><circle cx="96" cy="132" r="2"/><circle cx="108" cy="137" r="2"/><circle cx="148" cy="137" r="2"/><circle cx="160" cy="132" r="2"/></g>` : ""}
+    ${beard ? `<path d="M100 148c8 24 48 24 56 0 4 31-12 49-28 49s-32-18-28-49Z" fill="${hair}" opacity=".85"/>` : ""}
+    <path d="${smile ? "M108 153c10 14 30 14 40 0" : "M110 164c10-10 26-10 36 0"}" fill="none" stroke="#8a4f63" stroke-width="5" stroke-linecap="round"/>
+    ${extras.earrings === "true" ? `<circle cx="72" cy="130" r="5" fill="#e88aab"/><circle cx="184" cy="130" r="5" fill="#e88aab"/>` : ""}
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 export function buildAvatarUrl(style: string, options: AvatarOptions = {}) {
+  if (style === "custom-cute") return buildCustomCuteAvatarUrl(options);
   const params = new URLSearchParams();
   params.set("seed", options.seed?.trim() || "Amour");
-  if (options.backgroundColor && options.backgroundColor !== "transparent") {
-    params.set("backgroundColor", options.backgroundColor);
-  } else {
-    params.set("backgroundType", "solid");
+  if (options.backgroundColor) {
+    params.set("backgroundColor", options.backgroundColor === "transparent" ? "transparent" : options.backgroundColor);
   }
   if (options.flip) params.set("flip", "true");
   if (typeof options.radius === "number") params.set("radius", String(options.radius));
