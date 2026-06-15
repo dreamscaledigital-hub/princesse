@@ -252,6 +252,50 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          body: string | null
+          couple_id: string
+          created_at: string
+          id: string
+          image_path: string | null
+          reactions: Json
+          read_by: Json
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          couple_id: string
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          reactions?: Json
+          read_by?: Json
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          couple_id?: string
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          reactions?: Json
+          read_by?: Json
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pairing_codes: {
         Row: {
           code: string
