@@ -73,7 +73,7 @@ function ProfilPage() {
       }
       const r = res.result;
       setDraftStyle(r.style);
-      setDraftOpts({ seed: r.seed, backgroundColor: r.backgroundColor, flip: r.flip, radius: r.radius });
+      setDraftOpts({ seed: r.seed, backgroundColor: r.backgroundColor, flip: r.flip, radius: r.radius, extras: r.extras });
       setBumpKey((k) => k + 1);
       toast.success("Voilà ton perso ! ✨");
     } finally {
