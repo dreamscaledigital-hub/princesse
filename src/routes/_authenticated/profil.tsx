@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2 } from "lucide-react";
+import { LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
+import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,31 @@ function ProfilPage() {
   const [draftOpts, setDraftOpts] = useState<AvatarOptions>({ seed: "Amour", backgroundColor: "f8c8d8", flip: false, radius: 50 });
   const [tab, setTab] = useState<Tab>("style");
   const [bumpKey, setBumpKey] = useState(0); // triggers the bounce
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
   const meIdRef = useRef<string | null>(null);
+
+  async function generateFromAI() {
+    const p = aiPrompt.trim();
+    if (!p) { toast.error("Décris ton personnage en quelques mots ✨"); return; }
+    setAiLoading(true);
+    try {
+      const res = await generateAvatarFromPrompt({ data: { prompt: p } });
+      if (!res.ok) {
+        if (res.error === "credits") toast.error("Plus de crédits IA 💸");
+        else if (res.error === "rate_limit") toast.error("Trop de demandes, réessaie dans un instant 💕");
+        else toast.error("L'IA n'a pas répondu, réessaie 🌸");
+        return;
+      }
+      const r = res.result;
+      setDraftStyle(r.style);
+      setDraftOpts({ seed: r.seed, backgroundColor: r.backgroundColor, flip: r.flip, radius: r.radius });
+      setBumpKey((k) => k + 1);
+      toast.success("Voilà ton perso ! ✨");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -272,6 +297,31 @@ function ProfilPage() {
           <i>{draftName || "Ton petit nom"}</i>
         </p>
       </motion.div>
+
+      {/* AI DESCRIBE → AVATAR */}
+      <div className="mb-5 rounded-3xl border border-accent/40 bg-gradient-to-br from-accent/10 via-white/60 to-primary/10 p-4 backdrop-blur">
+        <div className="mb-2 flex items-center gap-2">
+          <Wand2 className="h-4 w-4 text-primary" />
+          <span className="font-serif text-lg text-primary"><i>Décris ton perso</i></span>
+          <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">IA ✨</span>
+        </div>
+        <p className="mb-2 text-xs text-muted-foreground">Ex. « fille brune yeux verts, fond rose pastel » ou « petit roux souriant, style cartoon »</p>
+        <textarea
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value.slice(0, 280))}
+          rows={2}
+          placeholder="Décris ton personnage…"
+          className="w-full resize-none rounded-2xl border border-primary/20 bg-white/80 px-3 py-2 text-sm outline-none transition focus:border-primary"
+        />
+        <Button
+          onClick={generateFromAI}
+          disabled={aiLoading || !aiPrompt.trim()}
+          className="mt-2 h-11 w-full rounded-2xl shadow"
+        >
+          <Wand2 className="mr-2 h-4 w-4" />
+          {aiLoading ? "L'IA dessine…" : "Générer avec l'IA ✨"}
+        </Button>
+      </div>
 
       {/* NAME */}
       <div className="mb-5 rounded-3xl border border-primary/20 bg-white/70 p-4 backdrop-blur">
