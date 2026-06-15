@@ -75,7 +75,7 @@ const longHair = ["bob", "bun", "curly", "curvy", "longButNotTooLong", "straight
 const shortHair = ["shortCurly", "shortFlat", "shortRound", "shortWaved", "sides", "theCaesar", "theCaesarAndSidePart", "frizzle"];
 
 type AvatarResult = {
-  style: "avataaars";
+  style: "custom-cute";
   seed: string;
   backgroundColor: string;
   flip: boolean;
@@ -133,28 +133,24 @@ function deterministicAvatar(prompt: string, ai?: Partial<AvatarResult>): Avatar
 
   const extras: Record<string, string> = {
     top,
+    hairLength: wantsLong ? "long" : "short",
+    hairTexture: curly ? "curly" : "smooth",
     hairColor: pickMapped(text, hairColors) || ai?.extras?.hairColor || "724133",
     skinColor: pickMapped(text, skinColors) || ai?.extras?.skinColor || "ffdbb4",
-    eyes: love ? "hearts" : wink ? "wink" : surprised ? "surprised" : "happy",
-    eyebrows: "raisedExcited",
-    mouth: sad ? "sad" : surprised ? "screamOpen" : "smile",
-    accessories: glasses ? (sunglasses ? "sunglasses" : "round") : "blank",
-    accessoriesProbability: glasses ? "100" : "0",
-    facialHair: beard ? (text.includes("moustache") ? "moustacheFancy" : "beardLight") : "blank",
-    facialHairProbability: beard ? "100" : "0",
-    clothing: hasAny(text, ["pull", "sweater"]) ? "collarAndSweater" : hasAny(text, ["hoodie", "sweat"]) ? "hoodie" : "shirtCrewNeck",
-    clothesColor: hasAny(text, ["noir", "noire"]) ? "262e33" : hasAny(text, ["bleu", "bleue"]) ? "65c9ff" : "ffafb9",
+    eyesColor: pickMapped(text, eyeColors) || "2c1b18",
+    mouth: sad ? "sad" : "smile",
+    glasses: glasses ? "true" : "false",
+    beard: beard ? "true" : "false",
+    freckles: freckles ? "true" : "false",
+    earrings: hasAny(text, ["boucle d'oreille", "boucles d'oreille", "earrings"]) ? "true" : "false",
+    shirtColor: hasAny(text, ["noir", "noire"]) ? "262e33" : hasAny(text, ["bleu", "bleue"]) ? "65c9ff" : "ffafb9",
   };
 
   const eyeColor = pickMapped(text, eyeColors);
-  if (eyeColor) extras.eyesColor = eyeColor;
-  if (freckles) {
-    extras.clothingGraphic = "deer";
-  }
 
   const backgroundColor = pickMapped(text, bgColors) || ai?.backgroundColor || "f8c8d8";
   return {
-    style: "avataaars",
+    style: "custom-cute",
     seed: stableSeed(prompt),
     backgroundColor,
     flip: !!ai?.flip,
