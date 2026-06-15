@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Gamepad2, Heart, User } from "lucide-react";
+import { Gamepad2, Heart, MessageCircleHeart, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -8,6 +8,12 @@ const TABS = [
     icon: Gamepad2,
     label: "Jeux",
     match: (p: string) => p === "/",
+  },
+  {
+    to: "/messages",
+    icon: MessageCircleHeart,
+    label: "Chat",
+    match: (p: string) => p.startsWith("/messages"),
   },
   {
     to: "/pensees",
