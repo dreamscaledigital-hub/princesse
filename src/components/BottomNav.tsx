@@ -32,8 +32,8 @@ const TABS = [
 export function BottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // Masquer uniquement sur la page auth
-  if (pathname === "/auth") return null;
+  // Masquer sur la page auth et dans le chat (composer dédié)
+  if (pathname === "/auth" || pathname.startsWith("/messages")) return null;
 
   return (
     <nav
