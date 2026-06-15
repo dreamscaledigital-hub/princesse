@@ -144,6 +144,7 @@ function ProfilPage() {
       backgroundColor: p.avatar_options?.backgroundColor ?? "f8c8d8",
       flip: !!p.avatar_options?.flip,
       radius: typeof p.avatar_options?.radius === "number" ? p.avatar_options.radius : 50,
+      extras: p.avatar_options?.extras || {},
     });
   }
 
