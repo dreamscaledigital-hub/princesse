@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/pensees")({
   component: PenseesPage,
 });
 
-type Profile = { id: string; display_name: string; avatar_emoji: string };
+type Profile = { id: string; display_name: string; avatar_emoji: string; avatar_style?: string | null; avatar_options?: Record<string, unknown> | null };
 type Couple  = { id: string; user_a: string; user_b: string };
 
 function genCode() {
