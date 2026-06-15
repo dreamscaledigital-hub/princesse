@@ -73,7 +73,7 @@ function ProfilPage() {
       }
       const r = res.result;
       setDraftStyle(r.style);
-      setDraftOpts({ seed: r.seed, backgroundColor: r.backgroundColor, flip: r.flip, radius: r.radius });
+      setDraftOpts({ seed: r.seed, backgroundColor: r.backgroundColor, flip: r.flip, radius: r.radius, extras: r.extras });
       setBumpKey((k) => k + 1);
       toast.success("Voilà ton perso ! ✨");
     } finally {
@@ -144,6 +144,7 @@ function ProfilPage() {
       backgroundColor: p.avatar_options?.backgroundColor ?? "f8c8d8",
       flip: !!p.avatar_options?.flip,
       radius: typeof p.avatar_options?.radius === "number" ? p.avatar_options.radius : 50,
+      extras: p.avatar_options?.extras || {},
     });
   }
 
@@ -156,13 +157,15 @@ function ProfilPage() {
 
   function pickStyle(s: AvatarStyle) {
     setDraftStyle(s);
+    // extras are style-specific; clear them when changing style manually
+    setDraftOpts((o) => ({ ...o, extras: {} }));
     bump();
   }
 
   function shuffleAll() {
     const r = randomAvatar();
     setDraftStyle(r.style);
-    setDraftOpts(r.options);
+    setDraftOpts({ ...r.options, extras: {} });
     bump();
   }
 

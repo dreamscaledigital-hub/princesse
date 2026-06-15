@@ -5,6 +5,8 @@ export type AvatarOptions = {
   backgroundColor?: string; // hex without '#', comma list ok
   flip?: boolean;
   radius?: number; // 0..50
+  /** Extra DiceBear style options (e.g. hair, hairColor, eyes, skinColor). */
+  extras?: Record<string, string>;
 };
 
 export const AVATAR_STYLES = [
@@ -41,6 +43,8 @@ export const SEED_PRESETS = [
   "Confetti", "Cœur",
 ];
 
+const RESERVED_KEYS = new Set(["seed", "backgroundColor", "backgroundType", "flip", "radius"]);
+
 export function buildAvatarUrl(style: string, options: AvatarOptions = {}) {
   const params = new URLSearchParams();
   params.set("seed", options.seed?.trim() || "Amour");
@@ -51,6 +55,16 @@ export function buildAvatarUrl(style: string, options: AvatarOptions = {}) {
   }
   if (options.flip) params.set("flip", "true");
   if (typeof options.radius === "number") params.set("radius", String(options.radius));
+  if (options.extras) {
+    for (const [k, v] of Object.entries(options.extras)) {
+      if (!k || RESERVED_KEYS.has(k)) continue;
+      if (v == null || v === "") continue;
+      if (!/^[a-zA-Z][a-zA-Z0-9]{0,30}$/.test(k)) continue;
+      const safe = String(v).replace(/[^a-zA-Z0-9,]/g, "").slice(0, 200);
+      if (!safe) continue;
+      params.set(k, safe);
+    }
+  }
   return `https://api.dicebear.com/9.x/${encodeURIComponent(style)}/svg?${params.toString()}`;
 }
 
