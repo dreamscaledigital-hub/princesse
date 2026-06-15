@@ -157,13 +157,15 @@ function ProfilPage() {
 
   function pickStyle(s: AvatarStyle) {
     setDraftStyle(s);
+    // extras are style-specific; clear them when changing style manually
+    setDraftOpts((o) => ({ ...o, extras: {} }));
     bump();
   }
 
   function shuffleAll() {
     const r = randomAvatar();
     setDraftStyle(r.style);
-    setDraftOpts(r.options);
+    setDraftOpts({ ...r.options, extras: {} });
     bump();
   }
 
