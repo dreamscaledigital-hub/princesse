@@ -22,12 +22,22 @@ self.addEventListener("push", (event) => {
     body: payload.body || "",
     icon: "/icon-192.png",
     badge: "/icon-192.png",
-    tag: "pensee",
+    tag: payload.tag || "pensee",
     renotify: true,
     data: { url: payload.url || "/" },
+    silent: true, // we play the user's chosen sound via the page
     vibrate: [80, 40, 80],
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    // Tell any open client to play the user's chosen sound.
+    try {
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const c of clients) {
+        c.postMessage({ type: "play-notification-sound", payload });
+      }
+    } catch (_) { /* ignore */ }
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {

@@ -132,6 +132,7 @@ function initialPlayState(id: MinigameId): Record<string, unknown> {
     case "rps":
       return { phase: "play", round: 1, wins_1: 0, wins_2: 0, choice_1: null, choice_2: null };
   }
+  return { phase: "play", started_at: now };
 }
 
 function Countdown({ id, state }: { id: MinigameId; state: Record<string, unknown> }) {
