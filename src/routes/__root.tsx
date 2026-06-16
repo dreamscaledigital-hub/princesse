@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MusicPlayer } from "../components/MusicPlayer";
 import { BottomNav } from "../components/BottomNav";
 import { Toaster } from "../components/ui/sonner";
+import { useNotificationSoundBridge } from "../lib/notification-sound";
 
 function NotFoundComponent() {
   return (
