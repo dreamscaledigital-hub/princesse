@@ -14,6 +14,7 @@ import {
   getNotifStatus, fetchVapidPublicKey, isIOS, isStandalonePWA,
 } from "@/lib/push-client";
 import { canRegisterSW } from "@/lib/sw-register";
+import { DailyRitual } from "@/components/DailyRitual";
 
 export const Route = createFileRoute("/_authenticated/pensees")({
   head: () => ({ meta: [{ title: "Pensées 💌 — Princesse" }] }),
@@ -211,14 +212,23 @@ function PenseesPage() {
           onConsume={consumeCode} busy={pairBusy}
         />
       ) : (
-        <PenseeUI
-          partnerName={partner?.display_name || "ton amour"}
-          perm={perm} onEnable={enablePush} subscribing={subscribing}
-          diagnosing={diagnosing} onDiagnose={diagnose}
-          quick={QUICK} message={message} setMessage={setMessage}
-          send={send} sending={sending}
-          justPaired={justPaired} onUnpair={unpair}
-        />
+        <div className="mt-6 space-y-5">
+          {me && partner && (
+            <DailyRitual
+              myId={me.id}
+              partnerId={partner.id}
+              partnerName={partner.display_name || "ton amour"}
+            />
+          )}
+          <PenseeUI
+            partnerName={partner?.display_name || "ton amour"}
+            perm={perm} onEnable={enablePush} subscribing={subscribing}
+            diagnosing={diagnosing} onDiagnose={diagnose}
+            quick={QUICK} message={message} setMessage={setMessage}
+            send={send} sending={sending}
+            justPaired={justPaired} onUnpair={unpair}
+          />
+        </div>
       )}
     </div>
   );
