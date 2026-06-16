@@ -5,6 +5,7 @@ import { ArrowLeft, Send, Smile, ImagePlus, Heart, X, Loader2 } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar } from "@/components/Avatar";
+import { sendPensee } from "@/lib/push-client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/messages")({
@@ -234,6 +235,11 @@ function MessagesPage() {
         read_by: [me.id],
       });
       if (error) throw error;
+      const preview = text
+        ? (text.length > 80 ? text.slice(0, 77) + "…" : text)
+        : (imagePath ? "📸 t'a envoyé une photo" : "💌 nouveau message");
+      const myName = me.display_name || "ton amour";
+      void sendPensee(`${myName} : ${preview}`).catch(() => {});
       setDraft("");
       setPendingImage(null);
       if (imagePreview) URL.revokeObjectURL(imagePreview);
