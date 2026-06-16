@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 const STORAGE_KEY = "princesse:pensee_sound";
 const DEFAULT_SOUND: SoundId = "clochette";
 let activeSound: SoundId = DEFAULT_SOUND;
+let lastPlayedAt = 0;
 
 export function getCachedPenseeSound(): SoundId {
   if (typeof window === "undefined") return DEFAULT_SOUND;
@@ -42,7 +43,10 @@ export async function refreshPenseeSoundFromProfile() {
 }
 
 export function playNotificationSound() {
-  playSound(activeSound);
+  const now = Date.now();
+  if (now - lastPlayedAt < 700) return;
+  lastPlayedAt = now;
+  playSound(getCachedPenseeSound());
 }
 
 /**
@@ -55,6 +59,7 @@ export function useNotificationSoundBridge() {
   useEffect(() => {
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    getCachedPenseeSound();
 
     // Unlock the AudioContext on the first user gesture so later
     // notifications (which are not triggered by a gesture) can play.
@@ -99,6 +104,14 @@ export function useNotificationSoundBridge() {
       navigator.serviceWorker.addEventListener("message", onSwMessage);
     }
 
+    function onStorage(ev: StorageEvent) {
+      if (ev.key === STORAGE_KEY && isSoundId(ev.newValue)) {
+        activeSound = ev.newValue;
+      }
+    }
+
+    window.addEventListener("storage", onStorage);
+
     return () => {
       cancelled = true;
       window.removeEventListener("pointerdown", unlock);
@@ -108,6 +121,7 @@ export function useNotificationSoundBridge() {
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener("message", onSwMessage);
       }
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 }
