@@ -163,6 +163,118 @@ Deno.serve(async (req) => {
       return ok({ ok: true, sent: success });
     }
 
+
+    // ── Morning digest — notif personnalisée par couple ──────────────────────
+    if (action === "morning_digest") {
+      const apikey = req.headers.get("apikey") || "";
+      const auth = req.headers.get("Authorization") || "";
+      if (apikey !== ANON && !auth.includes(ANON) && !auth.includes(SERVICE_ROLE)) {
+        return ok({ ok: false, reason: "forbidden" });
+      }
+
+      try { ensureVapid(); } catch (e) {
+        return ok({ ok: false, reason: (e as Error).message });
+      }
+
+      const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+      // Tous les couples
+      const { data: couples } = await admin.from("couples").select("id,user_a,user_b,created_at");
+      if (!couples || couples.length === 0) return ok({ ok: true, sent: 0 });
+
+      let totalSent = 0;
+      const expired: string[] = [];
+
+      await Promise.all(couples.map(async (couple: { id: string; user_a: string; user_b: string; created_at: string }) => {
+        const days = Math.floor((Date.now() - new Date(couple.created_at).getTime()) / 86_400_000);
+
+        // Streak via RPC
+        const { data: streak } = await admin.rpc("couple_streak", { _couple_id: couple.id });
+        const streakNum = typeof streak === "number" ? streak : 0;
+
+        // Pour chaque membre du couple
+        for (const [userId, partnerId] of [
+          [couple.user_a, couple.user_b],
+          [couple.user_b, couple.user_a],
+        ] as [string, string][]) {
+          // Vérifier que la notif est activée pour cet utilisateur
+          const { data: prof } = await admin
+            .from("profiles")
+            .select("daily_notif_enabled")
+            .eq("id", userId)
+            .maybeSingle();
+          if (!prof?.daily_notif_enabled) continue;
+
+          // Abonnements push de cet utilisateur
+          const { data: subs } = await admin
+            .from("push_subscriptions")
+            .select("*")
+            .eq("user_id", userId);
+          if (!subs || subs.length === 0) continue;
+
+          // Infos partenaire
+          const { data: partnerProf } = await admin
+            .from("profiles")
+            .select("display_name,avatar_emoji")
+            .eq("id", partnerId)
+            .maybeSingle();
+          const partnerName = partnerProf?.display_name || "Ton amour";
+          const partnerEmoji = partnerProf?.avatar_emoji || "💕";
+
+          // Humeur partenaire aujourd'hui (si déjà remplie)
+          const today = new Date().toISOString().split("T")[0];
+          const { data: ritual } = await admin
+            .from("daily_rituals")
+            .select("id")
+            .eq("couple_id", couple.id)
+            .eq("ritual_date", today)
+            .maybeSingle();
+
+          let moodLine = "";
+          if (ritual) {
+            const { data: entry } = await admin
+              .from("daily_entries")
+              .select("mood_emoji,mood_word")
+              .eq("ritual_id", (ritual as { id: string }).id)
+              .eq("user_id", partnerId)
+              .maybeSingle();
+            if (entry?.mood_emoji) {
+              moodLine = ` ${entry.mood_emoji} ${entry.mood_word || ""}`.trim();
+            }
+          }
+
+          // Construire le message
+          const streakText = streakNum > 0 ? ` 🔥 ${streakNum} jour${streakNum > 1 ? "s" : ""} de suite !` : "";
+          const body = moodLine
+            ? `${partnerName} est${moodLine} aujourd'hui.${streakText}`
+            : `${partnerName} ${partnerEmoji} pense à toi.${streakText} ${days} jours ensemble 💕`;
+
+          const payload = JSON.stringify({
+            title: `Bonjour 🌸 ${partnerName} t'attend !`,
+            body,
+            url: "/widget",
+          });
+
+          await Promise.all(subs.map(async (s: { endpoint: string; p256dh: string; auth: string }) => {
+            try {
+              await webpush.sendNotification(
+                { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+                payload,
+              );
+              totalSent++;
+            } catch (err: any) {
+              if (err?.statusCode === 404 || err?.statusCode === 410) expired.push(s.endpoint);
+            }
+          }));
+        }
+      }));
+
+      if (expired.length) {
+        await admin.from("push_subscriptions").delete().in("endpoint", expired);
+      }
+      return ok({ ok: true, sent: totalSent });
+    }
+
     if (action !== "send") return ok({ ok: false, reason: "action inconnue" });
 
 

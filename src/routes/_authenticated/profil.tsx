@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
+import { Bell, BellOff, LayoutDashboard, LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
 import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,7 @@ type Profile = {
   avatar_emoji: string;
   avatar_style: string;
   avatar_options: AvatarOptions;
+  daily_notif_enabled: boolean;
 };
 
 const NAME_EMOJIS = ["", "💕", "🌸", "🦋", "🌙", "⭐", "🌹", "🍀", "🐝", "🦊", "🐻", "✨", "🍓", "🌷"];
@@ -57,6 +58,7 @@ function ProfilPage() {
   const [bumpKey, setBumpKey] = useState(0); // triggers the bounce
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [dailyNotif, setDailyNotif] = useState(true);
   const meIdRef = useRef<string | null>(null);
 
   async function generateFromAI() {
@@ -90,13 +92,14 @@ function ProfilPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, avatar_emoji, avatar_style, avatar_options")
+      .select("id, display_name, avatar_emoji, avatar_style, avatar_options, daily_notif_enabled")
       .eq("id", ures.user.id)
       .maybeSingle();
 
     if (data) {
       const p = data as Profile;
       setMe(p);
+      setDailyNotif(p.daily_notif_enabled !== false);
       resetDraft(p);
     }
 
@@ -169,7 +172,15 @@ function ProfilPage() {
     bump();
   }
 
-  async function save() {
+  async function toggleNotif() {
+    if (!me) return;
+    const next = !dailyNotif;
+    setDailyNotif(next);
+    await supabase.from("profiles").update({ daily_notif_enabled: next }).eq("id", me.id);
+    toast.success(next ? "Notif du matin activée 🔔" : "Notif du matin désactivée 🔕", { duration: 1800 });
+  }
+
+    async function save() {
     if (!me) return;
     const name = draftName.trim();
     if (!name) { toast.error("Choisis un petit nom 💕"); return; }
@@ -256,6 +267,22 @@ function ProfilPage() {
         )}
 
         <div className="mt-6 flex flex-col gap-2">
+          <button
+            onClick={toggleNotif}
+            className={`flex h-12 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium transition ${
+              dailyNotif
+                ? "border-violet-200 bg-violet-50/60 text-violet-600 hover:bg-violet-100"
+                : "border-muted bg-muted/30 text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              {dailyNotif ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+              Notif du matin à 8h00
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${dailyNotif ? "bg-violet-200 text-violet-700" : "bg-muted text-muted-foreground"}`}>
+              {dailyNotif ? "ON" : "OFF"}
+            </span>
+          </button>
           <a href="/widget" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50/60 text-sm font-medium text-rose-500 transition hover:bg-rose-100">
             <LayoutDashboard className="h-4 w-4" />
             Notre widget 🌸
