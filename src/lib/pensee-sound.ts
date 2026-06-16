@@ -2,6 +2,12 @@
 
 export type SoundId = "clochette" | "bulle" | "bise" | "harpe" | "silence";
 
+export const SOUND_IDS: SoundId[] = ["clochette", "bulle", "bise", "harpe", "silence"];
+
+export function isSoundId(value: unknown): value is SoundId {
+  return typeof value === "string" && (SOUND_IDS as string[]).includes(value);
+}
+
 export const SOUNDS: { id: SoundId; label: string; emoji: string }[] = [
   { id: "clochette", label: "Clochette", emoji: "🔔" },
   { id: "bulle",     label: "Bulle",     emoji: "🫧" },
@@ -14,10 +20,22 @@ let ctx: AudioContext | null = null;
 
 function getCtx(): AudioContext {
   if (!ctx || ctx.state === "closed") {
-    ctx = new AudioContext();
+    const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) throw new Error("AudioContext indisponible");
+    ctx = new AudioContextCtor();
   }
   if (ctx.state === "suspended") ctx.resume();
   return ctx;
+}
+
+export function unlockSoundEngine() {
+  if (typeof window === "undefined" || !("AudioContext" in window || "webkitAudioContext" in window)) return;
+  try {
+    const c = getCtx();
+    if (c.state === "suspended") void c.resume();
+  } catch (e) {
+    console.warn("pensee-sound:", e);
+  }
 }
 
 // ── Sons individuels ────────────────────────────────────────────────────────
@@ -98,12 +116,12 @@ function playHarpe() {
 export function playSound(id: SoundId) {
   if (typeof window === "undefined" || !("AudioContext" in window || "webkitAudioContext" in window)) return;
   try {
+    if (id === "silence") { unlockSoundEngine(); return; }
     switch (id) {
       case "clochette": playClochette(); break;
       case "bulle":     playBulle();     break;
       case "bise":      playBise();      break;
       case "harpe":     playHarpe();     break;
-      case "silence":   break;
     }
   } catch (e) {
     console.warn("pensee-sound:", e);
