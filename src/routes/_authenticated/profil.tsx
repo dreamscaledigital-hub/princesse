@@ -104,7 +104,9 @@ function ProfilPage() {
       const p = data as Profile;
       setMe(p);
       setDailyNotif(p.daily_notif_enabled !== false);
-      setPenseeSound((p.pensee_sound ?? "clochette") as SoundId);
+      const sound = (p.pensee_sound ?? "clochette") as SoundId;
+      setPenseeSound(sound);
+      cachePenseeSound(sound);
       resetDraft(p);
     }
 
