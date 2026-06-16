@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, BellOff, LayoutDashboard, LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
 import { playSound, SOUNDS, type SoundId } from "@/lib/pensee-sound";
+import { cachePenseeSound } from "@/lib/notification-sound";
 import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
