@@ -43,6 +43,27 @@ export function useNotificationSoundBridge() {
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
+    // Unlock the AudioContext on the first user gesture so later
+    // notifications (which are not triggered by a gesture) can play.
+    function unlock() {
+      try { playSound("silence"); } catch { /* ignore */ }
+      // Trigger a no-op oscillator via current cached sound at zero gain by
+      // simply calling the engine once — the AudioContext is then resumed.
+      try {
+        const AC = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+        if (AC) {
+          const c = new AC();
+          if (c.state === "suspended") c.resume().catch(() => {});
+        }
+      } catch { /* ignore */ }
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
+    }
+    window.addEventListener("pointerdown", unlock, { once: false });
+    window.addEventListener("keydown", unlock, { once: false });
+    window.addEventListener("touchstart", unlock, { once: false });
+
     (async () => {
       const { data } = await supabase.auth.getUser();
       const uid = data.user?.id;
@@ -82,6 +103,9 @@ export function useNotificationSoundBridge() {
 
     return () => {
       cancelled = true;
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
       if (channel) supabase.removeChannel(channel);
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener("message", onSwMessage);

@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar } from "@/components/Avatar";
 import { sendPensee } from "@/lib/push-client";
-import { playSound, type SoundId } from "@/lib/pensee-sound";
+import { type SoundId } from "@/lib/pensee-sound";
+import { cachePenseeSound, playNotificationSound } from "@/lib/notification-sound";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/messages")({
@@ -65,7 +66,7 @@ function MessagesPage() {
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastTypingSentRef = useRef(0);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const soundRef = useRef<SoundId>("clochette");
+  // (sound preference is read live from cache via playNotificationSound)
 
   // Initial load
   useEffect(() => {
@@ -78,7 +79,8 @@ function MessagesPage() {
       const { data: meProf } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
       if (cancelled) return;
       setMe(meProf as Profile);
-      soundRef.current = ((meProf as { pensee_sound?: string })?.pensee_sound ?? "clochette") as SoundId;
+      const s = (meProf as { pensee_sound?: string })?.pensee_sound;
+      if (s) cachePenseeSound(s as SoundId);
 
       const { data: c } = await supabase
         .from("couples").select("*")
@@ -115,7 +117,7 @@ function MessagesPage() {
           const m = payload.new as Message;
           setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
           // Jouer le son si c'est un message du partenaire (pas le mien)
-          if (m.sender_id !== me?.id) playSound(soundRef.current);
+          if (m.sender_id !== me?.id) playNotificationSound();
         })
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "messages", filter: `couple_id=eq.${coupleId}` },
