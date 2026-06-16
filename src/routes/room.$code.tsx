@@ -57,6 +57,7 @@ import { Riddles } from "@/components/Riddles";
 import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
 import { TapEclair } from "@/components/TapEclair";
+import { DrawMode } from "@/components/DrawMode";
 import { NotreListe } from "@/components/NotreListe";
 import { AmbianceTheme } from "@/components/AmbianceTheme";
 import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
@@ -236,7 +237,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower" || mode === "bounce" || mode === "tap") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower" || mode === "bounce" || mode === "tap" || mode === "draw") {
       await supabase
         .from("rooms")
         .update({
@@ -929,6 +930,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   if (room.mode === "tap") {
     return (
       <TapEclair
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
+  if (room.mode === "draw") {
+    return (
+      <DrawMode
         room={room}
         mySlot={mySlot}
         myName={myName}
