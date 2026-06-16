@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
 import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -255,7 +255,11 @@ function ProfilPage() {
           </motion.div>
         )}
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-2">
+          <a href="/widget" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50/60 text-sm font-medium text-rose-500 transition hover:bg-rose-100">
+            <LayoutDashboard className="h-4 w-4" />
+            Notre widget 🌸
+          </a>
           <Button onClick={logout} variant="outline" className="h-12 w-full rounded-2xl text-muted-foreground hover:border-red-300 hover:text-red-500">
             <LogOut className="mr-2 h-4 w-4" /> Se déconnecter
           </Button>

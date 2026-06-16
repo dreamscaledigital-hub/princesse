@@ -12,5 +12,35 @@
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Envoyer une pensée 💕",
+      "short_name": "Pensée",
+      "description": "Envoie un message tendre à ton amour",
+      "url": "/pensees",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Nos jeux ⚡",
+      "short_name": "Jeux",
+      "description": "Lance une partie avec ton amour",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notre chat 💌",
+      "short_name": "Chat",
+      "description": "Voir nos messages",
+      "url": "/messages",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notre widget 🌸",
+      "short_name": "Widget",
+      "description": "Vue rapide — partenaire, humeur, jours ensemble",
+      "url": "/widget",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }
