@@ -1,35 +1,48 @@
 import { useEffect } from "react";
-import { playSound, type SoundId } from "@/lib/pensee-sound";
+import { isSoundId, playSound, unlockSoundEngine, type SoundId } from "@/lib/pensee-sound";
 import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "princesse:pensee_sound";
 const DEFAULT_SOUND: SoundId = "clochette";
-
-const VALID: SoundId[] = ["clochette", "bulle", "bise", "harpe", "silence"];
-
-function isSoundId(v: unknown): v is SoundId {
-  return typeof v === "string" && (VALID as string[]).includes(v);
-}
+let activeSound: SoundId = DEFAULT_SOUND;
 
 export function getCachedPenseeSound(): SoundId {
   if (typeof window === "undefined") return DEFAULT_SOUND;
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
-    return isSoundId(v) ? v : DEFAULT_SOUND;
+    activeSound = isSoundId(v) ? v : activeSound;
+    return activeSound;
   } catch {
-    return DEFAULT_SOUND;
+    return activeSound;
   }
 }
 
 export function cachePenseeSound(id: SoundId) {
+  if (!isSoundId(id)) return;
+  activeSound = id;
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, id);
   } catch { /* ignore */ }
 }
 
+export async function refreshPenseeSoundFromProfile() {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) return activeSound;
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("pensee_sound")
+    .eq("id", uid)
+    .maybeSingle();
+  const s = (prof as { pensee_sound?: string } | null)?.pensee_sound;
+  if (isSoundId(s)) cachePenseeSound(s);
+  return activeSound;
+}
+
 export function playNotificationSound() {
-  playSound(getCachedPenseeSound());
+  playSound(activeSound);
 }
 
 /**
@@ -46,16 +59,7 @@ export function useNotificationSoundBridge() {
     // Unlock the AudioContext on the first user gesture so later
     // notifications (which are not triggered by a gesture) can play.
     function unlock() {
-      try { playSound("silence"); } catch { /* ignore */ }
-      // Trigger a no-op oscillator via current cached sound at zero gain by
-      // simply calling the engine once — the AudioContext is then resumed.
-      try {
-        const AC = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
-        if (AC) {
-          const c = new AC();
-          if (c.state === "suspended") c.resume().catch(() => {});
-        }
-      } catch { /* ignore */ }
+      unlockSoundEngine();
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       window.removeEventListener("touchstart", unlock);
@@ -69,13 +73,7 @@ export function useNotificationSoundBridge() {
       const uid = data.user?.id;
       if (!uid || cancelled) return;
 
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("pensee_sound")
-        .eq("id", uid)
-        .maybeSingle();
-      const s = (prof as { pensee_sound?: string } | null)?.pensee_sound;
-      if (isSoundId(s)) cachePenseeSound(s);
+      await refreshPenseeSoundFromProfile();
 
       channel = supabase
         .channel(`profile-sound-${uid}`)
@@ -93,7 +91,7 @@ export function useNotificationSoundBridge() {
     function onSwMessage(ev: MessageEvent) {
       const data = ev.data as { type?: string } | null;
       if (data && data.type === "play-notification-sound") {
-        playNotificationSound();
+        void refreshPenseeSoundFromProfile().finally(() => playNotificationSound());
       }
     }
 
