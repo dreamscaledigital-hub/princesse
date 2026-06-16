@@ -132,6 +132,9 @@ function RootComponent() {
     import("../lib/sw-register").then((m) => m.registerServiceWorker());
   }, []);
 
+  useNotificationSoundBridge();
+
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
