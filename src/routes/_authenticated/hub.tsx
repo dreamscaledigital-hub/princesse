@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/Avatar";
+import { DailyRitual } from "@/components/DailyRitual";
 import {
   subscribeToPush,
   sendPensee,
@@ -17,6 +18,7 @@ import {
   isStandalonePWA,
 } from "@/lib/push-client";
 import { InstallPrompt } from "@/components/InstallPrompt";
+
 
 export const Route = createFileRoute("/_authenticated/hub")({
   head: () => ({ meta: [{ title: "Notre nid 💕 — Princesse" }] }),
