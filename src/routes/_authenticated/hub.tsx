@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/Avatar";
+import { DailyRitual } from "@/components/DailyRitual";
 import {
   subscribeToPush,
   sendPensee,
@@ -17,6 +18,7 @@ import {
   isStandalonePWA,
 } from "@/lib/push-client";
 import { InstallPrompt } from "@/components/InstallPrompt";
+
 
 export const Route = createFileRoute("/_authenticated/hub")({
   head: () => ({ meta: [{ title: "Notre nid 💕 — Princesse" }] }),
@@ -305,22 +307,32 @@ function HubPage() {
           busy={pairBusy}
         />
       ) : (
-        <PenseeUI
-          partnerName={partner?.display_name || "ton amour"}
-          perm={perm}
-          onEnable={enablePush}
-          subscribing={subscribing}
-          diagnosing={diagnosing}
-          onDiagnose={diagnose}
-          quick={QUICK_MESSAGES}
-          message={message}
-          setMessage={setMessage}
-          send={send}
-          sending={sending}
-          justPaired={justPaired}
-          onUnpair={unpair}
-        />
+        <div className="mt-6 space-y-5">
+          {me && partner && (
+            <DailyRitual
+              myId={me.id}
+              partnerId={partner.id}
+              partnerName={partner.display_name || "ton amour"}
+            />
+          )}
+          <PenseeUI
+            partnerName={partner?.display_name || "ton amour"}
+            perm={perm}
+            onEnable={enablePush}
+            subscribing={subscribing}
+            diagnosing={diagnosing}
+            onDiagnose={diagnose}
+            quick={QUICK_MESSAGES}
+            message={message}
+            setMessage={setMessage}
+            send={send}
+            sending={sending}
+            justPaired={justPaired}
+            onUnpair={unpair}
+          />
+        </div>
       )}
+
 
       <InstallPrompt />
     </div>

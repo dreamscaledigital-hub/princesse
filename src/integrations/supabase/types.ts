@@ -154,6 +154,82 @@ export type Database = {
           },
         ]
       }
+      daily_entries: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: string
+          mood_emoji: string | null
+          mood_word: string | null
+          ritual_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          mood_emoji?: string | null
+          mood_word?: string | null
+          ritual_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          mood_emoji?: string | null
+          mood_word?: string | null
+          ritual_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_entries_ritual_id_fkey"
+            columns: ["ritual_id"]
+            isOneToOne: false
+            referencedRelation: "daily_rituals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_rituals: {
+        Row: {
+          ambiance: string | null
+          couple_id: string
+          created_at: string
+          id: string
+          question: string
+          ritual_date: string
+        }
+        Insert: {
+          ambiance?: string | null
+          couple_id: string
+          created_at?: string
+          id?: string
+          question: string
+          ritual_date?: string
+        }
+        Update: {
+          ambiance?: string | null
+          couple_id?: string
+          created_at?: string
+          id?: string
+          question?: string
+          ritual_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_rituals_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duels: {
         Row: {
           code: string
@@ -550,6 +626,7 @@ export type Database = {
     Functions: {
       consume_pairing_code: { Args: { _code: string }; Returns: string }
       couple_for_user: { Args: { _uid: string }; Returns: string }
+      couple_streak: { Args: { _couple_id: string }; Returns: number }
       increment_tap: {
         Args: { _delta: number; _room_id: string; _slot: number }
         Returns: undefined

@@ -121,8 +121,50 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Envoi d'une pensée ──────────────────────────────────────────────────
+    // ── Broadcast quotidien (rituel du jour) ────────────────────────────────
+    if (action === "daily_broadcast") {
+      const apikey = req.headers.get("apikey") || "";
+      const auth = req.headers.get("Authorization") || "";
+      // Garde minimale : l'appel doit présenter la clé anon ou service role
+      // (pg_cron utilise la anon key). Pas de PII renvoyée, payload générique.
+      if (apikey !== ANON && !auth.includes(ANON) && !auth.includes(SERVICE_ROLE)) {
+        return ok({ ok: false, reason: "forbidden" });
+      }
+
+      try { ensureVapid(); } catch (e) {
+        return ok({ ok: false, reason: (e as Error).message });
+      }
+      const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+      const { data: subs } = await admin.from("push_subscriptions").select("*");
+      if (!subs || subs.length === 0) return ok({ ok: true, sent: 0 });
+
+      const payload = JSON.stringify({
+        title: "Votre rituel du jour vous attend 💕",
+        body: "Une nouvelle question tendre est prête pour vous deux.",
+        url: "/hub",
+      });
+      let success = 0;
+      const expired: string[] = [];
+      await Promise.all(subs.map(async (s) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+            payload,
+          );
+          success++;
+        } catch (err: any) {
+          const code = err?.statusCode;
+          if (code === 404 || code === 410) expired.push(s.endpoint);
+        }
+      }));
+      if (expired.length) {
+        await admin.from("push_subscriptions").delete().in("endpoint", expired);
+      }
+      return ok({ ok: true, sent: success });
+    }
+
     if (action !== "send") return ok({ ok: false, reason: "action inconnue" });
+
 
     const user = await getUser(req);
     if (!user) return ok({ ok: false, reason: "non authentifié — reconnecte-toi" });
