@@ -188,6 +188,7 @@ function ProfilPage() {
     async function savePenseeSound(s: SoundId) {
     if (!me) return;
     setPenseeSound(s);
+    cachePenseeSound(s);
     playSound(s);
     await supabase.from("profiles").update({ pensee_sound: s }).eq("id", me.id);
   }
