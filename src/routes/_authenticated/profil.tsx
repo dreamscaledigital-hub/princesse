@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, BellOff, LayoutDashboard, LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
-import { playSound, SOUNDS, type SoundId } from "@/lib/pensee-sound";
+import { isSoundId, playSound, SOUNDS, type SoundId } from "@/lib/pensee-sound";
 import { cachePenseeSound } from "@/lib/notification-sound";
 import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
@@ -104,7 +104,7 @@ function ProfilPage() {
       const p = data as Profile;
       setMe(p);
       setDailyNotif(p.daily_notif_enabled !== false);
-      const sound = (p.pensee_sound ?? "clochette") as SoundId;
+      const sound = isSoundId(p.pensee_sound) ? p.pensee_sound : "clochette";
       setPenseeSound(sound);
       cachePenseeSound(sound);
       resetDraft(p);
@@ -138,7 +138,13 @@ function ProfilPage() {
         { event: "UPDATE", schema: "public", table: "profiles" },
         (payload) => {
           const row = payload.new as Profile;
-          if (row.id === meIdRef.current) setMe((prev) => (prev ? { ...prev, ...row } : row));
+          if (row.id === meIdRef.current) {
+            setMe((prev) => (prev ? { ...prev, ...row } : row));
+            if (isSoundId(row.pensee_sound)) {
+              setPenseeSound(row.pensee_sound);
+              cachePenseeSound(row.pensee_sound);
+            }
+          }
           else if (partner && row.id === partner.id) setPartner((prev) => (prev ? { ...prev, ...row } : row));
         },
       )
@@ -189,10 +195,17 @@ function ProfilPage() {
 
     async function savePenseeSound(s: SoundId) {
     if (!me) return;
+    const previous = penseeSound;
     setPenseeSound(s);
+    const { error } = await supabase.from("profiles").update({ pensee_sound: s }).eq("id", me.id);
+    if (error) {
+      setPenseeSound(previous);
+      toast.error("Le son n'a pas pu être enregistré");
+      return;
+    }
     cachePenseeSound(s);
+    setMe({ ...me, pensee_sound: s });
     playSound(s);
-    await supabase.from("profiles").update({ pensee_sound: s }).eq("id", me.id);
   }
 
   async function save() {
