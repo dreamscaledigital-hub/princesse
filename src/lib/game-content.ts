@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "full" | "edit_secrets" | "wishlist";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "p4" | "full" | "edit_secrets" | "wishlist";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -99,6 +99,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Dessine & Devine",
     subtitle: "4 rounds — dessine, fais deviner, gagne",
     gradient: "from-purple-200/80 to-pink-300/80",
+  },
+  {
+    id: "p4",
+    emoji: "🔴",
+    title: "Puissance 4",
+    subtitle: "Aligne 4 pièces avant l'autre. Stratégie pur !",
+    gradient: "from-red-200/80 to-rose-300/80",
   },
   {
     id: "full",
@@ -282,7 +289,7 @@ export const BADGE_GAGE_PERSO = (auteur: string) =>
   `💕 Gage spécial de ${auteur}`;
 
 // ── Mini-jeux ──
-export const MINIGAME_IDS = ["green", "culture", "rps", "memory"] as const;
+export const MINIGAME_IDS = ["green", "culture", "rps", "memory", "p4"] as const;
 export type MinigameId = (typeof MINIGAME_IDS)[number];
 
 export const MINIGAME_LABELS: Record<MinigameId, string> = {
@@ -290,6 +297,7 @@ export const MINIGAME_LABELS: Record<MinigameId, string> = {
   culture: "Quiz Flash 🧠",
   rps: "Pierre-Feuille-Ciseaux ✌️",
   memory: "Mémoire des cœurs 💞",
+  p4: "Puissance 4 🔴",
 };
 
 export const MINIGAME_DESCRIPTIONS: Record<MinigameId, string> = {
@@ -297,6 +305,7 @@ export const MINIGAME_DESCRIPTIONS: Record<MinigameId, string> = {
   culture: "Une question surprise. Premier à répondre juste gagne.",
   rps: "Best-of-3. Choix simultané, qui va gagner ?",
   memory: "Mémorise la suite d'émojis, puis retrouve-la avant l'autre.",
+  p4: "Aligne 4 pièces avant l'autre. Stratégie et observation !",
 };
 
 export const HEART_MEMORY_SHOW_MS = 2600;

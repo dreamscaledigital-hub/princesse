@@ -17,6 +17,7 @@ const EMOJI: Record<MinigameId, string> = {
   green: "🚦",
   culture: "🧠",
   rps: "✌️",
+  p4: "🔴",
 };
 
 const GRADIENT: Record<MinigameId, string> = {
@@ -24,6 +25,7 @@ const GRADIENT: Record<MinigameId, string> = {
   green: "from-emerald-200/80 to-lime-300/80",
   culture: "from-sky-200/80 to-indigo-300/80",
   rps: "from-amber-200/80 to-orange-300/80",
+  p4: "from-red-200/80 to-rose-300/80",
 };
 
 export function MinigamesMenu({ onPick, onBack }: Props) {

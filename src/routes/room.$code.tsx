@@ -58,6 +58,7 @@ import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
 import { TapEclair } from "@/components/TapEclair";
 import { DrawMode } from "@/components/DrawMode";
+import { P4Game } from "@/components/P4Game";
 import { NotreListe } from "@/components/NotreListe";
 import { AmbianceTheme } from "@/components/AmbianceTheme";
 import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
@@ -237,7 +238,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower" || mode === "bounce" || mode === "tap" || mode === "draw") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower" || mode === "bounce" || mode === "tap" || mode === "draw" || mode === "p4") {
       await supabase
         .from("rooms")
         .update({
@@ -917,6 +918,19 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   if (room.mode === "bounce") {
     return (
       <ColorBounce
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+        onDareDone={onDareDone}
+      />
+    );
+  }
+
+  if (room.mode === "p4") {
+    return (
+      <P4Game
         room={room}
         mySlot={mySlot}
         myName={myName}
