@@ -440,8 +440,10 @@ export type Database = {
           avatar_options: Json
           avatar_style: string
           created_at: string
+          daily_notif_enabled: boolean
           display_name: string
           id: string
+          pensee_sound: string
           updated_at: string
         }
         Insert: {
@@ -449,8 +451,10 @@ export type Database = {
           avatar_options?: Json
           avatar_style?: string
           created_at?: string
+          daily_notif_enabled?: boolean
           display_name?: string
           id: string
+          pensee_sound?: string
           updated_at?: string
         }
         Update: {
@@ -458,8 +462,10 @@ export type Database = {
           avatar_options?: Json
           avatar_style?: string
           created_at?: string
+          daily_notif_enabled?: boolean
           display_name?: string
           id?: string
+          pensee_sound?: string
           updated_at?: string
         }
         Relationships: []
