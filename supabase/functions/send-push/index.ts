@@ -123,12 +123,14 @@ Deno.serve(async (req) => {
 
     // ── Broadcast quotidien (rituel du jour) ────────────────────────────────
     if (action === "daily_broadcast") {
-      const auth = req.headers.get("Authorization") || "";
       const apikey = req.headers.get("apikey") || "";
-      // Garde : seul un appel avec la clé service role est autorisé (pg_cron)
-      if (!auth.includes(SERVICE_ROLE) && apikey !== SERVICE_ROLE) {
+      const auth = req.headers.get("Authorization") || "";
+      // Garde minimale : l'appel doit présenter la clé anon ou service role
+      // (pg_cron utilise la anon key). Pas de PII renvoyée, payload générique.
+      if (apikey !== ANON && !auth.includes(ANON) && !auth.includes(SERVICE_ROLE)) {
         return ok({ ok: false, reason: "forbidden" });
       }
+
       try { ensureVapid(); } catch (e) {
         return ok({ ok: false, reason: (e as Error).message });
       }
