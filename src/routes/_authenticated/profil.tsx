@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, BellOff, LayoutDashboard, LogOut, Pencil, Sparkles, Save, X, Shuffle, Palette, FlipHorizontal, Image as ImageIcon, User2, Wand2 } from "lucide-react";
+import { playSound, SOUNDS, type SoundId } from "@/lib/pensee-sound";
 import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,7 @@ type Profile = {
   avatar_style: string;
   avatar_options: AvatarOptions;
   daily_notif_enabled: boolean;
+  pensee_sound: string;
 };
 
 const NAME_EMOJIS = ["", "💕", "🌸", "🦋", "🌙", "⭐", "🌹", "🍀", "🐝", "🦊", "🐻", "✨", "🍓", "🌷"];
@@ -59,6 +61,7 @@ function ProfilPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [dailyNotif, setDailyNotif] = useState(true);
+  const [penseeSound, setPenseeSound] = useState<SoundId>("clochette");
   const meIdRef = useRef<string | null>(null);
 
   async function generateFromAI() {
@@ -100,6 +103,7 @@ function ProfilPage() {
       const p = data as Profile;
       setMe(p);
       setDailyNotif(p.daily_notif_enabled !== false);
+      setPenseeSound((p.pensee_sound ?? "clochette") as SoundId);
       resetDraft(p);
     }
 
@@ -180,7 +184,14 @@ function ProfilPage() {
     toast.success(next ? "Notif du matin activée 🔔" : "Notif du matin désactivée 🔕", { duration: 1800 });
   }
 
-    async function save() {
+    async function savePenseeSound(s: SoundId) {
+    if (!me) return;
+    setPenseeSound(s);
+    playSound(s);
+    await supabase.from("profiles").update({ pensee_sound: s }).eq("id", me.id);
+  }
+
+  async function save() {
     if (!me) return;
     const name = draftName.trim();
     if (!name) { toast.error("Choisis un petit nom 💕"); return; }
@@ -266,7 +277,29 @@ function ProfilPage() {
           </motion.div>
         )}
 
-        <div className="mt-6 flex flex-col gap-2">
+        {/* Son des pensées */}
+        <div className="mt-6 overflow-hidden rounded-3xl border border-primary/15 bg-white/55 p-4 backdrop-blur">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Son des pensées reçues</p>
+          <div className="grid grid-cols-5 gap-2">
+            {SOUNDS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => savePenseeSound(s.id)}
+                className={`flex flex-col items-center gap-1 rounded-2xl border py-2.5 text-center transition ${
+                  penseeSound === s.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-muted bg-muted/20 text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                <span className="text-xl">{s.emoji}</span>
+                <span className="text-[9px] font-medium leading-tight">{s.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground">Appuie pour écouter et sélectionner ✨</p>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2">
           <button
             onClick={toggleNotif}
             className={`flex h-12 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium transition ${
