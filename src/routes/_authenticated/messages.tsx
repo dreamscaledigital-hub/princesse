@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar } from "@/components/Avatar";
 import { sendPensee } from "@/lib/push-client";
-import { type SoundId } from "@/lib/pensee-sound";
+import { isSoundId } from "@/lib/pensee-sound";
 import { cachePenseeSound, playNotificationSound } from "@/lib/notification-sound";
 import { cn } from "@/lib/utils";
 
@@ -80,7 +80,7 @@ function MessagesPage() {
       if (cancelled) return;
       setMe(meProf as Profile);
       const s = (meProf as { pensee_sound?: string })?.pensee_sound;
-      if (s) cachePenseeSound(s as SoundId);
+      if (isSoundId(s)) cachePenseeSound(s);
 
       const { data: c } = await supabase
         .from("couples").select("*")
