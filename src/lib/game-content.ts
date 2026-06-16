@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "full" | "edit_secrets" | "wishlist";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "full" | "edit_secrets" | "wishlist";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -92,6 +92,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Tap Éclair",
     subtitle: "Réflexes éclair — best of 5, gage à la clé",
     gradient: "from-yellow-200/80 to-rose-300/80",
+  },
+  {
+    id: "draw",
+    emoji: "🎨",
+    title: "Dessine & Devine",
+    subtitle: "4 rounds — dessine, fais deviner, gagne",
+    gradient: "from-purple-200/80 to-pink-300/80",
   },
   {
     id: "full",
