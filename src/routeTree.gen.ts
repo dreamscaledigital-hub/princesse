@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WidgetRouteImport } from './routes/widget'
 import { Route as DuelRouteImport } from './routes/duel'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -20,6 +21,11 @@ import { Route as AuthenticatedPenseesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedHubRouteImport } from './routes/_authenticated/hub'
 
+const WidgetRoute = WidgetRouteImport.update({
+  id: '/widget',
+  path: '/widget',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DuelRoute = DuelRouteImport.update({
   id: '/duel',
   path: '/duel',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/duel': typeof DuelRouteWithChildren
+  '/widget': typeof WidgetRoute
   '/hub': typeof AuthenticatedHubRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/pensees': typeof AuthenticatedPenseesRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/duel': typeof DuelRouteWithChildren
+  '/widget': typeof WidgetRoute
   '/hub': typeof AuthenticatedHubRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/pensees': typeof AuthenticatedPenseesRoute
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/duel': typeof DuelRouteWithChildren
+  '/widget': typeof WidgetRoute
   '/_authenticated/hub': typeof AuthenticatedHubRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/pensees': typeof AuthenticatedPenseesRoute
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/duel'
+    | '/widget'
     | '/hub'
     | '/messages'
     | '/pensees'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/duel'
+    | '/widget'
     | '/hub'
     | '/messages'
     | '/pensees'
@@ -134,6 +145,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/duel'
+    | '/widget'
     | '/_authenticated/hub'
     | '/_authenticated/messages'
     | '/_authenticated/pensees'
@@ -147,11 +159,19 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   DuelRoute: typeof DuelRouteWithChildren
+  WidgetRoute: typeof WidgetRoute
   RoomCodeRoute: typeof RoomCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/widget': {
+      id: '/widget'
+      path: '/widget'
+      fullPath: '/widget'
+      preLoaderRoute: typeof WidgetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/duel': {
       id: '/duel'
       path: '/duel'
@@ -257,8 +277,19 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   DuelRoute: DuelRouteWithChildren,
+  WidgetRoute: WidgetRoute,
   RoomCodeRoute: RoomCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
