@@ -95,7 +95,7 @@ function ProfilPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, avatar_emoji, avatar_style, avatar_options, daily_notif_enabled")
+      .select("id, display_name, avatar_emoji, avatar_style, avatar_options, daily_notif_enabled, pensee_sound")
       .eq("id", ures.user.id)
       .maybeSingle();
 
