@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "p4" | "full" | "edit_secrets" | "wishlist";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "p4" | "wheel" | "full" | "edit_secrets" | "wishlist";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -106,6 +106,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Puissance 4",
     subtitle: "Aligne 4 pièces avant l'autre. Stratégie pur !",
     gradient: "from-red-200/80 to-rose-300/80",
+  },
+  {
+    id: "wheel",
+    emoji: "🎡",
+    title: "Roue des Défis",
+    subtitle: "Tourne la roue, accomplis le défi — 6 rounds !",
+    gradient: "from-fuchsia-200/80 to-rose-300/80",
   },
   {
     id: "full",
