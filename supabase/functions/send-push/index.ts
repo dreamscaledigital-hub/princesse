@@ -164,7 +164,62 @@ Deno.serve(async (req) => {
     }
 
 
-    // ── Morning digest — notif personnalisée par couple ──────────────────────
+    // ── Notif quand un message chat est reçu ────────────────────────────────
+    if (action === "new_message") {
+      try { ensureVapid(); } catch (e) {
+        return ok({ ok: false, reason: (e as Error).message });
+      }
+      const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+      const senderId = String(body.sender_id || "");
+      const coupleId = String(body.couple_id || "");
+      const msgBody  = String(body.message_body || "").slice(0, 140);
+      if (!senderId || !coupleId) return ok({ ok: false, reason: "missing ids" });
+
+      const { data: couple } = await admin.from("couples")
+        .select("user_a,user_b").eq("id", coupleId).maybeSingle();
+      if (!couple) return ok({ ok: false, reason: "couple introuvable" });
+      const partnerId = couple.user_a === senderId ? couple.user_b : couple.user_a;
+
+      const { data: senderProf } = await admin.from("profiles")
+        .select("display_name").eq("id", senderId).maybeSingle();
+      const fromName = senderProf?.display_name || "Ton amour";
+
+      const { data: partnerProf } = await admin.from("profiles")
+        .select("pensee_sound").eq("id", partnerId).maybeSingle();
+      const sound = (partnerProf as { pensee_sound?: string } | null)?.pensee_sound || "clochette";
+
+      const { data: subs } = await admin.from("push_subscriptions")
+        .select("*").eq("user_id", partnerId);
+      if (!subs || subs.length === 0) return ok({ ok: true, sent: 0 });
+
+      const payload = JSON.stringify({
+        title: `${fromName} 💌`,
+        body: msgBody || "Nouveau message",
+        url: "/messages",
+        tag: "message",
+        sound,
+      });
+
+      let sent = 0;
+      const expired: string[] = [];
+      await Promise.all(subs.map(async (s) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+            payload,
+          );
+          sent++;
+        } catch (err: any) {
+          if (err?.statusCode === 404 || err?.statusCode === 410) expired.push(s.endpoint);
+        }
+      }));
+      if (expired.length) {
+        await admin.from("push_subscriptions").delete().in("endpoint", expired);
+      }
+      return ok({ ok: true, sent });
+    }
+
+    // ── Morning digest — notif à 8h Europe/Brussels ──────────────────────────
     if (action === "morning_digest") {
       const apikey = req.headers.get("apikey") || "";
       const auth = req.headers.get("Authorization") || "";
@@ -172,87 +227,85 @@ Deno.serve(async (req) => {
         return ok({ ok: false, reason: "forbidden" });
       }
 
+      // GARDE-FOU FUSEAU : n'envoie que si l'heure Bruxelles est 8h.
+      const localHour = parseInt(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Brussels", hour: "2-digit", hour12: false,
+        }).format(new Date()),
+        10,
+      );
+      if (localHour !== 8) {
+        return ok({ ok: true, skipped: true, reason: `local hour Brussels is ${localHour}` });
+      }
+
+      const todayBrussels = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Brussels", year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(new Date()); // YYYY-MM-DD
+
+      const FALLBACK_QUESTIONS = [
+        "Quel souvenir partagé te fait fondre à chaque fois ?",          // dim
+        "Qu'as-tu hâte de partager avec ton amour cette semaine ?",      // lun
+        "Quel petit geste de ton amour te manque en ce moment ?",        // mar
+        "Quelle aventure aimerais-tu vivre à deux bientôt ?",            // mer
+        "Qu'est-ce qui te rend fier·ère de votre couple ?",              // jeu
+        "Quelle chanson te fait penser à vous deux ?",                   // ven
+        "Quelle est ta façon préférée d'être aimé·e ?",                  // sam
+      ];
+      const dow = new Date(`${todayBrussels}T08:00:00+02:00`).getUTCDay();
+
       try { ensureVapid(); } catch (e) {
         return ok({ ok: false, reason: (e as Error).message });
       }
 
       const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-
-      // Tous les couples
-      const { data: couples } = await admin.from("couples").select("id,user_a,user_b,created_at");
+      const { data: couples } = await admin
+        .from("couples")
+        .select("id,user_a,user_b,last_morning_digest_date,created_at");
       if (!couples || couples.length === 0) return ok({ ok: true, sent: 0 });
 
       let totalSent = 0;
       const expired: string[] = [];
 
-      await Promise.all(couples.map(async (couple: { id: string; user_a: string; user_b: string; created_at: string }) => {
-        const days = Math.floor((Date.now() - new Date(couple.created_at).getTime()) / 86_400_000);
+      for (const couple of couples as { id: string; user_a: string; user_b: string; last_morning_digest_date: string | null; created_at: string }[]) {
+        // ANTI-DOUBLON : déjà envoyé aujourd'hui pour ce couple
+        if (couple.last_morning_digest_date === todayBrussels) continue;
 
-        // Streak via RPC
         const { data: streak } = await admin.rpc("couple_streak", { _couple_id: couple.id });
         const streakNum = typeof streak === "number" ? streak : 0;
 
-        // Pour chaque membre du couple
+        const { data: ritual } = await admin
+          .from("daily_rituals")
+          .select("question")
+          .eq("couple_id", couple.id)
+          .eq("ritual_date", todayBrussels)
+          .maybeSingle();
+        const question = (ritual as { question?: string } | null)?.question
+          || FALLBACK_QUESTIONS[dow];
+
         for (const [userId, partnerId] of [
           [couple.user_a, couple.user_b],
           [couple.user_b, couple.user_a],
         ] as [string, string][]) {
-          // Vérifier que la notif est activée pour cet utilisateur
-          const { data: prof } = await admin
-            .from("profiles")
-            .select("daily_notif_enabled")
-            .eq("id", userId)
-            .maybeSingle();
+          const { data: prof } = await admin.from("profiles")
+            .select("daily_notif_enabled,pensee_sound").eq("id", userId).maybeSingle();
           if (!prof?.daily_notif_enabled) continue;
+          const sound = (prof as { pensee_sound?: string }).pensee_sound || "clochette";
 
-          // Abonnements push de cet utilisateur
-          const { data: subs } = await admin
-            .from("push_subscriptions")
-            .select("*")
-            .eq("user_id", userId);
+          const { data: subs } = await admin.from("push_subscriptions")
+            .select("*").eq("user_id", userId);
           if (!subs || subs.length === 0) continue;
 
-          // Infos partenaire
-          const { data: partnerProf } = await admin
-            .from("profiles")
-            .select("display_name,avatar_emoji")
-            .eq("id", partnerId)
-            .maybeSingle();
+          const { data: partnerProf } = await admin.from("profiles")
+            .select("display_name").eq("id", partnerId).maybeSingle();
           const partnerName = partnerProf?.display_name || "Ton amour";
-          const partnerEmoji = partnerProf?.avatar_emoji || "💕";
 
-          // Humeur partenaire aujourd'hui (si déjà remplie)
-          const today = new Date().toISOString().split("T")[0];
-          const { data: ritual } = await admin
-            .from("daily_rituals")
-            .select("id")
-            .eq("couple_id", couple.id)
-            .eq("ritual_date", today)
-            .maybeSingle();
-
-          let moodLine = "";
-          if (ritual) {
-            const { data: entry } = await admin
-              .from("daily_entries")
-              .select("mood_emoji,mood_word")
-              .eq("ritual_id", (ritual as { id: string }).id)
-              .eq("user_id", partnerId)
-              .maybeSingle();
-            if (entry?.mood_emoji) {
-              moodLine = ` ${entry.mood_emoji} ${entry.mood_word || ""}`.trim();
-            }
-          }
-
-          // Construire le message
           const streakText = streakNum > 0 ? ` 🔥 ${streakNum} jour${streakNum > 1 ? "s" : ""} de suite !` : "";
-          const body = moodLine
-            ? `${partnerName} est${moodLine} aujourd'hui.${streakText}`
-            : `${partnerName} ${partnerEmoji} pense à toi.${streakText} ${days} jours ensemble 💕`;
-
           const payload = JSON.stringify({
-            title: `Bonjour 🌸 ${partnerName} t'attend !`,
-            body,
+            title: `Bonjour 🌸 ${partnerName} pense à toi !`,
+            body: `${question}${streakText}`,
             url: "/widget",
+            tag: "morning",
+            sound,
           });
 
           await Promise.all(subs.map(async (s: { endpoint: string; p256dh: string; auth: string }) => {
@@ -267,7 +320,11 @@ Deno.serve(async (req) => {
             }
           }));
         }
-      }));
+
+        await admin.from("couples")
+          .update({ last_morning_digest_date: todayBrussels })
+          .eq("id", couple.id);
+      }
 
       if (expired.length) {
         await admin.from("push_subscriptions").delete().in("endpoint", expired);
