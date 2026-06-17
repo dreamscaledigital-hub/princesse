@@ -53,6 +53,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_morning_digest_date: string | null
           room_id: string | null
           user_a: string
           user_b: string
@@ -60,6 +61,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          last_morning_digest_date?: string | null
           room_id?: string | null
           user_a: string
           user_b: string
@@ -67,6 +69,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          last_morning_digest_date?: string | null
           room_id?: string | null
           user_a?: string
           user_b?: string
