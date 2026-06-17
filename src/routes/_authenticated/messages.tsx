@@ -5,7 +5,7 @@ import { ArrowLeft, Send, Smile, ImagePlus, Heart, X, Loader2 } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar } from "@/components/Avatar";
-import { sendPensee } from "@/lib/push-client";
+
 import { isSoundId } from "@/lib/pensee-sound";
 import { cachePenseeSound, playNotificationSound, refreshPenseeSoundFromProfile } from "@/lib/notification-sound";
 import { cn } from "@/lib/utils";
