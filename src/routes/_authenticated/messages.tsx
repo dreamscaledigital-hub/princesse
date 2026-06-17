@@ -244,9 +244,15 @@ function MessagesPage() {
       if (error) throw error;
       const preview = text
         ? (text.length > 80 ? text.slice(0, 77) + "…" : text)
-        : (imagePath ? "📸 t'a envoyé une photo" : "💌 nouveau message");
-      const myName = me.display_name || "ton amour";
-      void sendPensee(`${myName} : ${preview}`).catch(() => {});
+        : (imagePath ? "📷 Photo" : "💌 nouveau message");
+      void supabase.functions.invoke("send-push", {
+        body: {
+          action: "new_message",
+          sender_id: me.id,
+          couple_id: coupleId,
+          message_body: preview,
+        },
+      }).catch(() => {});
       setDraft("");
       setPendingImage(null);
       if (imagePreview) URL.revokeObjectURL(imagePreview);
