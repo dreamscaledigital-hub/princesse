@@ -3,6 +3,10 @@ import { motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { Heart, Dices, KeyRound, Shuffle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { getClientId, generateRoomCode } from "@/lib/player-id";
+import { DEFAULT_NAMES } from "@/lib/game-content";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Princesse 💕" }, { name: "description", content: "Votre petit univers à deux." }] }),
