@@ -334,6 +334,25 @@ function HubPage() {
       )}
 
 
+      {couple && (
+        <div className="mt-4">
+          <a
+            href="/roulette-irl"
+            className="block w-full rounded-3xl overflow-hidden shadow-sm border border-pink-100 transition active:scale-95"
+            style={{ background: "linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #f3e8ff 100%)" }}
+          >
+            <div className="flex items-center gap-4 px-5 py-4">
+              <span className="text-4xl">🎰</span>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-800">Roulette Coquine</p>
+                <p className="text-xs text-gray-400 mt-0.5">5 catégories · provocation · défis · positions</p>
+              </div>
+              <svg className="ml-auto h-5 w-5 text-pink-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </div>
+          </a>
+        </div>
+      )}
+
       <InstallPrompt />
     </div>
   );
