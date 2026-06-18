@@ -146,6 +146,12 @@ function GameCard({ card, delay = 0 }: { card: GameCard; delay?: number }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 function HomePage() {
   const navigate = useNavigate();
+  const [duelCode, setDuelCode] = useState("");
+  const joinByCode = () => {
+    const c = duelCode.trim().toUpperCase();
+    if (c.length < 4) return;
+    navigate({ to: "/duel/$code", params: { code: c } });
+  };
   return (
     <main className="relative min-h-screen overflow-hidden pb-32">
       <HeroBg/>
