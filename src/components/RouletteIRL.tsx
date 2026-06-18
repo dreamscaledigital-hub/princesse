@@ -3,19 +3,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ChevronRight, Check, X, RotateCcw, Trophy, Wifi, WifiOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type Category = {
   id: string; emoji: string; label: string; subtitle: string;
-  color: string; bg: string; challenges: string[]; timerSeconds: number;
+  color: string; glowColor: string; darkGrad: string;
+  challenges: string[]; timerSeconds: number;
 };
 type Phase = "agreement" | "idle" | "spinning" | "reveal" | "challenge" | "result" | "victory";
+
+// ── Categories ────────────────────────────────────────────────────────────────
 
 const CATEGORIES: Category[] = [
   {
     id: "provocation", emoji: "🔥", label: "Provocation",
-    subtitle: "Tu tentes… l'autre résiste", color: "#ef4444",
-    bg: "from-red-500 to-orange-500", timerSeconds: 60,
+    subtitle: "Tu tentes… l'autre résiste",
+    color: "#ff4560", glowColor: "rgba(255,69,96,0.5)", darkGrad: "linear-gradient(135deg,#7f1d1d 0%,#3b0a0a 100%)",
+    timerSeconds: 60,
     challenges: [
-      // ── mild ──
       "Caresse lentement tout le corps de ton/ta partenaire pendant 1 minute — il/elle ne doit pas réagir ni bouger.",
       "Embrasse le cou, l'oreille et la nuque très lentement pendant 60 secondes. Zéro réaction autorisée.",
       "Souffle doucement sur chaque zone sensible sans jamais toucher — 1 minute entière.",
@@ -26,7 +31,6 @@ const CATEGORIES: Category[] = [
       "Regarde ton/ta partenaire droit dans les yeux et caresse les bras très doucement — 1 minute.",
       "Chuchote ce que tu ferais ce soir… très lentement… 1 minute complète.",
       "Masse les épaules et la nuque avec tes pouces, en soufflant dans le cou — 1 minute.",
-      // ── corsé ──
       "Caresse l'intérieur des cuisses de ton/ta partenaire très lentement, en remontant — sans jamais aller plus haut. Il/elle ne bouge pas.",
       "Embrasse le cou, mords légèrement l'oreille, souffle chaud dans la nuque — 60s sans pause.",
       "Promène les doigts sur tout le corps en t'arrêtant juste là où il/elle veut que tu continues — sans jamais y aller.",
@@ -41,10 +45,10 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "aveugle", emoji: "👁️", label: "À l'aveugle",
-    subtitle: "Les yeux bandés, le reste suit", color: "#7c3aed",
-    bg: "from-violet-600 to-purple-700", timerSeconds: 120,
+    subtitle: "Les yeux bandés, le reste suit",
+    color: "#8b5cf6", glowColor: "rgba(139,92,246,0.5)", darkGrad: "linear-gradient(135deg,#4c1d95 0%,#1e0a4a 100%)",
+    timerSeconds: 120,
     challenges: [
-      // ── mild ──
       "Bande les yeux à ton/ta partenaire — embrasse-le/la partout sauf les lèvres pendant 2 minutes.",
       "Les yeux bandés : guide doucement les mains de ton/ta partenaire sur ton corps pendant 2 minutes.",
       "Trace un chemin de baisers du cou jusqu'au ventre, les yeux de ton/ta partenaire bandés.",
@@ -55,7 +59,6 @@ const CATEGORIES: Category[] = [
       "Les yeux fermés, ton/ta partenaire reçoit 2 minutes de plaisir là où tu décides.",
       "Bande les yeux à ton/ta partenaire — prends le contrôle complet du rythme pendant 2 minutes.",
       "Les yeux bandés : ton/ta partenaire choisit une partie du corps, toi tu choisis comment l'explorer.",
-      // ── corsé ──
       "Yeux bandés, mains liées dans le dos — tu as 2 minutes pour explorer ton/ta partenaire sans contrainte.",
       "Bande les yeux à ton/ta partenaire. Utilise tes lèvres et ta langue du ventre vers les hanches — 2 minutes.",
       "Les yeux bandés : ton/ta partenaire doit deviner quelle partie de ton corps tu poses contre lui/elle.",
@@ -70,10 +73,10 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "position", emoji: "💫", label: "Position Insolite",
-    subtitle: "Créativité et complicité", color: "#d97706",
-    bg: "from-amber-500 to-yellow-500", timerSeconds: 120,
+    subtitle: "Créativité et complicité",
+    color: "#f59e0b", glowColor: "rgba(245,158,11,0.5)", darkGrad: "linear-gradient(135deg,#78350f 0%,#2d1500 100%)",
+    timerSeconds: 120,
     challenges: [
-      // ── mild ──
       "Position debout, ton/ta partenaire dos au mur — contact maximal corps entier pendant 2 minutes.",
       "Levrette : ton/ta partenaire penché(e) en avant, toi derrière — tenez la position 2 minutes.",
       "Assis(e) face à face, jambes entremêlées — yeux dans les yeux, mouvements lents — 2 minutes.",
@@ -84,7 +87,6 @@ const CATEGORIES: Category[] = [
       "Ton/ta partenaire allongé(e), toi à genoux à côté — exploration complète — 2 minutes.",
       "À 4 pattes, toi qui guides par derrière — 2 minutes.",
       "Face à face debout, mains partout, mouvements libres — 2 minutes sans s'arrêter.",
-      // ── corsé ──
       "Debout contre le mur, jambes de ton/ta partenaire autour de tes hanches — contact maximal, 2 minutes.",
       "Ton/ta partenaire allongé(e) sur le bord du lit, toi debout — contrôle total du rythme, 2 minutes.",
       "Face à face assis(e), bassin à bassin, mouvements circulaires très lents — yeux dans les yeux, 2 minutes.",
@@ -99,10 +101,10 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "defi", emoji: "⏱️", label: "Le Défi",
-    subtitle: "30 secondes pour réussir", color: "#059669",
-    bg: "from-emerald-500 to-teal-600", timerSeconds: 30,
+    subtitle: "30 secondes pour réussir",
+    color: "#10b981", glowColor: "rgba(16,185,129,0.5)", darkGrad: "linear-gradient(135deg,#064e3b 0%,#012820 100%)",
+    timerSeconds: 30,
     challenges: [
-      // ── mild ──
       "30 secondes pour faire réagir ton/ta partenaire uniquement avec ta bouche — commence !",
       "30 secondes pour faire frémir ton/ta partenaire avec tes seuls doigts — aucun autre contact.",
       "30 secondes pour que ton/ta partenaire te demande de ne pas s'arrêter.",
@@ -113,7 +115,6 @@ const CATEGORIES: Category[] = [
       "30 secondes pour lui/la faire sourire ET frémir simultanément.",
       "30 secondes : ton/ta partenaire résiste et ne bronche pas — bonne chance.",
       "30 secondes pour lui/la faire perdre toute contenance — méthode libre.",
-      // ── corsé ──
       "30 secondes pour lui/la faire retenir son souffle.",
       "30 secondes pour le/la faire s'accrocher à quelque chose.",
       "30 secondes pour lui/la faire fermer les yeux sans le demander.",
@@ -128,10 +129,10 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "soumission", emoji: "🎀", label: "Tu Subis",
-    subtitle: "L'un donne, l'autre reçoit", color: "#db2777",
-    bg: "from-pink-500 to-rose-600", timerSeconds: 120,
+    subtitle: "L'un donne, l'autre reçoit",
+    color: "#ec4899", glowColor: "rgba(236,72,153,0.5)", darkGrad: "linear-gradient(135deg,#831843 0%,#3b0a22 100%)",
+    timerSeconds: 120,
     challenges: [
-      // ── mild ──
       "Allonge-toi et reçois — ton/ta partenaire te masse le corps entier pendant 3 minutes. Tu ne bouges pas.",
       "Mains tenues au-dessus de la tête — tu reçois les baisers de ton/ta partenaire pendant 2 minutes.",
       "Les yeux fermés, tu subis 1 minute de baisers là où ton/ta partenaire le décide — sans protester.",
@@ -142,7 +143,6 @@ const CATEGORIES: Category[] = [
       "Les mains immobiles de chaque côté — ton/ta partenaire explore librement pendant 2 minutes.",
       "Tu fermes les yeux et tu reçois ce que ton/ta partenaire décide de te donner — 2 minutes.",
       "Tu subis 2 minutes de taquineries intenses — ton/ta partenaire s'arrête uniquement quand il/elle veut.",
-      // ── corsé ──
       "Mains tenues dans le dos — tu reçois 2 minutes de baisers là où il/elle choisit, sans dire un mot.",
       "Allongé(e), yeux fermés — il/elle trace lentement ses mains partout pendant 2 minutes sans s'arrêter.",
       "Tu n'as pas le droit de toucher — 2 minutes de caresses ciblées sur tes zones les plus sensibles.",
@@ -157,9 +157,11 @@ const CATEGORIES: Category[] = [
   },
 ];
 
+// ── Wheel math ────────────────────────────────────────────────────────────────
+
 const N = CATEGORIES.length;
 const SEG = 360 / N;
-const CX = 150; const CY = 150; const R = 138;
+const CX = 150; const CY = 150; const R = 136;
 
 function segPath(i: number): string {
   const s = ((i * SEG - 90) * Math.PI) / 180;
@@ -170,7 +172,7 @@ function segPath(i: number): string {
 }
 function emojiPos(i: number) {
   const mid = (((i + 0.5) * SEG - 90) * Math.PI) / 180;
-  const d = R * 0.63;
+  const d = R * 0.62;
   return { x: CX + d * Math.cos(mid), y: CY + d * Math.sin(mid), rotate: (i + 0.5) * SEG };
 }
 function shuffle<T>(arr: T[]): T[] {
@@ -182,101 +184,46 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-const CIRC_R = 44;
+// ── Timer circle ──────────────────────────────────────────────────────────────
+
+const CIRC_R = 46;
 const CIRC = 2 * Math.PI * CIRC_R;
 
-function TimerCircle({ total, left, color }: { total: number; left: number; color: string }) {
+function TimerCircle({ total, left, color, glowColor }: { total: number; left: number; color: string; glowColor: string }) {
   const pct = total > 0 ? left / total : 0;
   const dash = pct * CIRC;
   const urgent = left <= 5 && left > 0;
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg width={110} height={110} viewBox="0 0 110 110">
-        <circle cx={55} cy={55} r={CIRC_R} stroke="#e5e7eb" strokeWidth={8} fill="none" />
-        <circle cx={55} cy={55} r={CIRC_R} stroke={urgent ? "#ef4444" : color} strokeWidth={8} fill="none"
+    <div className="flex flex-col items-center gap-1.5">
+      <svg width={120} height={120} viewBox="0 0 120 120">
+        <defs>
+          <filter id="arc-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        {/* Track */}
+        <circle cx={60} cy={60} r={CIRC_R} stroke="rgba(255,255,255,0.08)" strokeWidth={9} fill="none" />
+        {/* Glow halo */}
+        <circle cx={60} cy={60} r={CIRC_R} stroke={urgent ? "#ef4444" : glowColor} strokeWidth={14} fill="none"
           strokeDasharray={`${dash.toFixed(2)} ${CIRC.toFixed(2)}`} strokeLinecap="round"
-          transform="rotate(-90 55 55)" style={{ transition: "stroke-dasharray 1s linear, stroke 0.3s" }} />
-        <text x={55} y={55} dominantBaseline="middle" textAnchor="middle"
-          fontSize={urgent ? 28 : 24} fontWeight="bold" fill={urgent ? "#ef4444" : "#1f2937"}>{left}</text>
+          transform="rotate(-90 60 60)" opacity={0.25}
+          style={{ transition: "stroke-dasharray 1s linear, stroke 0.3s" }} />
+        {/* Arc */}
+        <circle cx={60} cy={60} r={CIRC_R} stroke={urgent ? "#ef4444" : color} strokeWidth={9} fill="none"
+          strokeDasharray={`${dash.toFixed(2)} ${CIRC.toFixed(2)}`} strokeLinecap="round"
+          transform="rotate(-90 60 60)" filter="url(#arc-glow)"
+          style={{ transition: "stroke-dasharray 1s linear, stroke 0.3s" }} />
+        {/* Number */}
+        <text x={60} y={60} dominantBaseline="middle" textAnchor="middle"
+          fontSize={urgent ? 30 : 26} fontWeight="800" fill={urgent ? "#ef4444" : "white"}>{left}</text>
       </svg>
-      <p className="text-xs text-gray-400">secondes</p>
-
-      {/* ── Agreement screen ── */}
-      <AnimatePresence>
-        {phase === "agreement" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-rose-100 via-pink-50 to-purple-100 px-6 py-10">
-            <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.6 }} className="w-full max-w-sm">
-              <div className="text-center">
-                <p className="text-7xl">💋</p>
-                <h1 className="mt-3 text-3xl font-bold text-gray-800">Roulette Coquine</h1>
-              </div>
-              <div className="mt-5 rounded-3xl bg-white p-6 shadow-lg">
-                <p className="text-sm font-semibold text-gray-700 mb-3">📜 Règles du jeu</p>
-                <p className="text-sm text-gray-600 leading-relaxed">Chacun lance la roue à tour de rôle. La roue désigne une catégorie et un défi à relever.</p>
-                <p className="text-sm text-gray-600 leading-relaxed mt-2">Réussir <span className="font-semibold text-emerald-600">= +1 point</span>. Échouer = pas de point.</p>
-                <div className="mt-4 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-4 text-white text-center">
-                  <p className="text-xl font-bold">🏆 Premier à 10 points</p>
-                  <p className="mt-1 text-sm font-medium opacity-90">peut exiger ce qu'il veut,</p>
-                  <p className="text-sm font-medium opacity-90">quand il veut, où il veut.</p>
-                  <p className="mt-2 text-xs opacity-75 italic">— sans limite de temps —</p>
-                </div>
-                <p className="mt-4 text-xs text-center text-gray-400">En tapant « J'accepte », vous consentez librement à jouer ensemble.</p>
-              </div>
-              <div className="mt-5 flex flex-col items-center gap-3">
-                {!myAgreed ? (
-                  <button onClick={agree} className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95">
-                    💕 J'accepte !
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-6 py-3">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-emerald-600">Tu as accepté !</span>
-                  </div>
-                )}
-                <p className="text-sm text-center">
-                  {partnerAgreed
-                    ? <span className="font-medium text-emerald-500">✓ {theirName} a accepté !</span>
-                    : <span className="text-gray-400 animate-pulse">En attente de {theirName}…</span>}
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Victory screen ── */}
-      <AnimatePresence>
-        {phase === "victory" && winner && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-100 px-6 py-10">
-            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.7 }}>
-              <p className="text-center text-9xl">👑</p>
-            </motion.div>
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-4 text-center w-full max-w-sm">
-              <h1 className="text-4xl font-bold text-gray-800">{winner === 1 ? player1 : player2} gagne !</h1>
-              <div className="mt-5 rounded-3xl bg-white px-8 py-6 shadow-xl text-center">
-                <p className="text-base font-semibold text-gray-500 uppercase tracking-wider">🏆 Ton cadeau</p>
-                <p className="mt-3 text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-pink-500 to-rose-600 leading-tight">Tu exiges ce que tu veux,</p>
-                <p className="text-2xl font-extrabold text-gray-700">quand tu veux,</p>
-                <p className="text-2xl font-extrabold text-gray-700">où tu veux. 😈</p>
-                <p className="mt-3 text-sm text-gray-400 italic">— sans limite de temps —</p>
-              </div>
-              <div className="mt-4 flex items-center justify-center gap-6 rounded-2xl bg-white/80 px-6 py-3 shadow">
-                <div className="text-center"><p className="text-xs text-gray-400">{player1}</p><p className="text-2xl font-bold text-rose-500">{scores[0]}</p></div>
-                <Trophy className="h-5 w-5 text-amber-400" />
-                <div className="text-center"><p className="text-xs text-gray-400">{player2}</p><p className="text-2xl font-bold text-purple-500">{scores[1]}</p></div>
-              </div>
-              <button onClick={restart} className="mt-6 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95 mx-auto">
-                <RotateCcw className="h-4 w-4" /> Nouvelle partie
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <p className="text-xs tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>secondes</p>
     </div>
   );
 }
+
+// ── useTimer ──────────────────────────────────────────────────────────────────
 
 function useTimer(onEnd: () => void) {
   const [left, setLeft] = useState(0);
@@ -289,10 +236,7 @@ function useTimer(onEnd: () => void) {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setTotal(seconds); setLeft(seconds); setRunning(true);
   }
-  function stop() {
-    setRunning(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  }
+  function stop() { setRunning(false); if (intervalRef.current) clearInterval(intervalRef.current); }
   useEffect(() => {
     if (!running) return;
     intervalRef.current = setInterval(() => {
@@ -306,6 +250,29 @@ function useTimer(onEnd: () => void) {
   return { left, total, running, start, stop };
 }
 
+// ── Background orbs ───────────────────────────────────────────────────────────
+
+function Orbs() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden" style={{ background: "#0b0714" }}>
+      <motion.div animate={{ scale: [1, 1.25, 1], opacity: [0.35, 0.55, 0.35] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        style={{ position: "absolute", top: "-20%", left: "-15%", width: 350, height: 350, borderRadius: "50%",
+          background: "radial-gradient(circle, #f43f5e 0%, transparent 70%)" }} />
+      <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.25, 0.4, 0.25] }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        style={{ position: "absolute", bottom: "-20%", right: "-15%", width: 400, height: 400, borderRadius: "50%",
+          background: "radial-gradient(circle, #a855f7 0%, transparent 70%)" }} />
+      <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.15, 0.25, 0.15] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        style={{ position: "absolute", top: "40%", left: "30%", width: 260, height: 260, borderRadius: "50%",
+          background: "radial-gradient(circle, #ec4899 0%, transparent 70%)" }} />
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export interface RouletteIRLProps {
   player1: string; player2: string;
   mySlot: 1 | 2; coupleId: string;
@@ -313,18 +280,18 @@ export interface RouletteIRLProps {
 }
 
 export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: RouletteIRLProps) {
-  const [phase,     setPhase]     = useState<Phase>("agreement");
-  const [turn,      setTurn]      = useState<1 | 2>(1);
-  const [rotation,  setRotation]  = useState(0);
-  const [cat,       setCat]       = useState<Category | null>(null);
-  const [challenge, setChallenge] = useState("");
-  const [scores,    setScores]    = useState<[number, number]>([0, 0]);
-  const [success,   setSuccess]   = useState<boolean | null>(null);
-  const [timerDone, setTimerDone] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [myAgreed,  setMyAgreed]  = useState(false);
-  const [partnerAgreed, setPartnerAgreed] = useState(false);
-  const [winner,    setWinner]    = useState<1 | 2 | null>(null);
+  const [phase,        setPhase]        = useState<Phase>("agreement");
+  const [turn,         setTurn]         = useState<1 | 2>(1);
+  const [rotation,     setRotation]     = useState(0);
+  const [cat,          setCat]          = useState<Category | null>(null);
+  const [challenge,    setChallenge]    = useState("");
+  const [scores,       setScores]       = useState<[number, number]>([0, 0]);
+  const [success,      setSuccess]      = useState<boolean | null>(null);
+  const [timerDone,    setTimerDone]    = useState(false);
+  const [connected,    setConnected]    = useState(false);
+  const [myAgreed,     setMyAgreed]     = useState(false);
+  const [partnerAgreed,setPartnerAgreed]= useState(false);
+  const [winner,       setWinner]       = useState<1 | 2 | null>(null);
 
   const channelRef    = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queuesRef     = useRef<Record<string, string[]>>({});
@@ -333,9 +300,9 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   const isMyTurn    = turn === mySlot;
   const currentName = turn === 1 ? player1 : player2;
   const otherName   = turn === 1 ? player2 : player1;
-  const myName      = mySlot === 1 ? player1 : player2; // eslint-disable-line @typescript-eslint/no-unused-vars
   const theirName   = mySlot === 1 ? player2 : player1;
-  const timer       = useTimer(() => setTimerDone(true));
+
+  const timer = useTimer(() => setTimerDone(true));
 
   function nextChallenge(catId: string, challenges: string[]): string {
     if (!queuesRef.current[catId] || queuesRef.current[catId].length === 0) {
@@ -345,43 +312,34 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   }
 
   useEffect(() => {
-    const ch = supabase.channel(`roulette:${coupleId}`, {
-      config: { broadcast: { self: false } },
-    });
+    const ch = supabase.channel(`roulette:${coupleId}`, { config: { broadcast: { self: false } } });
     ch
       .on("broadcast", { event: "spin" }, ({ payload }: { payload: { catId: string; challenge: string; rotation: number } }) => {
         const found = CATEGORIES.find((c) => c.id === payload.catId) ?? null;
-        setCat(found); setChallenge(payload.challenge);
-        setRotation(payload.rotation); setTimerDone(false);
-        setPhase("spinning");
-        setTimeout(() => setPhase("reveal"), 4300);
+        setCat(found); setChallenge(payload.challenge); setRotation(payload.rotation); setTimerDone(false);
+        setPhase("spinning"); setTimeout(() => setPhase("reveal"), 4300);
       })
       .on("broadcast", { event: "start_challenge" }, ({ payload }: { payload: { seconds: number } }) => {
         setTimerDone(false); setPhase("challenge"); timer.start(payload.seconds);
       })
       .on("broadcast", { event: "result" }, ({ payload }: { payload: { success: boolean; slot: number } }) => {
-        if (processingRef.current) return;
-        processingRef.current = true;
+        if (processingRef.current) return; processingRef.current = true;
         setSuccess(payload.success);
         if (payload.success) setScores((s) => { const n: [number,number]=[s[0],s[1]]; n[payload.slot-1]++; return n; });
-        setPhase("result");
-        setTimeout(() => { processingRef.current = false; }, 500);
+        setPhase("result"); setTimeout(() => { processingRef.current = false; }, 500);
       })
       .on("broadcast", { event: "next" }, ({ payload }: { payload: { nextTurn: 1 | 2 } }) => {
-        setTurn(payload.nextTurn); setCat(null); setChallenge("");
-        setTimerDone(false); setSuccess(null); setPhase("idle");
+        setTurn(payload.nextTurn); setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null); setPhase("idle");
       })
       .on("broadcast", { event: "agreed" }, () => { setPartnerAgreed(true); })
       .on("broadcast", { event: "victory" }, ({ payload }: { payload: { winner: 1|2; newScores: [number,number] } }) => {
-        if (processingRef.current) return;
-        processingRef.current = true;
+        if (processingRef.current) return; processingRef.current = true;
         setScores(payload.newScores); setWinner(payload.winner); setPhase("victory");
         setTimeout(() => { processingRef.current = false; }, 500);
       })
       .on("broadcast", { event: "restart" }, () => {
-        setScores([0, 0]); setWinner(null); setTurn(1);
-        setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null);
-        setPhase("idle");
+        setScores([0,0]); setWinner(null); setTurn(1); setCat(null); setChallenge("");
+        setTimerDone(false); setSuccess(null); setPhase("idle");
       })
       .subscribe((status) => setConnected(status === "SUBSCRIBED"));
     channelRef.current = ch;
@@ -400,12 +358,10 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   }
 
   function restart() {
-    if (processingRef.current) return;
-    processingRef.current = true;
+    if (processingRef.current) return; processingRef.current = true;
     channelRef.current?.send({ type: "broadcast", event: "restart", payload: {} });
-    setScores([0, 0]); setWinner(null); setTurn(1);
-    setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null);
-    setPhase("idle");
+    setScores([0,0]); setWinner(null); setTurn(1); setCat(null); setChallenge("");
+    setTimerDone(false); setSuccess(null); setPhase("idle");
     setTimeout(() => { processingRef.current = false; }, 500);
   }
 
@@ -421,8 +377,7 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
     const newRot = rotation + 1800 + delta + (Math.random() - 0.5) * 24;
     channelRef.current?.send({ type: "broadcast", event: "spin", payload: { catId: chosen.id, challenge: picked, rotation: newRot } });
     setCat(chosen); setChallenge(picked); setRotation(newRot); setTimerDone(false);
-    setPhase("spinning");
-    setTimeout(() => setPhase("reveal"), 4300);
+    setPhase("spinning"); setTimeout(() => setPhase("reveal"), 4300);
   }
 
   function startChallenge() {
@@ -432,10 +387,9 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   }
 
   function handleResult(won: boolean) {
-    if (processingRef.current) return;
-    processingRef.current = true;
+    if (processingRef.current) return; processingRef.current = true;
     timer.stop();
-    const newScores: [number, number] = [scores[0], scores[1]];
+    const newScores: [number,number] = [scores[0], scores[1]];
     if (won) newScores[turn - 1]++;
     setSuccess(won); setScores(newScores);
     if (won && newScores[turn - 1] >= 10) {
@@ -455,214 +409,444 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
     setTurn(nextTurn); setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null); setPhase("idle");
   }
 
+  // ─── Glass card helper ───────────────────────────────────────────────────────
+  const glassCard: React.CSSProperties = {
+    background: "rgba(255,255,255,0.07)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 24,
+  };
+
+  // ─── Score dots row ──────────────────────────────────────────────────────────
+  function ScoreDots({ score, color }: { score: number; color: string }) {
+    return (
+      <div className="flex gap-[3px]">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <motion.div key={i}
+            animate={{ scale: i === score - 1 ? [1, 1.5, 1] : 1 }}
+            transition={{ duration: 0.4 }}
+            style={{ width: 7, height: 7, borderRadius: "50%",
+              background: i < score ? color : "rgba(255,255,255,0.18)",
+              boxShadow: i < score ? `0 0 6px ${color}` : "none",
+              transition: "background 0.3s, box-shadow 0.3s" }} />
+        ))}
+      </div>
+    );
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-white/80 px-4 py-3 backdrop-blur-sm shadow-sm">
-        <button onClick={onBack} className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition active:scale-95">
-          <ArrowLeft className="h-4 w-4" /> Retour
+    <div className="relative min-h-screen w-full overflow-hidden">
+      <Orbs />
+
+      {/* ── Header ────────────────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3"
+        style={{ background: "rgba(11,7,20,0.75)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <button onClick={onBack}
+          className="flex items-center gap-1 transition active:scale-95"
+          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 99, padding: "6px 14px", color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500 }}>
+          <ArrowLeft className="h-3.5 w-3.5" /> Retour
         </button>
-        <div className="flex items-center gap-2">
-          <div className="text-center">
-            <div className="text-xs font-bold text-rose-500">{player1}</div>
-            <div className="flex gap-0.5 justify-center mt-0.5">{Array.from({length:10}).map((_,i)=>(<div key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i<scores[0]?"bg-rose-500":"bg-rose-200"}`}/>))}</div>
-            <div className="text-xs text-gray-400 leading-none">{scores[0]}/10</div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-1">
+            <span style={{ color: "#f43f5e", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{player1}</span>
+            <ScoreDots score={scores[0]} color="#f43f5e" />
+            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>{scores[0]}/10</span>
           </div>
-          <Trophy className="h-4 w-4 text-amber-400 mx-1" />
-          <div className="text-center">
-            <div className="text-xs font-bold text-purple-500">{player2}</div>
-            <div className="flex gap-0.5 justify-center mt-0.5">{Array.from({length:10}).map((_,i)=>(<div key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i<scores[1]?"bg-purple-500":"bg-purple-200"}`}/>))}</div>
-            <div className="text-xs text-gray-400 leading-none">{scores[1]}/10</div>
+          <Trophy className="h-4 w-4" style={{ color: "#fbbf24", filter: "drop-shadow(0 0 6px #fbbf24)" }} />
+          <div className="flex flex-col items-center gap-1">
+            <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{player2}</span>
+            <ScoreDots score={scores[1]} color="#a855f7" />
+            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>{scores[1]}/10</span>
           </div>
         </div>
+
         <div title={connected ? "Synchronisé" : "Connexion…"}>
-          {connected ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-gray-300 animate-pulse" />}
+          {connected
+            ? <Wifi className="h-4 w-4" style={{ color: "#10b981", filter: "drop-shadow(0 0 4px #10b981)" }} />
+            : <WifiOff className="h-4 w-4 animate-pulse" style={{ color: "rgba(255,255,255,0.25)" }} />}
         </div>
       </div>
 
-      <motion.div key={turn} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="px-4 pt-4 text-center">
-        <span className="inline-block rounded-full bg-white/90 px-4 py-1.5 text-sm font-medium text-gray-700 shadow-sm">
-          {isMyTurn ? "🎯 C'est ton tour !" : `⏳ Tour de ${currentName}`}
+      {/* ── Turn indicator ────────────────────────────────────────────────────── */}
+      <motion.div key={turn} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="px-4 pt-4 text-center">
+        <span style={{ ...glassCard, display: "inline-block", padding: "7px 20px",
+          fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)", borderRadius: 99 }}>
+          {isMyTurn ? "✨ C'est ton tour !" : `⏳ Tour de ${currentName}`}
         </span>
       </motion.div>
 
-      <div className="relative mx-auto mt-4 flex items-center justify-center" style={{ width: 320, height: 320 }}>
-        <div className="absolute top-0 left-1/2 z-20 -translate-x-1/2" style={{ marginTop: -2 }}>
-          <div style={{ width: 0, height: 0, borderLeft: "13px solid transparent", borderRight: "13px solid transparent", borderTop: "26px solid #1f2937", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))" }} />
+      {/* ── Wheel ─────────────────────────────────────────────────────────────── */}
+      <div className="relative mx-auto mt-5 flex items-center justify-center" style={{ width: 320, height: 320 }}>
+        {/* Glow ring behind wheel */}
+        <motion.div animate={{ opacity: phase === "spinning" ? [0.4, 0.8, 0.4] : 0.25 }}
+          transition={{ duration: 1.2, repeat: phase === "spinning" ? Infinity : 0 }}
+          style={{ position: "absolute", inset: 4, borderRadius: "50%",
+            background: "conic-gradient(#ff4560,#8b5cf6,#f59e0b,#10b981,#ec4899,#ff4560)",
+            filter: "blur(18px)", zIndex: 0 }} />
+
+        {/* Pointer */}
+        <div style={{ position: "absolute", top: -6, left: "50%", transform: "translateX(-50%)", zIndex: 20, textAlign: "center" }}>
+          <div style={{ width: 0, height: 0,
+            borderLeft: "12px solid transparent", borderRight: "12px solid transparent",
+            borderTop: "28px solid #fbbf24", margin: "0 auto",
+            filter: "drop-shadow(0 0 8px rgba(251,191,36,0.9))" }} />
         </div>
-        <motion.svg width={300} height={300} viewBox="0 0 300 300"
-          animate={{ rotate: rotation }} transition={{ duration: 4, ease: [0.15, 0.85, 0.35, 1.0] }}
-          style={{ originX: "50%", originY: "50%" }}>
+
+        <motion.svg width={304} height={304} viewBox="0 0 300 300"
+          animate={{ rotate: rotation }}
+          transition={{ duration: 4, ease: [0.15, 0.85, 0.35, 1.0] }}
+          style={{ originX: "50%", originY: "50%", position: "relative", zIndex: 10 }}>
+          <defs>
+            {/* Outer segment highlight overlay */}
+            <radialGradient id="seg-shine" cx="50%" cy="0%" r="80%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </radialGradient>
+            {/* Center hub gradient */}
+            <radialGradient id="hub-gold" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stopColor="#fde68a" />
+              <stop offset="50%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#92400e" />
+            </radialGradient>
+          </defs>
+
+          {/* Outer decorative ring */}
+          <circle cx={CX} cy={CY} r={148} stroke="rgba(255,255,255,0.06)" strokeWidth={3} fill="none" />
+          <circle cx={CX} cy={CY} r={143} stroke="rgba(255,255,255,0.12)" strokeWidth={1} fill="none" />
+
+          {/* Segments */}
           {CATEGORIES.map((c, i) => {
             const pos = emojiPos(i);
             return (
               <g key={c.id}>
-                <path d={segPath(i)} fill={c.color} stroke="white" strokeWidth={2.5} />
-                <text x={pos.x} y={pos.y} fontSize={28} textAnchor="middle" dominantBaseline="middle"
-                  transform={`rotate(${pos.rotate}, ${pos.x}, ${pos.y})`}>{c.emoji}</text>
+                <path d={segPath(i)} fill={c.color} stroke="rgba(0,0,0,0.5)" strokeWidth={2} />
+                {/* Shine overlay */}
+                <path d={segPath(i)} fill="url(#seg-shine)" />
+                {/* Emoji */}
+                <text x={pos.x} y={pos.y} fontSize={26} textAnchor="middle" dominantBaseline="middle"
+                  transform={`rotate(${pos.rotate}, ${pos.x}, ${pos.y})`}
+                  style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}>{c.emoji}</text>
               </g>
             );
           })}
-          <circle cx={CX} cy={CY} r={24} fill="white" stroke="#e5e7eb" strokeWidth={2} />
-          <text x={CX} y={CY} fontSize={18} textAnchor="middle" dominantBaseline="middle">💕</text>
+
+          {/* Inner shadow ring */}
+          <circle cx={CX} cy={CY} r={30} fill="rgba(0,0,0,0.3)" />
+          {/* Hub */}
+          <circle cx={CX} cy={CY} r={26} fill="url(#hub-gold)" />
+          <circle cx={CX} cy={CY} r={26} stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} fill="none" />
+          <text x={CX} y={CY} fontSize={16} textAnchor="middle" dominantBaseline="middle">💕</text>
         </motion.svg>
       </div>
 
+      {/* ── Idle / Spinning states ────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {phase === "idle" && (
-          <motion.div key="idle" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="mt-4 flex flex-col items-center gap-2">
+          <motion.div key="idle" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+            className="mt-6 flex flex-col items-center gap-3">
             {isMyTurn ? (
-              <button onClick={spin} className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95">
-                🎰 Lancer la roue
-              </button>
+              <div className="relative">
+                {/* Pulse rings */}
+                <motion.div animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                  style={{ position: "absolute", inset: -16, borderRadius: 999, border: "2px solid rgba(244,63,94,0.5)" }} />
+                <motion.div animate={{ scale: [1, 1.8, 1], opacity: [0.2, 0, 0.2] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.4 }}
+                  style={{ position: "absolute", inset: -16, borderRadius: 999, border: "2px solid rgba(168,85,247,0.4)" }} />
+                <button onClick={spin}
+                  style={{ background: "linear-gradient(135deg, #f43f5e 0%, #ec4899 50%, #a855f7 100%)",
+                    boxShadow: "0 0 32px rgba(244,63,94,0.5), 0 0 64px rgba(168,85,247,0.25)",
+                    borderRadius: 999, padding: "18px 44px", fontSize: 18, fontWeight: 800, color: "white",
+                    border: "1px solid rgba(255,255,255,0.2)", letterSpacing: 0.5, position: "relative" }}
+                  className="transition active:scale-95">
+                  🎰 Lancer la roue
+                </button>
+              </div>
             ) : (
-              <p className="text-sm text-gray-400 animate-pulse">En attente que {currentName} lance…</p>
+              <p className="animate-pulse text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                En attente que {currentName} lance…
+              </p>
             )}
           </motion.div>
         )}
         {phase === "spinning" && (
-          <motion.p key="spinning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-4 text-center text-sm text-gray-400">
+          <motion.p key="spinning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="mt-6 text-center text-sm tracking-widest uppercase animate-pulse"
+            style={{ color: "rgba(255,255,255,0.5)" }}>
             ✨ La roue tourne…
           </motion.p>
         )}
       </AnimatePresence>
 
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── REVEAL screen ───────────────────────────────────────────────────── */}
       <AnimatePresence>
         {phase === "reveal" && cat && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-40 flex flex-col items-center justify-center bg-gradient-to-br ${cat.bg} px-6 text-white`}>
-            <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.6 }} className="text-center">
-              <p className="text-9xl">{cat.emoji}</p>
-              <h2 className="mt-4 text-4xl font-bold tracking-tight drop-shadow">{cat.label}</h2>
-              <p className="mt-2 text-lg opacity-90">{cat.subtitle}</p>
+            className="fixed inset-0 z-40 flex flex-col items-center justify-center overflow-hidden px-6"
+            style={{ background: cat.darkGrad }}>
+            {/* Ambient glow */}
+            <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 40%, ${cat.glowColor}, transparent 70%)` }} />
+
+            <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="relative z-10 text-center">
+              <motion.p className="text-[96px] leading-none"
+                animate={{ y: [0, -10, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
+                {cat.emoji}
+              </motion.p>
+              <h2 className="mt-4 text-5xl font-black tracking-tight text-white"
+                style={{ textShadow: `0 0 30px ${cat.glowColor}, 0 0 60px ${cat.glowColor}` }}>
+                {cat.label}
+              </h2>
+              <p className="mt-2 text-base" style={{ color: "rgba(255,255,255,0.65)" }}>{cat.subtitle}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-8 text-center">
-              <p className="text-base opacity-80">Le défi de</p>
-              <p className="text-2xl font-bold">{currentName}</p>
+
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+              className="relative z-10 mt-8 text-center">
+              <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>Le défi de</p>
+              <p className="text-2xl font-bold text-white">{currentName}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
+
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }}
+              className="relative z-10 mt-8">
               {isMyTurn ? (
-                <button onClick={startChallenge} className="mt-10 flex items-center gap-2 rounded-full bg-white/25 px-8 py-3.5 text-lg font-semibold backdrop-blur-sm transition active:scale-95 hover:bg-white/35">
+                <button onClick={startChallenge}
+                  className="flex items-center gap-2 transition active:scale-95"
+                  style={{ ...glassCard, padding: "14px 32px", fontSize: 16, fontWeight: 700, color: "white",
+                    boxShadow: `0 0 20px ${cat.glowColor}` }}>
                   Voir le défi <ChevronRight className="h-5 w-5" />
                 </button>
               ) : (
-                <p className="mt-10 rounded-full bg-white/20 px-6 py-3 text-base opacity-80">En attente de {currentName}…</p>
+                <p style={{ ...glassCard, padding: "12px 24px", fontSize: 14, color: "rgba(255,255,255,0.65)" }}>
+                  En attente de {currentName}…
+                </p>
               )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* ── CHALLENGE screen ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {phase === "challenge" && cat && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-white px-5 pb-8">
-            <div className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-white" style={{ background: cat.color }}>
-              {cat.emoji} {cat.label}
-            </div>
-            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
-              className="mx-auto mt-5 max-w-sm rounded-3xl border-2 p-6 shadow-sm"
-              style={{ borderColor: cat.color + "50", background: cat.color + "0A" }}>
-              <p className="text-center text-lg font-medium leading-relaxed text-gray-800">{challenge}</p>
-            </motion.div>
-            <p className="mt-3 text-center text-sm text-gray-400">
-              <span className="font-semibold" style={{ color: cat.color }}>{currentName}</span>{" → "}
-              <span className="font-semibold text-gray-600">{otherName}</span>
-            </p>
-            <div className="mt-5 flex justify-center">
-              <TimerCircle total={timer.total} left={timer.left} color={cat.color} />
-            </div>
-            {timerDone && (
-              <motion.p initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                className="mt-2 text-center text-sm font-semibold text-red-500">⏰ Temps écoulé !</motion.p>
-            )}
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => handleResult(false)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-red-200 bg-red-50 py-4 text-base font-semibold text-red-500 transition active:scale-95">
-                <X className="h-5 w-5" /> Forfait
-              </button>
-              <button onClick={() => handleResult(true)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-emerald-50 py-4 text-base font-semibold text-emerald-600 transition active:scale-95">
-                <Check className="h-5 w-5" /> Réussi !
-              </button>
+            className="fixed inset-0 z-40 flex flex-col overflow-y-auto px-5 pb-10"
+            style={{ background: "#0b0714" }}>
+            {/* Ambient glow top */}
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 200,
+              background: `radial-gradient(ellipse at 50% 0%, ${cat.glowColor}, transparent 70%)`, zIndex: 0 }} />
+
+            <div className="relative z-10 mx-auto mt-10 w-full max-w-sm">
+              {/* Category pill */}
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                className="mx-auto mb-5 inline-flex items-center gap-2"
+                style={{ background: cat.color, borderRadius: 99, padding: "7px 18px",
+                  fontSize: 13, fontWeight: 700, color: "white", boxShadow: `0 0 16px ${cat.glowColor}` }}>
+                {cat.emoji} {cat.label}
+              </motion.div>
+
+              {/* Challenge card */}
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
+                style={{ ...glassCard, padding: 28,
+                  boxShadow: `0 0 0 1px ${cat.color}40, 0 0 40px ${cat.glowColor}30, inset 0 0 30px rgba(255,255,255,0.02)` }}>
+                <p className="text-center text-lg font-medium leading-relaxed text-white">{challenge}</p>
+              </motion.div>
+
+              {/* Players row */}
+              <p className="mt-3 text-center text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <span style={{ color: cat.color, fontWeight: 600 }}>{currentName}</span>
+                {" → "}
+                <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{otherName}</span>
+              </p>
+
+              {/* Timer */}
+              <div className="mt-6 flex justify-center">
+                <TimerCircle total={timer.total} left={timer.left} color={cat.color} glowColor={cat.glowColor} />
+              </div>
+
+              {timerDone && (
+                <motion.p initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                  className="mt-2 text-center text-sm font-bold"
+                  style={{ color: "#ef4444", textShadow: "0 0 12px rgba(239,68,68,0.7)" }}>
+                  ⏰ Temps écoulé !
+                </motion.p>
+              )}
+
+              {/* Result buttons */}
+              <div className="mt-6 flex gap-3">
+                <button onClick={() => handleResult(false)}
+                  className="flex flex-1 items-center justify-center gap-2 transition active:scale-95"
+                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)",
+                    borderRadius: 20, padding: "16px 0", color: "#f87171", fontWeight: 700, fontSize: 15,
+                    boxShadow: "0 0 20px rgba(239,68,68,0.1)" }}>
+                  <X className="h-4 w-4" /> Forfait
+                </button>
+                <button onClick={() => handleResult(true)}
+                  className="flex flex-1 items-center justify-center gap-2 transition active:scale-95"
+                  style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.35)",
+                    borderRadius: 20, padding: "16px 0", color: "#34d399", fontWeight: 700, fontSize: 15,
+                    boxShadow: "0 0 20px rgba(16,185,129,0.1)" }}>
+                  <Check className="h-4 w-4" /> Réussi !
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* ── RESULT screen ────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {phase === "result" && cat && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
-            style={{ background: success ? "#f0fdf4" : "#fff1f2" }}>
-            <motion.div initial={{ scale: 0.5, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", duration: 0.5 }} className="text-center">
-              <p className="text-8xl">{success ? "🎉" : "😈"}</p>
-              <h2 className="mt-4 text-3xl font-bold" style={{ color: success ? "#16a34a" : "#e11d48" }}>
+            style={{ background: "#0b0714" }}>
+            {/* Ambient */}
+            <div style={{ position: "absolute", inset: 0,
+              background: success
+                ? "radial-gradient(circle at 50% 40%, rgba(16,185,129,0.2), transparent 65%)"
+                : "radial-gradient(circle at 50% 40%, rgba(239,68,68,0.18), transparent 65%)" }} />
+
+            <motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 180, damping: 14 }} className="relative z-10 text-center">
+              <motion.p className="text-8xl leading-none"
+                animate={{ rotate: success ? [0, -5, 5, -3, 3, 0] : [0, -3, 3, 0] }}
+                transition={{ duration: 0.6, delay: 0.2 }}>
+                {success ? "🎉" : "💔"}
+              </motion.p>
+              <h2 className="mt-4 text-3xl font-black"
+                style={{ color: success ? "#34d399" : "#f87171",
+                  textShadow: success ? "0 0 24px rgba(52,211,153,0.6)" : "0 0 24px rgba(248,113,113,0.6)" }}>
                 {success ? "Défi relevé !" : "Forfait !"}
               </h2>
-              <p className="mt-2 text-gray-500">{success ? `+1 point pour ${currentName} 💕` : `${currentName} a craqué… 😏`}</p>
+              <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
+                {success ? `+1 point pour ${currentName} 💕` : `${currentName} a craqué… 😏`}
+              </p>
             </motion.div>
+
+            {/* Score panel */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-              className="mt-8 flex items-center gap-6 rounded-3xl bg-white px-8 py-4 shadow-md">
+              className="relative z-10 mt-8 flex items-center gap-8 px-8 py-5"
+              style={{ ...glassCard }}>
               <div className="text-center">
-                <p className="text-xs text-gray-400">{player1}</p>
-                <p className="text-3xl font-bold text-rose-500">{scores[0]}</p>
+                <p className="text-xs tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>{player1}</p>
+                <p className="mt-1 text-4xl font-black" style={{ color: "#f43f5e", textShadow: "0 0 16px rgba(244,63,94,0.5)" }}>{scores[0]}</p>
               </div>
-              <Trophy className="h-6 w-6 text-amber-400" />
+              <Trophy className="h-6 w-6" style={{ color: "#fbbf24", filter: "drop-shadow(0 0 8px #fbbf24)" }} />
               <div className="text-center">
-                <p className="text-xs text-gray-400">{player2}</p>
-                <p className="text-3xl font-bold text-purple-500">{scores[1]}</p>
+                <p className="text-xs tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>{player2}</p>
+                <p className="mt-1 text-4xl font-black" style={{ color: "#a855f7", textShadow: "0 0 16px rgba(168,85,247,0.5)" }}>{scores[1]}</p>
               </div>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+              className="relative z-10 mt-6">
               {isMyTurn ? (
-                <button onClick={next} className="mt-8 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95">
+                <button onClick={next}
+                  className="flex items-center gap-2 transition active:scale-95"
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: 999, padding: "14px 32px", color: "white", fontWeight: 600, fontSize: 15 }}>
                   <RotateCcw className="h-4 w-4" /> Tour de {otherName}
                 </button>
               ) : (
-                <p className="mt-8 text-sm text-gray-400 animate-pulse">En attente de {currentName}…</p>
+                <p className="animate-pulse text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  En attente de {currentName}…
+                </p>
               )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Agreement screen ── */}
+      {/* ── AGREEMENT screen ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {phase === "agreement" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-rose-100 via-pink-50 to-purple-100 px-6 py-10">
-            <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.6 }} className="w-full max-w-sm">
-              <div className="text-center">
-                <p className="text-7xl">💋</p>
-                <h1 className="mt-3 text-3xl font-bold text-gray-800">Roulette Coquine</h1>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto px-5 py-10"
+            style={{ background: "#0b0714" }}>
+            {/* Orbs */}
+            <div style={{ position: "absolute", top: "-10%", left: "-10%", width: 300, height: 300, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(244,63,94,0.4) 0%, transparent 70%)", filter: "blur(40px)" }} />
+            <div style={{ position: "absolute", bottom: "-10%", right: "-10%", width: 300, height: 300, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(168,85,247,0.35) 0%, transparent 70%)", filter: "blur(40px)" }} />
+
+            <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", duration: 0.7 }} className="relative z-10 w-full max-w-sm">
+
+              {/* Title */}
+              <div className="text-center mb-6">
+                <motion.p className="text-7xl" animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }}>💋</motion.p>
+                <h1 className="mt-3 text-3xl font-black text-white" style={{ letterSpacing: -0.5 }}>Roulette Coquine</h1>
+                <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>Un jeu de complicité & désir</p>
               </div>
-              <div className="mt-5 rounded-3xl bg-white p-6 shadow-lg">
-                <p className="text-sm font-semibold text-gray-700 mb-3">📜 Règles du jeu</p>
-                <p className="text-sm text-gray-600 leading-relaxed">Chacun lance la roue à tour de rôle. La roue désigne une catégorie et un défi à relever.</p>
-                <p className="text-sm text-gray-600 leading-relaxed mt-2">Réussir <span className="font-semibold text-emerald-600">= +1 point</span>. Échouer = pas de point.</p>
-                <div className="mt-4 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-4 text-white text-center">
-                  <p className="text-xl font-bold">🏆 Premier à 10 points</p>
-                  <p className="mt-1 text-sm font-medium opacity-90">peut exiger ce qu'il veut,</p>
-                  <p className="text-sm font-medium opacity-90">quand il veut, où il veut.</p>
-                  <p className="mt-2 text-xs opacity-75 italic">— sans limite de temps —</p>
+
+              {/* Rules card */}
+              <div style={{ ...glassCard, padding: 24 }}>
+                <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>Règles du jeu</p>
+
+                <div className="space-y-3">
+                  <div className="flex gap-3 items-start">
+                    <span className="text-xl">🎰</span>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>
+                      Chacun lance la roue à tour de rôle. Elle désigne une catégorie et un défi à relever.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 items-start">
+                    <span className="text-xl">✅</span>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>
+                      Réussir le défi = <span style={{ color: "#34d399", fontWeight: 700 }}>+1 point</span>. Échouer = pas de point.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-4 text-xs text-center text-gray-400">En tapant « J'accepte », vous consentez librement à jouer ensemble.</p>
+
+                {/* Prize box */}
+                <div className="mt-5 rounded-2xl p-4 text-center"
+                  style={{ background: "linear-gradient(135deg, rgba(244,63,94,0.25), rgba(168,85,247,0.25))",
+                    border: "1px solid rgba(244,63,94,0.3)", boxShadow: "0 0 20px rgba(244,63,94,0.15)" }}>
+                  <p className="text-xl font-black text-white">🏆 Premier à 10 points</p>
+                  <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.75)" }}>
+                    peut exiger ce qu'il veut,<br />quand il veut, où il veut.
+                  </p>
+                  <p className="mt-2 text-xs italic" style={{ color: "rgba(255,255,255,0.4)" }}>— sans limite de temps —</p>
+                </div>
+
+                <p className="mt-4 text-center text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                  En appuyant sur « J'accepte » vous consentez librement à jouer ensemble.
+                </p>
               </div>
-              <div className="mt-5 flex flex-col items-center gap-3">
+
+              {/* Accept buttons */}
+              <div className="mt-6 flex flex-col items-center gap-3">
                 {!myAgreed ? (
-                  <button onClick={agree} className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95">
+                  <button onClick={agree}
+                    className="transition active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #f43f5e, #ec4899, #a855f7)",
+                      borderRadius: 999, padding: "16px 44px", fontSize: 17, fontWeight: 800, color: "white",
+                      boxShadow: "0 0 30px rgba(244,63,94,0.5), 0 0 60px rgba(168,85,247,0.2)",
+                      border: "1px solid rgba(255,255,255,0.2)" }}>
                     💕 J'accepte !
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-6 py-3">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-emerald-600">Tu as accepté !</span>
-                  </div>
+                  <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }}
+                    className="flex items-center gap-2"
+                    style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)",
+                      borderRadius: 999, padding: "12px 24px" }}>
+                    <Check className="h-4 w-4" style={{ color: "#34d399" }} />
+                    <span className="text-sm font-semibold" style={{ color: "#34d399" }}>Tu as accepté !</span>
+                  </motion.div>
                 )}
                 <p className="text-sm text-center">
                   {partnerAgreed
-                    ? <span className="font-medium text-emerald-500">✓ {theirName} a accepté !</span>
-                    : <span className="text-gray-400 animate-pulse">En attente de {theirName}…</span>}
+                    ? <motion.span initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="font-semibold" style={{ color: "#34d399" }}>
+                        ✓ {theirName} a accepté !
+                      </motion.span>
+                    : <span className="animate-pulse" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        En attente de {theirName}…
+                      </span>}
                 </p>
               </div>
             </motion.div>
@@ -670,32 +854,71 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
         )}
       </AnimatePresence>
 
-      {/* ── Victory screen ── */}
+      {/* ── VICTORY screen ───────────────────────────────────────────────────── */}
       <AnimatePresence>
         {phase === "victory" && winner && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-100 px-6 py-10">
-            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.7 }}>
-              <p className="text-center text-9xl">👑</p>
-            </motion.div>
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-4 text-center w-full max-w-sm">
-              <h1 className="text-4xl font-bold text-gray-800">{winner === 1 ? player1 : player2} gagne !</h1>
-              <div className="mt-5 rounded-3xl bg-white px-8 py-6 shadow-xl text-center">
-                <p className="text-base font-semibold text-gray-500 uppercase tracking-wider">🏆 Ton cadeau</p>
-                <p className="mt-3 text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-pink-500 to-rose-600 leading-tight">Tu exiges ce que tu veux,</p>
-                <p className="text-2xl font-extrabold text-gray-700">quand tu veux,</p>
-                <p className="text-2xl font-extrabold text-gray-700">où tu veux. 😈</p>
-                <p className="mt-3 text-sm text-gray-400 italic">— sans limite de temps —</p>
-              </div>
-              <div className="mt-4 flex items-center justify-center gap-6 rounded-2xl bg-white/80 px-6 py-3 shadow">
-                <div className="text-center"><p className="text-xs text-gray-400">{player1}</p><p className="text-2xl font-bold text-rose-500">{scores[0]}</p></div>
-                <Trophy className="h-5 w-5 text-amber-400" />
-                <div className="text-center"><p className="text-xs text-gray-400">{player2}</p><p className="text-2xl font-bold text-purple-500">{scores[1]}</p></div>
-              </div>
-              <button onClick={restart} className="mt-6 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95 mx-auto">
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto px-6 py-10"
+            style={{ background: "linear-gradient(160deg, #1a0e00 0%, #0b0714 50%, #0d0c00 100%)" }}>
+            {/* Gold orb */}
+            <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)",
+              width: 360, height: 360, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(251,191,36,0.25) 0%, transparent 70%)", filter: "blur(30px)" }} />
+
+            <div className="relative z-10 w-full max-w-sm text-center">
+              {/* Crown */}
+              <motion.p className="text-9xl leading-none"
+                initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 160, damping: 12 }}>
+                👑
+              </motion.p>
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+                <h1 className="mt-4 text-4xl font-black text-white" style={{ letterSpacing: -1 }}>
+                  {winner === 1 ? player1 : player2} gagne !
+                </h1>
+                <p className="mt-1 text-sm" style={{ color: "rgba(251,191,36,0.7)" }}>
+                  {scores[winner - 1]}/10 défis remportés
+                </p>
+              </motion.div>
+
+              {/* Prize card */}
+              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}
+                className="mt-6"
+                style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.08))",
+                  border: "1px solid rgba(251,191,36,0.25)", borderRadius: 28, padding: "28px 24px",
+                  boxShadow: "0 0 40px rgba(251,191,36,0.15), inset 0 0 30px rgba(251,191,36,0.05)" }}>
+                <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "rgba(251,191,36,0.6)" }}>🏆 Ton cadeau</p>
+                <p className="text-2xl font-black" style={{ color: "#fde68a", textShadow: "0 0 20px rgba(251,191,36,0.5)" }}>
+                  Tu exiges ce que tu veux,
+                </p>
+                <p className="text-2xl font-black text-white">quand tu veux,</p>
+                <p className="text-2xl font-black text-white">où tu veux. 😈</p>
+                <p className="mt-3 text-xs italic" style={{ color: "rgba(255,255,255,0.3)" }}>— sans limite de temps —</p>
+              </motion.div>
+
+              {/* Final scores */}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.85 }}
+                className="mt-5 flex items-center justify-center gap-8 py-4 px-6"
+                style={{ ...glassCard }}>
+                <div className="text-center">
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{player1}</p>
+                  <p className="text-3xl font-black mt-0.5" style={{ color: "#f43f5e" }}>{scores[0]}</p>
+                </div>
+                <Trophy className="h-5 w-5" style={{ color: "#fbbf24", filter: "drop-shadow(0 0 8px #fbbf24)" }} />
+                <div className="text-center">
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{player2}</p>
+                  <p className="text-3xl font-black mt-0.5" style={{ color: "#a855f7" }}>{scores[1]}</p>
+                </div>
+              </motion.div>
+
+              <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
+                onClick={restart}
+                className="mt-6 flex items-center gap-2 transition active:scale-95 mx-auto"
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 999, padding: "14px 32px", color: "white", fontWeight: 600, fontSize: 15 }}>
                 <RotateCcw className="h-4 w-4" /> Nouvelle partie
-              </button>
-            </motion.div>
+              </motion.button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
