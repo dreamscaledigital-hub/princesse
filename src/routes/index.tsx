@@ -276,11 +276,11 @@ function HomePage() {
             </label>
             <div className="flex gap-2">
               <input
-                value={duelCode}
-                onChange={(e) => setDuelCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && joinByCode()}
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && !busy && joinOrCreateRoom(roomCode)}
                 placeholder="ABC123"
-                maxLength={6}
+                maxLength={8}
                 className="h-11 flex-1 rounded-2xl px-4 text-center text-sm font-semibold tracking-[0.3em] outline-none transition focus:ring-2"
                 style={{
                   background: "rgba(255,255,255,0.85)",
@@ -288,7 +288,7 @@ function HomePage() {
                   color: "oklch(0.30 0.08 358)",
                 }}
               />
-              <button onClick={joinByCode} disabled={duelCode.trim().length < 4}
+              <button onClick={() => joinOrCreateRoom(roomCode)} disabled={busy || roomCode.trim().length < 4}
                 className="h-11 rounded-2xl px-4 text-sm font-semibold text-primary transition active:scale-95 disabled:opacity-40"
                 style={{ background: "rgba(255,255,255,0.85)", border: "1px solid oklch(0.85 0.06 355 / 0.6)" }}>
                 Rejoindre
@@ -297,8 +297,8 @@ function HomePage() {
           </div>
 
           {/* Partie au hasard */}
-          <button onClick={() => navigate({ to: "/duel" })}
-            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition active:scale-[0.97]"
+          <button onClick={() => joinOrCreateRoom()} disabled={busy}
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition active:scale-[0.97] disabled:opacity-50"
             style={{
               background: "linear-gradient(135deg,oklch(0.95 0.042 352),oklch(0.88 0.072 358))",
               border: "1px solid oklch(0.82 0.085 10 / 0.4)",
