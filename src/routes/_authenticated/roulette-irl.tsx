@@ -1,6 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { RouletteIRL } from "@/components/RouletteIRL";
 
@@ -9,74 +8,83 @@ export const Route = createFileRoute("/_authenticated/roulette-irl")({
   component: RouletteIRLPage,
 });
 
+type GameState =
+  | { status: "loading" }
+  | { status: "no_couple" }
+  | { status: "ready"; player1: string; player2: string; mySlot: 1 | 2; coupleId: string };
+
 function RouletteIRLPage() {
   const navigate = useNavigate();
-  const [player1, setPlayer1] = useState("Toi");
-  const [player2, setPlayer2] = useState("Ton amour");
-  const [coupleId, setCoupleId] = useState<string | null>(null);
-  const [myUserId, setMyUserId] = useState<string | null>(null);
-  const [hostUserId, setHostUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<GameState>({ status: "loading" });
 
   useEffect(() => {
-    void loadNames();
+    void load();
   }, []);
 
-  async function loadNames() {
+  async function load() {
     try {
       const { data: auth } = await supabase.auth.getUser();
-      const uid = auth.user?.id ?? null;
-      setMyUserId(uid);
-      if (!uid) return;
+      const uid = auth.user?.id;
+      if (!uid) { navigate({ to: "/auth" }); return; }
 
-      const { data: cid } = await supabase.rpc("couple_for_user", { _uid: uid });
-      if (!cid) return;
-      setCoupleId(cid as string);
+      // Load my profile
+      const { data: me } = await supabase
+        .from("profiles").select("display_name").eq("id", uid).maybeSingle();
+      const myName = (me as { display_name?: string } | null)?.display_name || "Toi";
+
+      // Load couple
+      const { data: coupleId } = await supabase.rpc("couple_for_user", { _uid: uid });
+      if (!coupleId) { setState({ status: "no_couple" }); return; }
 
       const { data: couple } = await supabase
-        .from("couples")
-        .select("user_a,user_b")
-        .eq("id", cid as string)
-        .maybeSingle();
-      if (!couple) return;
+        .from("couples").select("user_a,user_b").eq("id", coupleId).maybeSingle();
+      if (!couple) { setState({ status: "no_couple" }); return; }
 
-      // user_a is always slot 1 (host) — deterministic across devices
-      setHostUserId(couple.user_a);
-      const partnerId = couple.user_a === uid ? couple.user_b : couple.user_a;
+      const partnerId = (couple as { user_a: string; user_b: string }).user_a === uid
+        ? (couple as { user_a: string; user_b: string }).user_b
+        : (couple as { user_a: string; user_b: string }).user_a;
+      const mySlot: 1 | 2 = (couple as { user_a: string; user_b: string }).user_a === uid ? 1 : 2;
 
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id,display_name")
-        .in("id", [couple.user_a, couple.user_b]);
+      const { data: partner } = await supabase
+        .from("profiles").select("display_name").eq("id", partnerId).maybeSingle();
+      const partnerName = (partner as { display_name?: string } | null)?.display_name || "Ton amour";
 
-      const byId = Object.fromEntries((profs ?? []).map((p) => [p.id, p.display_name || ""]));
-      setPlayer1(byId[couple.user_a] || "Joueur 1");
-      setPlayer2(byId[couple.user_b] || "Joueur 2");
+      const player1 = mySlot === 1 ? myName : partnerName;
+      const player2 = mySlot === 1 ? partnerName : myName;
 
-      // suppress unused var warning
-      void partnerId;
+      setState({ status: "ready", player1, player2, mySlot, coupleId: coupleId as string });
     } catch {
-      // silently ignore — fallback names already set
-    } finally {
-      setLoading(false);
+      setState({ status: "no_couple" });
     }
   }
 
-  if (loading) {
+  if (state.status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-pink-300 text-2xl">
+      <div className="flex min-h-screen items-center justify-center text-pink-300 text-2xl animate-pulse">
         💕
+      </div>
+    );
+  }
+
+  if (state.status === "no_couple") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-4xl">💔</p>
+        <p className="text-gray-600">Appaire-toi avec ton amour d'abord !</p>
+        <button onClick={() => navigate({ to: "/hub" })}
+          className="rounded-full bg-pink-500 px-6 py-3 text-sm font-semibold text-white">
+          Aller au hub
+        </button>
       </div>
     );
   }
 
   return (
     <RouletteIRL
-      player1={player1}
-      player2={player2}
-      coupleId={coupleId}
-      myUserId={myUserId}
-      hostUserId={hostUserId}
+      player1={state.player1}
+      player2={state.player2}
+      mySlot={state.mySlot}
+      coupleId={state.coupleId}
       onBack={() => navigate({ to: "/hub" })}
     />
   );
