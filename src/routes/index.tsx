@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
-import { Heart, Dices } from "lucide-react";
+import { Heart, Dices, KeyRound, Shuffle } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Princesse 💕" }, { name: "description", content: "Votre petit univers à deux." }] }),
@@ -84,14 +85,6 @@ const GAMES: GameCard[] = [
     gradient: "linear-gradient(145deg,oklch(0.90 0.062 352),oklch(0.82 0.105 358))",
     glow: "oklch(0.60 0.16 0 / 0.28)",
   },
-  {
-    emoji: "💞",
-    title: "Tous nos jeux à deux",
-    desc: "Quiz, Mastermind, Pendu, Mini-jeux, Roue des défis… Connectez-vous et jouez ensemble.",
-    route: "/hub",
-    gradient: "linear-gradient(145deg,oklch(0.93 0.05 350),oklch(0.85 0.09 10))",
-    glow: "oklch(0.65 0.14 355 / 0.28)",
-  },
 ];
 
 function GameCard({ card, delay = 0 }: { card: GameCard; delay?: number }) {
@@ -153,6 +146,12 @@ function GameCard({ card, delay = 0 }: { card: GameCard; delay?: number }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 function HomePage() {
   const navigate = useNavigate();
+  const [duelCode, setDuelCode] = useState("");
+  const joinByCode = () => {
+    const c = duelCode.trim().toUpperCase();
+    if (c.length < 4) return;
+    navigate({ to: "/duel/$code", params: { code: c } });
+  };
   return (
     <main className="relative min-h-screen overflow-hidden pb-32">
       <HeroBg/>
@@ -213,6 +212,53 @@ function HomePage() {
             }}>
             <Heart className="h-4 w-4 fill-white text-white"/>
             Se connecter
+          </button>
+
+          {/* Divider */}
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1" style={{background:"linear-gradient(to right,transparent,oklch(0.75 0.13 355 / 0.35))"}}/>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">ou jouer vite</span>
+            <div className="h-px flex-1" style={{background:"linear-gradient(to left,transparent,oklch(0.75 0.13 355 / 0.35))"}}/>
+          </div>
+
+          {/* Code rien que à nous */}
+          <div>
+            <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-primary">
+              <KeyRound className="h-3.5 w-3.5"/> Le code rien qu'à nous
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={duelCode}
+                onChange={(e) => setDuelCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && joinByCode()}
+                placeholder="ABC123"
+                maxLength={6}
+                className="h-11 flex-1 rounded-2xl px-4 text-center text-sm font-semibold tracking-[0.3em] outline-none transition focus:ring-2"
+                style={{
+                  background: "rgba(255,255,255,0.85)",
+                  border: "1px solid oklch(0.85 0.06 355 / 0.6)",
+                  color: "oklch(0.30 0.08 358)",
+                }}
+              />
+              <button onClick={joinByCode} disabled={duelCode.trim().length < 4}
+                className="h-11 rounded-2xl px-4 text-sm font-semibold text-primary transition active:scale-95 disabled:opacity-40"
+                style={{ background: "rgba(255,255,255,0.85)", border: "1px solid oklch(0.85 0.06 355 / 0.6)" }}>
+                Rejoindre
+              </button>
+            </div>
+          </div>
+
+          {/* Partie au hasard */}
+          <button onClick={() => navigate({ to: "/duel" })}
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition active:scale-[0.97]"
+            style={{
+              background: "linear-gradient(135deg,oklch(0.95 0.042 352),oklch(0.88 0.072 358))",
+              border: "1px solid oklch(0.82 0.085 10 / 0.4)",
+              color: "oklch(0.35 0.10 358)",
+              boxShadow: "0 4px 16px oklch(0.75 0.13 355 / 0.18)",
+            }}>
+            <Shuffle className="h-4 w-4"/>
+            Créer une partie au hasard
           </button>
         </motion.div>
       </div>
