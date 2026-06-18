@@ -4,10 +4,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Premium Google Fonts ──────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Work+Sans:wght@300;400;500;600;700&display=swap');
+
 @theme inline {
   --font-sans: 'Work Sans', system-ui, sans-serif;
-  --font-serif: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
-  --font-script: 'Instrument Serif', 'Caveat', cursive;
+  --font-serif: 'Cormorant Garamond', 'Instrument Serif', Georgia, serif;
+  --font-script: 'Cormorant Garamond', cursive;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -47,100 +50,120 @@
 :root {
   --radius: 1.5rem;
 
-  /* Cherry Blossom palette — poétique, doux */
-  --blossom-veil: oklch(0.985 0.012 350);   /* #fef0f5 */
-  --blossom-pale: oklch(0.93 0.045 350);    /* #f8c8d8 */
-  --blossom-pink: oklch(0.78 0.11 355);     /* #e88aab */
-  --blossom-rose: oklch(0.62 0.14 0);       /* #c45c7c */
-  --blossom-deep: oklch(0.42 0.12 5);       /* deep rose ink */
-  --blossom-ink:  oklch(0.28 0.05 0);       /* near-black plum */
+  /* ── Palette Blossom — enrichie ────────────────────────────────────────── */
+  --blossom-veil:    oklch(0.985 0.012 350);
+  --blossom-pale:    oklch(0.93 0.045 350);
+  --blossom-pink:    oklch(0.75 0.13 355);
+  --blossom-rose:    oklch(0.60 0.16 0);
+  --blossom-deep:    oklch(0.40 0.13 5);
+  --blossom-ink:     oklch(0.22 0.06 358);
+  --blossom-gold:    oklch(0.80 0.12 75);
+  --blossom-wine:    oklch(0.35 0.10 5);
 
-  --background: var(--blossom-veil);
-  --foreground: var(--blossom-ink);
+  --background:             var(--blossom-veil);
+  --foreground:             var(--blossom-ink);
+  --card:                   oklch(1 0 0 / 0.80);
+  --card-foreground:        var(--blossom-ink);
+  --popover:                oklch(0.995 0.005 350);
+  --popover-foreground:     var(--blossom-ink);
+  --primary:                var(--blossom-rose);
+  --primary-foreground:     oklch(0.99 0.005 350);
+  --secondary:              oklch(0.96 0.025 350);
+  --secondary-foreground:   var(--blossom-deep);
+  --muted:                  oklch(0.95 0.018 350);
+  --muted-foreground:       oklch(0.52 0.06 358);
+  --accent:                 var(--blossom-pink);
+  --accent-foreground:      oklch(0.99 0.005 350);
+  --destructive:            oklch(0.62 0.20 20);
+  --destructive-foreground: oklch(0.99 0.005 350);
+  --border:                 oklch(0.82 0.06 350 / 0.45);
+  --input:                  oklch(0.96 0.02 350);
+  --ring:                   var(--blossom-pink);
 
-  --card: oklch(1 0 0 / 0.78);
-  --card-foreground: var(--blossom-ink);
+  /* ── Gradients premium ─────────────────────────────────────────────────── */
+  --gradient-romance: linear-gradient(165deg,
+    oklch(0.99 0.006 340) 0%,
+    oklch(0.97 0.018 348) 20%,
+    oklch(0.945 0.042 352) 45%,
+    oklch(0.90 0.072 358) 70%,
+    oklch(0.84 0.098 4)   90%,
+    oklch(0.78 0.118 8)   100%);
 
-  --popover: oklch(0.995 0.005 350);
-  --popover-foreground: var(--blossom-ink);
-
-  --primary: var(--blossom-rose);
-  --primary-foreground: oklch(0.995 0.005 350);
-
-  --secondary: oklch(0.96 0.025 350);
-  --secondary-foreground: var(--blossom-deep);
-
-  --muted: oklch(0.95 0.018 350);
-  --muted-foreground: oklch(0.50 0.04 5);
-
-  --accent: var(--blossom-pink);
-  --accent-foreground: oklch(0.995 0.005 350);
-
-  --destructive: oklch(0.62 0.20 20);
-  --destructive-foreground: oklch(0.995 0.005 350);
-
-  --border: oklch(0.85 0.05 350 / 0.55);
-  --input: oklch(0.96 0.025 350);
-  --ring: var(--blossom-pink);
-
-  /* Gradients & ombres signature */
-  --gradient-romance: linear-gradient(160deg,
-    oklch(0.985 0.012 350) 0%,
-    oklch(0.95 0.04 350) 35%,
-    oklch(0.88 0.07 355) 75%,
-    oklch(0.80 0.10 5) 100%);
   --gradient-petal: linear-gradient(135deg,
     oklch(0.92 0.055 350) 0%,
-    oklch(0.78 0.11 355) 100%);
+    oklch(0.75 0.13 355)  100%);
+
   --gradient-bloom: linear-gradient(135deg,
-    oklch(0.78 0.11 355) 0%,
-    oklch(0.62 0.14 0) 100%);
-  --shadow-petal: 0 20px 50px -25px oklch(0.62 0.14 0 / 0.45),
-                  0 8px 20px -12px oklch(0.78 0.11 355 / 0.35);
-  --shadow-soft: 0 10px 30px -15px oklch(0.62 0.14 0 / 0.25);
+    oklch(0.75 0.13 355) 0%,
+    oklch(0.60 0.16 0)   100%);
+
+  --gradient-gold: linear-gradient(135deg,
+    oklch(0.88 0.09 75) 0%,
+    oklch(0.76 0.13 72) 100%);
+
+  /* ── Shadows premium ───────────────────────────────────────────────────── */
+  --shadow-petal:
+    0 32px 64px -24px oklch(0.60 0.16 0 / 0.38),
+    0 12px 32px -10px oklch(0.75 0.13 355 / 0.28),
+    0 4px 12px -4px  oklch(0.60 0.16 0 / 0.12),
+    inset 0 1px 0    oklch(1 0 0 / 0.60);
+
+  --shadow-soft:
+    0 12px 40px -12px oklch(0.60 0.16 0 / 0.22),
+    0 4px 16px -6px   oklch(0.75 0.13 355 / 0.18);
+
+  --shadow-luxe:
+    0 48px 96px -28px oklch(0.60 0.16 0 / 0.32),
+    0 20px 48px -12px oklch(0.75 0.13 355 / 0.22),
+    0 6px 20px -6px   oklch(0.60 0.16 0 / 0.10),
+    inset 0 1px 0     oklch(1 0 0 / 0.80);
+
+  --shadow-nav:
+    0 -2px 20px oklch(0.75 0.13 355 / 0.12),
+    0 8px 32px oklch(0.60 0.16 0 / 0.14),
+    0 2px 8px oklch(0.60 0.16 0 / 0.08),
+    inset 0 1px 0 oklch(1 0 0 / 0.95);
 }
 
-/* ── Ambiance "À DISTANCE" : nocturne, bleu nuit / violet / doré ── */
+/* ── Ambiance Distance ─────────────────────────────────────────────────────── */
 body[data-ambiance="distance"] {
   --blossom-veil: oklch(0.22 0.06 270);
   --blossom-pale: oklch(0.42 0.10 280);
   --blossom-pink: oklch(0.70 0.14 295);
-  --blossom-rose: oklch(0.78 0.13 80);   /* accent doré */
+  --blossom-rose: oklch(0.78 0.13 80);
   --blossom-deep: oklch(0.92 0.05 90);
   --blossom-ink:  oklch(0.96 0.02 90);
 
   --background: oklch(0.20 0.06 270);
   --foreground: oklch(0.96 0.02 90);
 
-  --card: oklch(0.30 0.06 275 / 0.55);
-  --card-foreground: oklch(0.96 0.02 90);
-  --popover: oklch(0.26 0.06 275);
+  --card:             oklch(0.30 0.06 275 / 0.55);
+  --card-foreground:  oklch(0.96 0.02 90);
+  --popover:          oklch(0.26 0.06 275);
   --popover-foreground: oklch(0.96 0.02 90);
 
-  --primary: oklch(0.82 0.13 85);          /* doré chaud */
-  --primary-foreground: oklch(0.20 0.05 270);
-
-  --secondary: oklch(0.32 0.07 275);
-  --secondary-foreground: oklch(0.94 0.03 90);
-
-  --muted: oklch(0.32 0.05 275);
-  --muted-foreground: oklch(0.78 0.04 275);
-
-  --accent: oklch(0.70 0.14 295);
-  --accent-foreground: oklch(0.18 0.05 270);
-
-  --border: oklch(0.70 0.10 280 / 0.35);
-  --input: oklch(0.32 0.06 275);
-  --ring: oklch(0.82 0.13 85);
+  --primary:             oklch(0.82 0.13 85);
+  --primary-foreground:  oklch(0.20 0.05 270);
+  --secondary:           oklch(0.32 0.07 275);
+  --secondary-foreground:oklch(0.94 0.03 90);
+  --muted:               oklch(0.32 0.05 275);
+  --muted-foreground:    oklch(0.78 0.04 275);
+  --accent:              oklch(0.70 0.14 295);
+  --accent-foreground:   oklch(0.18 0.05 270);
+  --border:              oklch(0.70 0.10 280 / 0.35);
+  --input:               oklch(0.32 0.06 275);
+  --ring:                oklch(0.82 0.13 85);
 
   --gradient-romance: linear-gradient(160deg,
     oklch(0.18 0.06 265) 0%,
     oklch(0.22 0.08 275) 35%,
     oklch(0.30 0.10 295) 75%,
     oklch(0.42 0.12 305) 100%);
-  --shadow-petal: 0 20px 50px -25px oklch(0.10 0.05 270 / 0.7),
-                  0 8px 20px -12px oklch(0.70 0.14 295 / 0.35);
-  --shadow-soft: 0 10px 30px -15px oklch(0.10 0.05 270 / 0.55);
+  --shadow-petal:
+    0 20px 50px -25px oklch(0.10 0.05 270 / 0.7),
+    0 8px 20px -12px  oklch(0.70 0.14 295 / 0.35);
+  --shadow-soft:
+    0 10px 30px -15px oklch(0.10 0.05 270 / 0.55);
 }
 
 body[data-ambiance="distance"]::before {
@@ -151,7 +174,7 @@ body[data-ambiance="distance"]::before {
     radial-gradient(circle at 18% 92%, oklch(0.70 0.14 295 / 0.22) 0, transparent 26%) !important;
 }
 
-/* Fondu doux entre ambiances */
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 html, body {
   font-family: var(--font-sans);
   background: var(--gradient-romance);
@@ -159,76 +182,151 @@ html, body {
   color: var(--color-foreground);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  letter-spacing: -0.005em;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.008em;
   transition: background-color 800ms ease, color 600ms ease;
+}
+
+/* SVG decorative background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 10% 15%, oklch(0.75 0.13 355 / 0.14) 0, transparent 100%),
+    radial-gradient(ellipse 50% 60% at 90% 10%, oklch(0.93 0.045 350 / 0.28) 0, transparent 100%),
+    radial-gradient(ellipse 40% 40% at 75% 88%, oklch(0.60 0.16 0 / 0.10) 0, transparent 100%),
+    radial-gradient(ellipse 55% 35% at 15% 90%, oklch(0.75 0.13 355 / 0.12) 0, transparent 100%),
+    radial-gradient(circle at 50% 50%, oklch(0.93 0.035 350 / 0.08) 0, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
-    transition: background-color 600ms ease, border-color 600ms ease, color 600ms ease;
+    transition: background-color 500ms ease, border-color 500ms ease, color 400ms ease, box-shadow 300ms ease;
   }
 
-
-  /* Petites fleurs décoratives en fond */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background-image:
-      radial-gradient(circle at 12% 18%, oklch(0.78 0.11 355 / 0.18) 0, transparent 22%),
-      radial-gradient(circle at 88% 12%, oklch(0.93 0.045 350 / 0.35) 0, transparent 28%),
-      radial-gradient(circle at 75% 85%, oklch(0.62 0.14 0 / 0.12) 0, transparent 30%),
-      radial-gradient(circle at 18% 92%, oklch(0.78 0.11 355 / 0.15) 0, transparent 26%);
-    pointer-events: none;
-    z-index: 0;
+  /* Sélection */
+  ::selection {
+    background: oklch(0.75 0.13 355 / 0.3);
+    color: var(--blossom-ink);
   }
 
-  .font-script,
-  .font-serif {
-    font-family: var(--font-serif);
-    letter-spacing: -0.015em;
-    font-weight: 400;
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.75 0.13 355 / 0.35);
+    border-radius: 999px;
   }
 
   h1, h2, h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.025em;
+    font-weight: 400;
+    line-height: 1.15;
+  }
+
+  .font-script, .font-serif {
     font-family: var(--font-serif);
     letter-spacing: -0.02em;
     font-weight: 400;
   }
 }
 
-/* Pétales / cœurs flottants */
+/* ── Floating hearts / petals ─────────────────────────────────────────────── */
 @keyframes float-up {
-  0%   { transform: translateY(100vh) rotate(0deg) scale(0.6); opacity: 0; }
-  10%  { opacity: 0.5; }
-  90%  { opacity: 0.5; }
-  100% { transform: translateY(-10vh) rotate(40deg) scale(1.1); opacity: 0; }
+  0%   { transform: translateY(100vh) rotate(0deg)  scale(0.5); opacity: 0; }
+  8%   { opacity: 0.55; }
+  88%  { opacity: 0.45; }
+  100% { transform: translateY(-12vh) rotate(42deg) scale(1.1); opacity: 0; }
+}
+@keyframes float-sway {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: 14px; }
+  75% { margin-left: -10px; }
 }
 
 .floating-heart {
   position: fixed;
   bottom: 0;
-  font-size: 1.5rem;
   pointer-events: none;
-  animation: float-up linear infinite;
+  animation: float-up linear infinite, float-sway ease-in-out infinite;
   z-index: 0;
 }
 
-/* Brillance douce sur les cartes */
-@keyframes shimmer-soft {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.7; }
-}
-
+/* ── Card utilities ───────────────────────────────────────────────────────── */
 @utility card-romance {
   background: var(--card);
-  backdrop-filter: blur(14px);
-  border: 1px solid oklch(1 0 0 / 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid oklch(1 0 0 / 0.65);
   box-shadow: var(--shadow-soft);
   border-radius: var(--radius-2xl);
 }
 
-@utility text-balance {
-  text-wrap: balance;
+@utility card-luxe {
+  background: oklch(1 0 0 / 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid oklch(1 0 0 / 0.75);
+  box-shadow: var(--shadow-luxe);
+  border-radius: var(--radius-3xl);
 }
+
+@utility card-glass {
+  background: oklch(1 0 0 / 0.60);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid oklch(1 0 0 / 0.50);
+  box-shadow: var(--shadow-soft);
+}
+
+/* ── Button premium ───────────────────────────────────────────────────────── */
+@utility btn-romance {
+  background: var(--gradient-bloom);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 8px 24px oklch(0.60 0.16 0 / 0.38), inset 0 1px 0 oklch(1 0 0 / 0.20);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.btn-romance:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px oklch(0.60 0.16 0 / 0.42), inset 0 1px 0 oklch(1 0 0 / 0.25);
+}
+.btn-romance:active { transform: scale(0.97); }
+
+/* ── Text utilities ───────────────────────────────────────────────────────── */
+@utility text-balance { text-wrap: balance; }
+
+@utility text-gradient-rose {
+  background: var(--gradient-bloom);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Shimmer ──────────────────────────────────────────────────────────────── */
+@keyframes shimmer-soft {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.75; }
+}
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.12); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.08); }
+  56% { transform: scale(1); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+.animate-heartbeat { animation: heartbeat 2.5s ease-in-out infinite; }
+.animate-breathe   { animation: breathe 3s ease-in-out infinite; }
