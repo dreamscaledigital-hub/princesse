@@ -16,11 +16,11 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomCodeRouteImport } from './routes/room.$code'
 import { Route as DuelCodeRouteImport } from './routes/duel.$code'
+import { Route as AuthenticatedRouletteIrlRouteImport } from './routes/_authenticated/roulette-irl'
 import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated/profil'
 import { Route as AuthenticatedPenseesRouteImport } from './routes/_authenticated/pensees'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedHubRouteImport } from './routes/_authenticated/hub'
-import { Route as AuthenticatedRouletteIrlRouteImport } from './routes/_authenticated/roulette-irl'
 
 const WidgetRoute = WidgetRouteImport.update({
   id: '/widget',
@@ -56,6 +56,12 @@ const DuelCodeRoute = DuelCodeRouteImport.update({
   path: '/$code',
   getParentRoute: () => DuelRoute,
 } as any)
+const AuthenticatedRouletteIrlRoute =
+  AuthenticatedRouletteIrlRouteImport.update({
+    id: '/roulette-irl',
+    path: '/roulette-irl',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProfilRoute = AuthenticatedProfilRouteImport.update({
   id: '/profil',
   path: '/profil',
@@ -76,11 +82,6 @@ const AuthenticatedHubRoute = AuthenticatedHubRouteImport.update({
   path: '/hub',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedRouletteIrlRoute = AuthenticatedRouletteIrlRouteImport.update({
-  id: '/roulette-irl',
-  path: '/roulette-irl',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,10 +89,10 @@ export interface FileRoutesByFullPath {
   '/duel': typeof DuelRouteWithChildren
   '/widget': typeof WidgetRoute
   '/hub': typeof AuthenticatedHubRoute
-  '/roulette-irl': typeof AuthenticatedRouletteIrlRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/pensees': typeof AuthenticatedPenseesRoute
   '/profil': typeof AuthenticatedProfilRoute
+  '/roulette-irl': typeof AuthenticatedRouletteIrlRoute
   '/duel/$code': typeof DuelCodeRoute
   '/room/$code': typeof RoomCodeRoute
 }
@@ -101,10 +102,10 @@ export interface FileRoutesByTo {
   '/duel': typeof DuelRouteWithChildren
   '/widget': typeof WidgetRoute
   '/hub': typeof AuthenticatedHubRoute
-  '/roulette-irl': typeof AuthenticatedRouletteIrlRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/pensees': typeof AuthenticatedPenseesRoute
   '/profil': typeof AuthenticatedProfilRoute
+  '/roulette-irl': typeof AuthenticatedRouletteIrlRoute
   '/duel/$code': typeof DuelCodeRoute
   '/room/$code': typeof RoomCodeRoute
 }
@@ -116,10 +117,10 @@ export interface FileRoutesById {
   '/duel': typeof DuelRouteWithChildren
   '/widget': typeof WidgetRoute
   '/_authenticated/hub': typeof AuthenticatedHubRoute
-  '/_authenticated/roulette-irl': typeof AuthenticatedRouletteIrlRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/pensees': typeof AuthenticatedPenseesRoute
   '/_authenticated/profil': typeof AuthenticatedProfilRoute
+  '/_authenticated/roulette-irl': typeof AuthenticatedRouletteIrlRoute
   '/duel/$code': typeof DuelCodeRoute
   '/room/$code': typeof RoomCodeRoute
 }
@@ -131,10 +132,10 @@ export interface FileRouteTypes {
     | '/duel'
     | '/widget'
     | '/hub'
-    | '/roulette-irl'
     | '/messages'
     | '/pensees'
     | '/profil'
+    | '/roulette-irl'
     | '/duel/$code'
     | '/room/$code'
   fileRoutesByTo: FileRoutesByTo
@@ -144,10 +145,10 @@ export interface FileRouteTypes {
     | '/duel'
     | '/widget'
     | '/hub'
-    | '/roulette-irl'
     | '/messages'
     | '/pensees'
     | '/profil'
+    | '/roulette-irl'
     | '/duel/$code'
     | '/room/$code'
   id:
@@ -158,10 +159,10 @@ export interface FileRouteTypes {
     | '/duel'
     | '/widget'
     | '/_authenticated/hub'
-    | '/_authenticated/roulette-irl'
     | '/_authenticated/messages'
     | '/_authenticated/pensees'
     | '/_authenticated/profil'
+    | '/_authenticated/roulette-irl'
     | '/duel/$code'
     | '/room/$code'
   fileRoutesById: FileRoutesById
@@ -226,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DuelCodeRouteImport
       parentRoute: typeof DuelRoute
     }
+    '/_authenticated/roulette-irl': {
+      id: '/_authenticated/roulette-irl'
+      path: '/roulette-irl'
+      fullPath: '/roulette-irl'
+      preLoaderRoute: typeof AuthenticatedRouletteIrlRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profil': {
       id: '/_authenticated/profil'
       path: '/profil'
@@ -254,30 +262,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHubRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/roulette-irl': {
-      id: '/_authenticated/roulette-irl'
-      path: '/roulette-irl'
-      fullPath: '/roulette-irl'
-      preLoaderRoute: typeof AuthenticatedRouletteIrlRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedHubRoute: typeof AuthenticatedHubRoute
-  AuthenticatedRouletteIrlRoute: typeof AuthenticatedRouletteIrlRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedPenseesRoute: typeof AuthenticatedPenseesRoute
   AuthenticatedProfilRoute: typeof AuthenticatedProfilRoute
+  AuthenticatedRouletteIrlRoute: typeof AuthenticatedRouletteIrlRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHubRoute: AuthenticatedHubRoute,
-  AuthenticatedRouletteIrlRoute: AuthenticatedRouletteIrlRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedPenseesRoute: AuthenticatedPenseesRoute,
   AuthenticatedProfilRoute: AuthenticatedProfilRoute,
+  AuthenticatedRouletteIrlRoute: AuthenticatedRouletteIrlRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
