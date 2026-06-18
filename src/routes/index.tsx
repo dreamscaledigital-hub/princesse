@@ -150,12 +150,56 @@ function GameCard({ card, delay = 0 }: { card: GameCard; delay?: number }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 function HomePage() {
   const navigate = useNavigate();
-  const [duelCode, setDuelCode] = useState("");
-  const joinByCode = () => {
-    const c = duelCode.trim().toUpperCase();
-    if (c.length < 4) return;
-    navigate({ to: "/duel/$code", params: { code: c } });
-  };
+  const [roomCode, setRoomCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function joinOrCreateRoom(rawCode?: string) {
+    const isRandom = !rawCode;
+    const inputCode = (rawCode ?? roomCode).trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!isRandom && (inputCode.length < 4 || inputCode.length > 8)) {
+      toast.error("Le code doit faire entre 4 et 8 caractères");
+      return;
+    }
+    setBusy(true);
+    try {
+      const clientId = getClientId();
+
+      // Rejoindre une room existante (code saisi)
+      if (!isRandom) {
+        const { data: existing } = await supabase
+          .from("rooms").select("id, code").eq("code", inputCode).maybeSingle();
+        if (existing) {
+          navigate({ to: "/room/$code", params: { code: inputCode } });
+          return;
+        }
+      }
+
+      // Créer la room (avec code saisi ou code aléatoire avec retry)
+      let code = inputCode;
+      let roomId = "";
+      const attempts = isRandom ? 5 : 1;
+      for (let i = 0; i < attempts; i++) {
+        const c = isRandom ? generateRoomCode() : inputCode;
+        const { data, error } = await supabase
+          .from("rooms").insert({ code: c, phase: "lobby" }).select().single();
+        if (!error && data) {
+          code = c; roomId = (data as { id: string }).id; break;
+        }
+      }
+      if (!roomId) throw new Error("Impossible de créer la partie");
+
+      await supabase.from("players").insert({
+        room_id: roomId, slot: 1, name: DEFAULT_NAMES[0], client_id: clientId,
+      });
+
+      toast.success(isRandom ? `Partie créée 💕` : `Session "${code}" prête 💕`);
+      navigate({ to: "/room/$code", params: { code } });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <main className="relative min-h-screen overflow-hidden pb-32">
       <HeroBg/>
