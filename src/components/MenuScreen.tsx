@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Copy, Heart, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { MENU_TITLE, MENU_SUBTITLE, MODES, type ModeId } from "@/lib/game-content";
 import { DateCountdown } from "@/components/DateCountdown";
@@ -94,6 +95,29 @@ export function MenuScreen({ room, players, mySlot, onPick }: Props) {
             </p>
           </motion.button>
         ))}
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: MODES.length * 0.05 }}
+          className="col-span-2"
+        >
+          <Link
+            to="/roulette-irl"
+            className="group relative flex items-center gap-4 overflow-hidden rounded-3xl border border-white/70 bg-white/55 p-4 text-left shadow-[0_10px_30px_-15px_rgba(196,92,124,0.35)] backdrop-blur-xl transition active:scale-[0.98]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-200/80 via-rose-200/70 to-fuchsia-300/80 opacity-30 transition group-hover:opacity-50" />
+            <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/40 blur-2xl" />
+            <span className="relative text-4xl drop-shadow-sm">🎰</span>
+            <div className="relative min-w-0 flex-1">
+              <p className="font-serif text-xl leading-tight text-blossom-deep">Roulette Coquine</p>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground/60">
+                5 catégories · provocation · défis · positions
+              </p>
+            </div>
+            <span className="relative text-primary/60">→</span>
+          </Link>
+        </motion.div>
       </div>
 
 
