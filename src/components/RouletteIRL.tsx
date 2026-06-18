@@ -31,14 +31,14 @@ const CATEGORIES: Category[] = [
     challenges: [
       "Caresse lentement tout le corps de ton/ta partenaire pendant 1 minute — il/elle ne doit pas réagir ni bouger.",
       "Embrasse le cou, l'oreille et la nuque très lentement pendant 60 secondes. Zéro réaction autorisée.",
-      "Souffle doucement sur chaque zone sensible sans jamais toucher — 1 minute entière.",
-      "Murmure tes désirs les plus intenses à l'oreille, aussi lentement que possible — 1 minute.",
-      "Trace ton prénom sur le corps de ton/ta partenaire avec un seul doigt. Il/elle ne doit pas frémir.",
+      "fais une fellation l'autre ne peut pas bouger ",
+      "fais ce que tu veux mais très très lentement l'autre ne peux réagir  — 1 minute.",
+      "frote toi contre ta/ton partenaire l'autre ne peux réagir .",
       "Effleure les lèvres avec les tiennes sans jamais vraiment embrasser — pendant 1 minute.",
-      "Promène tes lèvres de l'oreille jusqu'à l'épaule, en soufflant chaud — 1 minute.",
-      "Regarde ton/ta partenaire droit dans les yeux et caresse les bras très doucement — 1 minute.",
-      "Chuchote ce que tu ferais ce soir… très lentement… 1 minute complète.",
-      "Masse les épaules et la nuque avec tes pouces, en soufflant dans le cou — 1 minute.",
+      "fais des bisous de la lèvre en descendant petit à petit l'autre ne peut réagir ",
+      "Regarde ton/ta partenaire droit dans les yeux et tu fais ce que tu veux elle peut pas réagir du tout  — 1 minute.",
+      "caresse ton partenaire ou tu veux pendants le temps imparti jusqu'a ce qu'il réagit ",
+      "masse ton partenaire avec suplément frotement jusqu'a ce que l'autre craque ",
     ],
   },
   {
@@ -52,8 +52,8 @@ const CATEGORIES: Category[] = [
     challenges: [
       "Bande les yeux à ton/ta partenaire — embrasse-le/la partout sauf les lèvres pendant 2 minutes.",
       "Les yeux bandés : guide doucement les mains de ton/ta partenaire sur ton corps pendant 2 minutes.",
-      "Trace un chemin de baisers du cou jusqu'au ventre, les yeux de ton/ta partenaire bandés.",
-      "Les yeux bandés : décris à voix haute tout ce que tu fais en temps réel — 2 minutes.",
+      "fais une fellation à ton partenaire ",
+      "penettration dans la position souhaité ",
       "Bande les yeux à ton/ta partenaire — il/elle doit deviner chaque endroit que tu embrasses.",
       "Les yeux bandés, les mains tenues : 2 minutes de contact total sans possibilité de fuir.",
       "Bande les yeux et utilise uniquement ta langue sur la peau — trace des formes — 2 minutes.",
@@ -165,16 +165,24 @@ function TimerCircle({ total, left, color }: { total: number; left: number; colo
       <svg width={110} height={110} viewBox="0 0 110 110">
         <circle cx={55} cy={55} r={CIRC_R} stroke="#e5e7eb" strokeWidth={8} fill="none" />
         <circle
-          cx={55} cy={55} r={CIRC_R}
+          cx={55}
+          cy={55}
+          r={CIRC_R}
           stroke={urgent ? "#ef4444" : color}
-          strokeWidth={8} fill="none"
+          strokeWidth={8}
+          fill="none"
           strokeDasharray={`${dash.toFixed(2)} ${CIRC.toFixed(2)}`}
           strokeLinecap="round"
           transform="rotate(-90 55 55)"
           style={{ transition: "stroke-dasharray 1s linear, stroke 0.3s" }}
         />
-        <text x={55} y={55} dominantBaseline="middle" textAnchor="middle"
-          fontSize={urgent ? 28 : 24} fontWeight="bold"
+        <text
+          x={55}
+          y={55}
+          dominantBaseline="middle"
+          textAnchor="middle"
+          fontSize={urgent ? 28 : 24}
+          fontWeight="bold"
           fill={urgent ? "#ef4444" : "#1f2937"}
         >
           {left}
@@ -192,14 +200,25 @@ function useTimer(total: number, onEnd: () => void) {
   const [running, setRunning] = useState(false);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  function start() { setLeft(total); setRunning(true); }
-  function stop() { setRunning(false); if (ref.current) clearInterval(ref.current); }
+  function start() {
+    setLeft(total);
+    setRunning(true);
+  }
+  function stop() {
+    setRunning(false);
+    if (ref.current) clearInterval(ref.current);
+  }
 
   useEffect(() => {
     if (!running) return;
     ref.current = setInterval(() => {
       setLeft((t) => {
-        if (t <= 1) { setRunning(false); clearInterval(ref.current!); onEnd(); return 0; }
+        if (t <= 1) {
+          setRunning(false);
+          clearInterval(ref.current!);
+          onEnd();
+          return 0;
+        }
         return t - 1;
       });
     }, 1000);
@@ -229,7 +248,7 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
   const [timerDone, setTimerDone] = useState(false);
 
   const currentName = turn === 1 ? player1 : player2;
-  const otherName   = turn === 1 ? player2 : player1;
+  const otherName = turn === 1 ? player2 : player1;
   const timer = useTimer(cat?.timerSeconds ?? 30, () => setTimerDone(true));
 
   function spin() {
@@ -242,43 +261,69 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
     let delta = (targetAngle - curMod + 360) % 360;
     if (delta < 20) delta += 360;
     const jitter = (Math.random() - 0.5) * 24;
-    setCat(chosen); setChallenge(picked); setTimerDone(false);
+    setCat(chosen);
+    setChallenge(picked);
+    setTimerDone(false);
     setRotation(rotation + 1800 + delta + jitter);
     setPhase("spinning");
     setTimeout(() => setPhase("reveal"), 4300);
   }
 
   function startChallenge() {
-    setTimerDone(false); setPhase("challenge"); timer.start();
+    setTimerDone(false);
+    setPhase("challenge");
+    timer.start();
   }
 
   function handleResult(won: boolean) {
-    timer.stop(); setSuccess(won);
-    if (won) setScores((s) => { const n: [number,number] = [s[0],s[1]]; n[turn-1]++; return n; });
+    timer.stop();
+    setSuccess(won);
+    if (won)
+      setScores((s) => {
+        const n: [number, number] = [s[0], s[1]];
+        n[turn - 1]++;
+        return n;
+      });
     setPhase("result");
   }
 
   function next() {
     setTurn((t) => (t === 1 ? 2 : 1));
-    setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null); setPhase("idle");
+    setCat(null);
+    setChallenge("");
+    setTimerDone(false);
+    setSuccess(null);
+    setPhase("idle");
   }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center justify-between bg-white/80 px-4 py-3 backdrop-blur-sm shadow-sm">
-        <button onClick={onBack} className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition active:scale-95">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition active:scale-95"
+        >
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
         <div className="flex items-center gap-3 text-sm font-semibold">
-          <span className="text-rose-500">{player1} {scores[0]}</span>
+          <span className="text-rose-500">
+            {player1} {scores[0]}
+          </span>
           <Trophy className="h-4 w-4 text-amber-400" />
-          <span className="text-purple-500">{scores[1]} {player2}</span>
+          <span className="text-purple-500">
+            {scores[1]} {player2}
+          </span>
         </div>
       </div>
 
       {/* Turn badge */}
-      <motion.div key={turn} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="px-4 pt-4 text-center">
+      <motion.div
+        key={turn}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="px-4 pt-4 text-center"
+      >
         <span className="inline-block rounded-full bg-white/90 px-4 py-1.5 text-sm font-medium text-gray-700 shadow-sm">
           🎯 Tour de <strong>{currentName}</strong>
         </span>
@@ -288,11 +333,22 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
       <div className="relative mx-auto mt-4 flex items-center justify-center" style={{ width: 320, height: 320 }}>
         {/* Pointer */}
         <div className="absolute top-0 left-1/2 z-20 -translate-x-1/2" style={{ marginTop: -2 }}>
-          <div style={{ width: 0, height: 0, borderLeft: "13px solid transparent", borderRight: "13px solid transparent", borderTop: "26px solid #1f2937", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))" }} />
+          <div
+            style={{
+              width: 0,
+              height: 0,
+              borderLeft: "13px solid transparent",
+              borderRight: "13px solid transparent",
+              borderTop: "26px solid #1f2937",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))",
+            }}
+          />
         </div>
 
         <motion.svg
-          width={300} height={300} viewBox="0 0 300 300"
+          width={300}
+          height={300}
+          viewBox="0 0 300 300"
           animate={{ rotate: rotation }}
           transition={{ duration: 4, ease: [0.15, 0.85, 0.35, 1.0] }}
           style={{ originX: "50%", originY: "50%" }}
@@ -302,29 +358,50 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
             return (
               <g key={c.id}>
                 <path d={segPath(i)} fill={c.color} stroke="white" strokeWidth={2.5} />
-                <text x={pos.x} y={pos.y} fontSize={28} textAnchor="middle" dominantBaseline="middle"
-                  transform={`rotate(${pos.rotate}, ${pos.x}, ${pos.y})`}>
+                <text
+                  x={pos.x}
+                  y={pos.y}
+                  fontSize={28}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  transform={`rotate(${pos.rotate}, ${pos.x}, ${pos.y})`}
+                >
                   {c.emoji}
                 </text>
               </g>
             );
           })}
           <circle cx={CX} cy={CY} r={24} fill="white" stroke="#e5e7eb" strokeWidth={2} />
-          <text x={CX} y={CY} fontSize={18} textAnchor="middle" dominantBaseline="middle">💕</text>
+          <text x={CX} y={CY} fontSize={18} textAnchor="middle" dominantBaseline="middle">
+            💕
+          </text>
         </motion.svg>
       </div>
 
       {/* Spin button */}
       <AnimatePresence>
         {phase === "idle" && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="mt-4 flex justify-center">
-            <button onClick={spin} className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="mt-4 flex justify-center"
+          >
+            <button
+              onClick={spin}
+              className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95"
+            >
               🎰 Lancer la roue
             </button>
           </motion.div>
         )}
         {phase === "spinning" && (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-4 text-center text-sm text-gray-400">
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 text-center text-sm text-gray-400"
+          >
             ✨ La roue tourne…
           </motion.p>
         )}
@@ -333,20 +410,38 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
       {/* Category reveal overlay */}
       <AnimatePresence>
         {phase === "reveal" && cat && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-40 flex flex-col items-center justify-center bg-gradient-to-br ${cat.bg} px-6 text-white`}>
-            <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.6 }} className="text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-40 flex flex-col items-center justify-center bg-gradient-to-br ${cat.bg} px-6 text-white`}
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", duration: 0.6 }}
+              className="text-center"
+            >
               <p className="text-9xl">{cat.emoji}</p>
               <h2 className="mt-4 text-4xl font-bold tracking-tight drop-shadow">{cat.label}</h2>
               <p className="mt-2 text-lg opacity-90">{cat.subtitle}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-8 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="mt-8 text-center"
+            >
               <p className="text-base opacity-80">Le défi de</p>
               <p className="text-2xl font-bold">{currentName}</p>
             </motion.div>
-            <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
               onClick={startChallenge}
-              className="mt-10 flex items-center gap-2 rounded-full bg-white/25 px-8 py-3.5 text-lg font-semibold backdrop-blur-sm transition active:scale-95 hover:bg-white/35">
+              className="mt-10 flex items-center gap-2 rounded-full bg-white/25 px-8 py-3.5 text-lg font-semibold backdrop-blur-sm transition active:scale-95 hover:bg-white/35"
+            >
               Voir le défi <ChevronRight className="h-5 w-5" />
             </motion.button>
           </motion.div>
@@ -356,23 +451,36 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
       {/* Challenge overlay */}
       <AnimatePresence>
         {phase === "challenge" && cat && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-white px-5 pb-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-white px-5 pb-8"
+          >
             {/* Category badge */}
-            <div className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-white" style={{ background: cat.color }}>
+            <div
+              className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-white"
+              style={{ background: cat.color }}
+            >
               {cat.emoji} {cat.label}
             </div>
 
             {/* Challenge text */}
-            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
               className="mx-auto mt-5 max-w-sm rounded-3xl border-2 p-6 shadow-sm"
-              style={{ borderColor: cat.color + "50", background: cat.color + "0A" }}>
+              style={{ borderColor: cat.color + "50", background: cat.color + "0A" }}
+            >
               <p className="text-center text-lg font-medium leading-relaxed text-gray-800">{challenge}</p>
             </motion.div>
 
             {/* Roles */}
             <p className="mt-3 text-center text-sm text-gray-400">
-              <span className="font-semibold" style={{ color: cat.color }}>{currentName}</span>
+              <span className="font-semibold" style={{ color: cat.color }}>
+                {currentName}
+              </span>
               {" → "}
               <span className="font-semibold text-gray-600">{otherName}</span>
             </p>
@@ -383,20 +491,27 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
             </div>
 
             {timerDone && (
-              <motion.p initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                className="mt-2 text-center text-sm font-semibold text-red-500">
+              <motion.p
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-2 text-center text-sm font-semibold text-red-500"
+              >
                 ⏰ Temps écoulé !
               </motion.p>
             )}
 
             {/* Buttons */}
             <div className="mt-6 flex gap-3">
-              <button onClick={() => handleResult(false)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-red-200 bg-red-50 py-4 text-base font-semibold text-red-500 transition active:scale-95">
+              <button
+                onClick={() => handleResult(false)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-red-200 bg-red-50 py-4 text-base font-semibold text-red-500 transition active:scale-95"
+              >
                 <X className="h-5 w-5" /> Forfait
               </button>
-              <button onClick={() => handleResult(true)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-emerald-50 py-4 text-base font-semibold text-emerald-600 transition active:scale-95">
+              <button
+                onClick={() => handleResult(true)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-emerald-50 py-4 text-base font-semibold text-emerald-600 transition active:scale-95"
+              >
                 <Check className="h-5 w-5" /> Réussi !
               </button>
             </div>
@@ -407,10 +522,19 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
       {/* Result overlay */}
       <AnimatePresence>
         {phase === "result" && cat && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
-            style={{ background: success ? "#f0fdf4" : "#fff1f2" }}>
-            <motion.div initial={{ scale: 0.5, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", duration: 0.5 }} className="text-center">
+            style={{ background: success ? "#f0fdf4" : "#fff1f2" }}
+          >
+            <motion.div
+              initial={{ scale: 0.5, rotate: -10 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="text-center"
+            >
               <p className="text-8xl">{success ? "🎉" : "😈"}</p>
               <h2 className="mt-4 text-3xl font-bold" style={{ color: success ? "#16a34a" : "#e11d48" }}>
                 {success ? "Défi relevé !" : "Forfait !"}
@@ -421,8 +545,12 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
             </motion.div>
 
             {/* Score */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-              className="mt-8 flex items-center gap-6 rounded-3xl bg-white px-8 py-4 shadow-md">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="mt-8 flex items-center gap-6 rounded-3xl bg-white px-8 py-4 shadow-md"
+            >
               <div className="text-center">
                 <p className="text-xs text-gray-400">{player1}</p>
                 <p className="text-3xl font-bold text-rose-500">{scores[0]}</p>
@@ -434,9 +562,13 @@ export function RouletteIRL({ player1, player2, onBack }: RouletteIRLProps) {
               </div>
             </motion.div>
 
-            <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
               onClick={next}
-              className="mt-8 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95">
+              className="mt-8 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95"
+            >
               <RotateCcw className="h-4 w-4" />
               Tour de {turn === 1 ? player2 : player1}
             </motion.button>
