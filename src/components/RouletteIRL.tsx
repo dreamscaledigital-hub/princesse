@@ -7,7 +7,7 @@ type Category = {
   id: string; emoji: string; label: string; subtitle: string;
   color: string; bg: string; challenges: string[]; timerSeconds: number;
 };
-type Phase = "idle" | "spinning" | "reveal" | "challenge" | "result";
+type Phase = "agreement" | "idle" | "spinning" | "reveal" | "challenge" | "result" | "victory";
 
 const CATEGORIES: Category[] = [
   {
@@ -200,6 +200,80 @@ function TimerCircle({ total, left, color }: { total: number; left: number; colo
           fontSize={urgent ? 28 : 24} fontWeight="bold" fill={urgent ? "#ef4444" : "#1f2937"}>{left}</text>
       </svg>
       <p className="text-xs text-gray-400">secondes</p>
+
+      {/* ── Agreement screen ── */}
+      <AnimatePresence>
+        {phase === "agreement" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-rose-100 via-pink-50 to-purple-100 px-6 py-10">
+            <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.6 }} className="w-full max-w-sm">
+              <div className="text-center">
+                <p className="text-7xl">💋</p>
+                <h1 className="mt-3 text-3xl font-bold text-gray-800">Roulette Coquine</h1>
+              </div>
+              <div className="mt-5 rounded-3xl bg-white p-6 shadow-lg">
+                <p className="text-sm font-semibold text-gray-700 mb-3">📜 Règles du jeu</p>
+                <p className="text-sm text-gray-600 leading-relaxed">Chacun lance la roue à tour de rôle. La roue désigne une catégorie et un défi à relever.</p>
+                <p className="text-sm text-gray-600 leading-relaxed mt-2">Réussir <span className="font-semibold text-emerald-600">= +1 point</span>. Échouer = pas de point.</p>
+                <div className="mt-4 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-4 text-white text-center">
+                  <p className="text-xl font-bold">🏆 Premier à 10 points</p>
+                  <p className="mt-1 text-sm font-medium opacity-90">peut exiger ce qu'il veut,</p>
+                  <p className="text-sm font-medium opacity-90">quand il veut, où il veut.</p>
+                  <p className="mt-2 text-xs opacity-75 italic">— sans limite de temps —</p>
+                </div>
+                <p className="mt-4 text-xs text-center text-gray-400">En tapant « J'accepte », vous consentez librement à jouer ensemble.</p>
+              </div>
+              <div className="mt-5 flex flex-col items-center gap-3">
+                {!myAgreed ? (
+                  <button onClick={agree} className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95">
+                    💕 J'accepte !
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-6 py-3">
+                    <Check className="h-4 w-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-600">Tu as accepté !</span>
+                  </div>
+                )}
+                <p className="text-sm text-center">
+                  {partnerAgreed
+                    ? <span className="font-medium text-emerald-500">✓ {theirName} a accepté !</span>
+                    : <span className="text-gray-400 animate-pulse">En attente de {theirName}…</span>}
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Victory screen ── */}
+      <AnimatePresence>
+        {phase === "victory" && winner && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-100 px-6 py-10">
+            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.7 }}>
+              <p className="text-center text-9xl">👑</p>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-4 text-center w-full max-w-sm">
+              <h1 className="text-4xl font-bold text-gray-800">{winner === 1 ? player1 : player2} gagne !</h1>
+              <div className="mt-5 rounded-3xl bg-white px-8 py-6 shadow-xl text-center">
+                <p className="text-base font-semibold text-gray-500 uppercase tracking-wider">🏆 Ton cadeau</p>
+                <p className="mt-3 text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-pink-500 to-rose-600 leading-tight">Tu exiges ce que tu veux,</p>
+                <p className="text-2xl font-extrabold text-gray-700">quand tu veux,</p>
+                <p className="text-2xl font-extrabold text-gray-700">où tu veux. 😈</p>
+                <p className="mt-3 text-sm text-gray-400 italic">— sans limite de temps —</p>
+              </div>
+              <div className="mt-4 flex items-center justify-center gap-6 rounded-2xl bg-white/80 px-6 py-3 shadow">
+                <div className="text-center"><p className="text-xs text-gray-400">{player1}</p><p className="text-2xl font-bold text-rose-500">{scores[0]}</p></div>
+                <Trophy className="h-5 w-5 text-amber-400" />
+                <div className="text-center"><p className="text-xs text-gray-400">{player2}</p><p className="text-2xl font-bold text-purple-500">{scores[1]}</p></div>
+              </div>
+              <button onClick={restart} className="mt-6 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95 mx-auto">
+                <RotateCcw className="h-4 w-4" /> Nouvelle partie
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -239,7 +313,7 @@ export interface RouletteIRLProps {
 }
 
 export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: RouletteIRLProps) {
-  const [phase,     setPhase]     = useState<Phase>("idle");
+  const [phase,     setPhase]     = useState<Phase>("agreement");
   const [turn,      setTurn]      = useState<1 | 2>(1);
   const [rotation,  setRotation]  = useState(0);
   const [cat,       setCat]       = useState<Category | null>(null);
@@ -248,6 +322,9 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   const [success,   setSuccess]   = useState<boolean | null>(null);
   const [timerDone, setTimerDone] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [myAgreed,  setMyAgreed]  = useState(false);
+  const [partnerAgreed, setPartnerAgreed] = useState(false);
+  const [winner,    setWinner]    = useState<1 | 2 | null>(null);
 
   const channelRef    = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queuesRef     = useRef<Record<string, string[]>>({});
@@ -256,6 +333,8 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   const isMyTurn    = turn === mySlot;
   const currentName = turn === 1 ? player1 : player2;
   const otherName   = turn === 1 ? player2 : player1;
+  const myName      = mySlot === 1 ? player1 : player2; // eslint-disable-line @typescript-eslint/no-unused-vars
+  const theirName   = mySlot === 1 ? player2 : player1;
   const timer       = useTimer(() => setTimerDone(true));
 
   function nextChallenge(catId: string, challenges: string[]): string {
@@ -292,11 +371,43 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
         setTurn(payload.nextTurn); setCat(null); setChallenge("");
         setTimerDone(false); setSuccess(null); setPhase("idle");
       })
+      .on("broadcast", { event: "agreed" }, () => { setPartnerAgreed(true); })
+      .on("broadcast", { event: "victory" }, ({ payload }: { payload: { winner: 1|2; newScores: [number,number] } }) => {
+        if (processingRef.current) return;
+        processingRef.current = true;
+        setScores(payload.newScores); setWinner(payload.winner); setPhase("victory");
+        setTimeout(() => { processingRef.current = false; }, 500);
+      })
+      .on("broadcast", { event: "restart" }, () => {
+        setScores([0, 0]); setWinner(null); setTurn(1);
+        setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null);
+        setPhase("idle");
+      })
       .subscribe((status) => setConnected(status === "SUBSCRIBED"));
     channelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
+
+  useEffect(() => {
+    if (myAgreed && partnerAgreed && phase === "agreement") setPhase("idle");
+  }, [myAgreed, partnerAgreed, phase]);
+
+  function agree() {
+    if (myAgreed) return;
+    channelRef.current?.send({ type: "broadcast", event: "agreed", payload: {} });
+    setMyAgreed(true);
+  }
+
+  function restart() {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    channelRef.current?.send({ type: "broadcast", event: "restart", payload: {} });
+    setScores([0, 0]); setWinner(null); setTurn(1);
+    setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null);
+    setPhase("idle");
+    setTimeout(() => { processingRef.current = false; }, 500);
+  }
 
   function spin() {
     if (phase !== "idle" || !isMyTurn) return;
@@ -323,10 +434,17 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   function handleResult(won: boolean) {
     if (processingRef.current) return;
     processingRef.current = true;
-    channelRef.current?.send({ type: "broadcast", event: "result", payload: { success: won, slot: turn } });
-    timer.stop(); setSuccess(won);
-    if (won) setScores((s) => { const n: [number,number]=[s[0],s[1]]; n[turn-1]++; return n; });
-    setPhase("result");
+    timer.stop();
+    const newScores: [number, number] = [scores[0], scores[1]];
+    if (won) newScores[turn - 1]++;
+    setSuccess(won); setScores(newScores);
+    if (won && newScores[turn - 1] >= 10) {
+      channelRef.current?.send({ type: "broadcast", event: "victory", payload: { winner: turn, newScores } });
+      setWinner(turn); setPhase("victory");
+    } else {
+      channelRef.current?.send({ type: "broadcast", event: "result", payload: { success: won, slot: turn } });
+      setPhase("result");
+    }
     setTimeout(() => { processingRef.current = false; }, 500);
   }
 
@@ -343,10 +461,18 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
         <button onClick={onBack} className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition active:scale-95">
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
-        <div className="flex items-center gap-3 text-sm font-semibold">
-          <span className="text-rose-500">{player1} {scores[0]}</span>
-          <Trophy className="h-4 w-4 text-amber-400" />
-          <span className="text-purple-500">{scores[1]} {player2}</span>
+        <div className="flex items-center gap-2">
+          <div className="text-center">
+            <div className="text-xs font-bold text-rose-500">{player1}</div>
+            <div className="flex gap-0.5 justify-center mt-0.5">{Array.from({length:10}).map((_,i)=>(<div key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i<scores[0]?"bg-rose-500":"bg-rose-200"}`}/>))}</div>
+            <div className="text-xs text-gray-400 leading-none">{scores[0]}/10</div>
+          </div>
+          <Trophy className="h-4 w-4 text-amber-400 mx-1" />
+          <div className="text-center">
+            <div className="text-xs font-bold text-purple-500">{player2}</div>
+            <div className="flex gap-0.5 justify-center mt-0.5">{Array.from({length:10}).map((_,i)=>(<div key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i<scores[1]?"bg-purple-500":"bg-purple-200"}`}/>))}</div>
+            <div className="text-xs text-gray-400 leading-none">{scores[1]}/10</div>
+          </div>
         </div>
         <div title={connected ? "Synchronisé" : "Connexion…"}>
           {connected ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-gray-300 animate-pulse" />}
@@ -495,6 +621,80 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
               ) : (
                 <p className="mt-8 text-sm text-gray-400 animate-pulse">En attente de {currentName}…</p>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Agreement screen ── */}
+      <AnimatePresence>
+        {phase === "agreement" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-rose-100 via-pink-50 to-purple-100 px-6 py-10">
+            <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.6 }} className="w-full max-w-sm">
+              <div className="text-center">
+                <p className="text-7xl">💋</p>
+                <h1 className="mt-3 text-3xl font-bold text-gray-800">Roulette Coquine</h1>
+              </div>
+              <div className="mt-5 rounded-3xl bg-white p-6 shadow-lg">
+                <p className="text-sm font-semibold text-gray-700 mb-3">📜 Règles du jeu</p>
+                <p className="text-sm text-gray-600 leading-relaxed">Chacun lance la roue à tour de rôle. La roue désigne une catégorie et un défi à relever.</p>
+                <p className="text-sm text-gray-600 leading-relaxed mt-2">Réussir <span className="font-semibold text-emerald-600">= +1 point</span>. Échouer = pas de point.</p>
+                <div className="mt-4 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-4 text-white text-center">
+                  <p className="text-xl font-bold">🏆 Premier à 10 points</p>
+                  <p className="mt-1 text-sm font-medium opacity-90">peut exiger ce qu'il veut,</p>
+                  <p className="text-sm font-medium opacity-90">quand il veut, où il veut.</p>
+                  <p className="mt-2 text-xs opacity-75 italic">— sans limite de temps —</p>
+                </div>
+                <p className="mt-4 text-xs text-center text-gray-400">En tapant « J'accepte », vous consentez librement à jouer ensemble.</p>
+              </div>
+              <div className="mt-5 flex flex-col items-center gap-3">
+                {!myAgreed ? (
+                  <button onClick={agree} className="rounded-full bg-gradient-to-br from-pink-500 to-rose-600 px-10 py-4 text-lg font-bold text-white shadow-lg shadow-pink-200 transition active:scale-95">
+                    💕 J'accepte !
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-6 py-3">
+                    <Check className="h-4 w-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-600">Tu as accepté !</span>
+                  </div>
+                )}
+                <p className="text-sm text-center">
+                  {partnerAgreed
+                    ? <span className="font-medium text-emerald-500">✓ {theirName} a accepté !</span>
+                    : <span className="text-gray-400 animate-pulse">En attente de {theirName}…</span>}
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Victory screen ── */}
+      <AnimatePresence>
+        {phase === "victory" && winner && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-100 px-6 py-10">
+            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", duration: 0.7 }}>
+              <p className="text-center text-9xl">👑</p>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-4 text-center w-full max-w-sm">
+              <h1 className="text-4xl font-bold text-gray-800">{winner === 1 ? player1 : player2} gagne !</h1>
+              <div className="mt-5 rounded-3xl bg-white px-8 py-6 shadow-xl text-center">
+                <p className="text-base font-semibold text-gray-500 uppercase tracking-wider">🏆 Ton cadeau</p>
+                <p className="mt-3 text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-pink-500 to-rose-600 leading-tight">Tu exiges ce que tu veux,</p>
+                <p className="text-2xl font-extrabold text-gray-700">quand tu veux,</p>
+                <p className="text-2xl font-extrabold text-gray-700">où tu veux. 😈</p>
+                <p className="mt-3 text-sm text-gray-400 italic">— sans limite de temps —</p>
+              </div>
+              <div className="mt-4 flex items-center justify-center gap-6 rounded-2xl bg-white/80 px-6 py-3 shadow">
+                <div className="text-center"><p className="text-xs text-gray-400">{player1}</p><p className="text-2xl font-bold text-rose-500">{scores[0]}</p></div>
+                <Trophy className="h-5 w-5 text-amber-400" />
+                <div className="text-center"><p className="text-xs text-gray-400">{player2}</p><p className="text-2xl font-bold text-purple-500">{scores[1]}</p></div>
+              </div>
+              <button onClick={restart} className="mt-6 flex items-center gap-2 rounded-full bg-gray-900 px-8 py-4 text-base font-semibold text-white shadow transition active:scale-95 mx-auto">
+                <RotateCcw className="h-4 w-4" /> Nouvelle partie
+              </button>
             </motion.div>
           </motion.div>
         )}
