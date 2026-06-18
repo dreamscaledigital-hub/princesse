@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
-import { Heart, Dices } from "lucide-react";
+import { Heart, Dices, KeyRound, Shuffle } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Princesse 💕" }, { name: "description", content: "Votre petit univers à deux." }] }),
