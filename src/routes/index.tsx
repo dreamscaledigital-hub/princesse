@@ -84,6 +84,14 @@ const GAMES: GameCard[] = [
     gradient: "linear-gradient(145deg,oklch(0.90 0.062 352),oklch(0.82 0.105 358))",
     glow: "oklch(0.60 0.16 0 / 0.28)",
   },
+  {
+    emoji: "💞",
+    title: "Tous nos jeux à deux",
+    desc: "Quiz, Mastermind, Pendu, Mini-jeux, Roue des défis… Connectez-vous et jouez ensemble.",
+    route: "/hub",
+    gradient: "linear-gradient(145deg,oklch(0.93 0.05 350),oklch(0.85 0.09 10))",
+    glow: "oklch(0.65 0.14 355 / 0.28)",
+  },
 ];
 
 function GameCard({ card, delay = 0 }: { card: GameCard; delay?: number }) {
