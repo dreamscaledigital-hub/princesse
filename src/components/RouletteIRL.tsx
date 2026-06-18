@@ -23,6 +23,7 @@ const CATEGORIES: Category[] = [
       "Effleure les lèvres avec les tiennes sans jamais vraiment embrasser — pendant 1 minute.",
       "Promène tes lèvres de l'oreille jusqu'à l'épaule, en soufflant chaud — 1 minute.",
       "Regarde ton/ta partenaire droit dans les yeux et caresse les bras très doucement — 1 minute.",
+      "fais un cunni/fellation jusqu'a ce qu'un song sorte de ton/ta partenaire "
       "Chuchote ce que tu ferais ce soir… très lentement… 1 minute complète.",
       "Masse les épaules et la nuque avec tes pouces, en soufflant dans le cou — 1 minute.",
     ],
@@ -41,7 +42,7 @@ const CATEGORIES: Category[] = [
       "Bande les yeux et utilise uniquement ta langue sur la peau — trace des formes — 2 minutes.",
       "Les yeux fermés, ton/ta partenaire reçoit 2 minutes de plaisir là où tu décides.",
       "Bande les yeux à ton/ta partenaire — prends le contrôle complet du rythme pendant 2 minutes.",
-      "Les yeux bandés : surprise totale — ton/ta partenaire découvre sans voir ce que tu fais.",
+      "Les yeux bandés : ton/ta partenaire te demande d'utiliser une partie de ton corps/mon corps et tu choisit le reste ",
     ],
   },
   {
