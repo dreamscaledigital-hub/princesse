@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import { GAGES_RPS } from "@/components/RPSExtreme";
 import type { Room } from "@/lib/use-room-state";
@@ -10,25 +9,37 @@ import { markItemsUsed, pickNonRepeating } from "@/lib/non-repeating";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
 
-// ─────────── RÉGLAGES (modifiables) ───────────
+// ── Level config ──────────────────────────────────────────────────────────
 type Level = "easy" | "medium" | "hard";
 
-const LEVELS: Record<Level, { label: string; emoji: string; size: number; palette: number; maxAttempts: number; gradient: string }> = {
-  easy:   { label: "Facile",    emoji: "🟢", size: 3, palette: 4, maxAttempts: 10, gradient: "from-emerald-200 to-lime-200" },
-  medium: { label: "Moyen",     emoji: "🟡", size: 4, palette: 6, maxAttempts: 10, gradient: "from-amber-200 to-yellow-200" },
-  hard:   { label: "Difficile", emoji: "🔴", size: 5, palette: 6, maxAttempts: 8,  gradient: "from-rose-200 to-pink-300" },
+const LEVELS: Record<Level, { label: string; size: number; palette: number; maxAttempts: number; color: string; glow: string; desc: string; emoji: string }> = {
+  easy:   { label: "Facile",    size: 3, palette: 4, maxAttempts: 10, color: "#4ade80", glow: "#4ade8040", desc: "3 cases · 4 couleurs · 10 essais", emoji: "🌿" },
+  medium: { label: "Moyen",     size: 4, palette: 6, maxAttempts: 10, color: "#fbbf24", glow: "#fbbf2440", desc: "4 cases · 6 couleurs · 10 essais", emoji: "✨" },
+  hard:   { label: "Difficile", size: 5, palette: 6, maxAttempts: 8,  color: "#f43f5e", glow: "#f43f5e40", desc: "5 cases · 6 couleurs · 8 essais",  emoji: "🔥" },
 };
 
-// Couleurs mignonnes (palette de 6, on prend les N premières par niveau)
+// ── Color palette ─────────────────────────────────────────────────────────
 const COLORS = [
-  { id: "rose",   emoji: "💗", bg: "bg-pink-400" },
-  { id: "amber",  emoji: "💛", bg: "bg-amber-400" },
-  { id: "lime",   emoji: "💚", bg: "bg-emerald-400" },
-  { id: "sky",    emoji: "💙", bg: "bg-sky-400" },
-  { id: "violet", emoji: "💜", bg: "bg-violet-400" },
-  { id: "orange", emoji: "🧡", bg: "bg-orange-400" },
+  { id: "rose",   hex: "#f43f5e", label: "Rose"   },
+  { id: "amber",  hex: "#fbbf24", label: "Doré"   },
+  { id: "lime",   hex: "#4ade80", label: "Vert"   },
+  { id: "sky",    hex: "#38bdf8", label: "Bleu"   },
+  { id: "violet", hex: "#a78bfa", label: "Violet" },
+  { id: "orange", hex: "#fb923c", label: "Orange" },
 ];
 
+// ── Theme ─────────────────────────────────────────────────────────────────
+const BG = "linear-gradient(160deg, oklch(0.10 0.07 260) 0%, oklch(0.07 0.04 250) 100%)";
+
+const glass = {
+  background: "rgba(255,255,255,0.06)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 20,
+};
+
+// ── Types ─────────────────────────────────────────────────────────────────
 type Attempt = { guess: string[]; black: number; white: number };
 
 type MMState = {
@@ -38,10 +49,10 @@ type MMState = {
   level_2?: Level | null;
   level?: Level | null;
   round?: 1 | 2;
-  code_1?: string[] | null;       // secret du slot 1 (manche 1)
-  code_2?: string[] | null;       // secret du slot 2 (manche 2)
-  attempts_1?: Attempt[];          // essais du slot 1 (manche 2)
-  attempts_2?: Attempt[];          // essais du slot 2 (manche 1)
+  code_1?: string[] | null;
+  code_2?: string[] | null;
+  attempts_1?: Attempt[];
+  attempts_2?: Attempt[];
   found_1?: boolean | null;
   found_2?: boolean | null;
   tries_1?: number | null;
@@ -60,69 +71,123 @@ type Props = {
   onDareDone: () => void;
 };
 
-const update = (roomId: string, patch: MMState) =>
-  supabase.from("rooms").update({ minigame_state: patch }).eq("id", roomId);
+// ── Supabase helpers (unchanged) ──────────────────────────────────────────
+const dbUpdate = (roomId: string, state: MMState) =>
+  supabase.from("rooms").update({ minigame_state: state }).eq("id", roomId);
 
-// On merge côté client en lisant l'état courant (atomicité raisonnable
-// pour ce jeu ; les écritures concurrentes sont rares et bornées par rôle).
-async function patch(roomId: string, partial: MMState) {
-  const { data } = await supabase
-    .from("rooms")
-    .select("minigame_state")
-    .eq("id", roomId)
-    .maybeSingle();
+async function patchState(roomId: string, partial: MMState) {
+  const { data } = await supabase.from("rooms").select("minigame_state").eq("id", roomId).maybeSingle();
   const current = (data?.minigame_state ?? {}) as MMState;
-  const next = { ...current, ...partial };
-  await update(roomId, next);
+  await dbUpdate(roomId, { ...current, ...partial });
 }
 
+// ── Game logic (unchanged) ────────────────────────────────────────────────
 function evaluate(code: string[], guess: string[]): { black: number; white: number } {
   let black = 0;
-  const codeRest: string[] = [];
-  const guessRest: string[] = [];
-  for (let i = 0; i < code.length; i += 1) {
-    if (guess[i] === code[i]) black += 1;
+  const codeRest: string[] = [], guessRest: string[] = [];
+  for (let i = 0; i < code.length; i++) {
+    if (guess[i] === code[i]) black++;
     else { codeRest.push(code[i]); guessRest.push(guess[i]); }
   }
   let white = 0;
   const counts: Record<string, number> = {};
   for (const c of codeRest) counts[c] = (counts[c] ?? 0) + 1;
-  for (const g of guessRest) {
-    if ((counts[g] ?? 0) > 0) { white += 1; counts[g] -= 1; }
-  }
+  for (const g of guessRest) { if ((counts[g] ?? 0) > 0) { white++; counts[g]--; } }
   return { black, white };
 }
 
+// ── Helper UI components ──────────────────────────────────────────────────
+
+/** Colored disc or empty slot */
+function Disc({ colorId, size = 44, active = false }: { colorId?: string | null; size?: number; active?: boolean }) {
+  const c = colorId ? COLORS.find(x => x.id === colorId) : null;
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0, position: "relative",
+      background: c
+        ? "radial-gradient(circle at 32% 30%, " + c.hex + "ff 0%, " + c.hex + "cc 55%, " + c.hex + "99 100%)"
+        : "rgba(255,255,255,0.07)",
+      boxShadow: c
+        ? "0 0 10px " + c.hex + "66, inset 0 -2px 4px rgba(0,0,0,0.2)"
+        : active
+          ? "0 0 0 2.5px rgba(255,255,255,0.75), inset 0 2px 8px rgba(0,0,0,0.45)"
+          : "0 0 0 1.5px rgba(255,255,255,0.15), inset 0 2px 8px rgba(0,0,0,0.4)",
+    }}>
+      {active && !c && (
+        <div style={{ position: "absolute", inset: "32%", background: "rgba(255,255,255,0.55)", borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
+      )}
+    </div>
+  );
+}
+
+/** Feedback pegs: black = well-placed, white = right color wrong place */
+function Pegs({ black, white, total }: { black: number; white: number; total: number }) {
+  const rows = Math.ceil(total / 2);
+  const pegs = Array.from({ length: rows * 2 }, (_, i) =>
+    i < black ? "black" : i < black + white ? "white" : "empty"
+  );
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 12px)", gap: 3 }}>
+      {pegs.map((type, i) => (
+        <div key={i} style={{
+          width: 12, height: 12, borderRadius: "50%",
+          background: type === "black" ? "#0d0d1f" : type === "white" ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.07)",
+          border: type === "white" ? "1.5px solid rgba(255,255,255,0.55)"
+                : type === "empty" ? "1px solid rgba(255,255,255,0.1)" : "none",
+          boxShadow: type === "black" ? "inset 0 1px 3px rgba(0,0,0,0.8)" : "none",
+        }} />
+      ))}
+    </div>
+  );
+}
+
+/** Back button + title bar shared by all screens */
+function Header({ onBack, title, subtitle }: { onBack: () => void; title?: string; subtitle?: string }) {
+  return (
+    <div style={{ width: "100%", maxWidth: 420, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: subtitle ? 10 : 0 }}>
+        <button onClick={onBack} style={{
+          background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 12, padding: "6px 14px", color: "rgba(255,255,255,0.65)", fontSize: 13, cursor: "pointer",
+        }}>← Menu</button>
+        <h1 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, color: "#fff", margin: 0, letterSpacing: "0.03em" }}>
+          {title ?? "Mastermind"}
+        </h1>
+        <div style={{ width: 76 }} />
+      </div>
+      {subtitle && (
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, textAlign: "center", margin: 0 }}>{subtitle}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────
 export function Mastermind({ room, mySlot, myName, otherName, onBackToMenu, onDareDone }: Props) {
   const s = (room.minigame_state ?? {}) as MMState;
   const phase = s.phase ?? "level_select";
 
-  // Init côté slot 1
   useEffect(() => {
     if (Object.keys(s).length === 0 && mySlot === 1) {
-      void update(room.id, { game: "mastermind", phase: "level_select", round: 1 });
+      void dbUpdate(room.id, { game: "mastermind", phase: "level_select", round: 1 });
     }
   }, [room.id, s, mySlot]);
 
   if (phase === "level_select") {
-    return <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
+    return <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onBack={onBackToMenu} />;
   }
   if (phase === "build" || phase === "guess") {
-    return <Round state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
+    return <Round state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onBack={onBackToMenu} />;
   }
   if (phase === "dare") {
-    return <DareView state={s} room={room} mySlot={mySlot} otherName={otherName} onDareDone={onDareDone} />;
+    return <DareView state={s} room={room} mySlot={mySlot} otherName={otherName} onDareDone={onDareDone} onBack={onBackToMenu} />;
   }
-  // done
   return (
     <DoneView
-      state={s}
-      mySlot={mySlot}
+      state={s} mySlot={mySlot} onBack={onBackToMenu}
       onReplay={async () => {
-        await update(room.id, {
-          game: "mastermind",
-          phase: "level_select",
-          round: 1,
+        await dbUpdate(room.id, {
+          game: "mastermind", phase: "level_select", round: 1,
           level_1: null, level_2: null, level: null,
           code_1: null, code_2: null,
           attempts_1: [], attempts_2: [],
@@ -131,47 +196,38 @@ export function Mastermind({ room, mySlot, myName, otherName, onBackToMenu, onDa
           winner_slot: null, wheel_index: null, dare_text: null,
         });
       }}
-      onBackToMenu={onBackToMenu}
     />
   );
 }
 
-// ─────────── Étape 1 : choix du niveau commun ───────────
-function LevelSelect({ state, room, mySlot, myName, otherName }: { state: MMState; room: Room; mySlot: number; myName: string; otherName: string }) {
-  const mine = mySlot === 1 ? state.level_1 : state.level_2;
+// ── LevelSelect ───────────────────────────────────────────────────────────
+function LevelSelect({ state, room, mySlot, myName, otherName, onBack }: {
+  state: MMState; room: Room; mySlot: number; myName: string; otherName: string; onBack: () => void;
+}) {
+  const mine   = mySlot === 1 ? state.level_1 : state.level_2;
   const theirs = mySlot === 1 ? state.level_2 : state.level_1;
-  const both = state.level_1 && state.level_2;
-  const match = both && state.level_1 === state.level_2;
+  const both   = !!(state.level_1 && state.level_2);
+  const match  = both && state.level_1 === state.level_2;
 
   const choose = async (l: Level) => {
-    await patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
+    await patchState(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
   };
 
   const start = async () => {
     if (!match) return;
-    await patch(room.id, {
-      phase: "build",
-      level: state.level_1 ?? null,
-      round: 1,
-      code_1: null, code_2: null,
-      attempts_1: [], attempts_2: [],
-      found_1: null, found_2: null,
-      tries_1: null, tries_2: null,
+    await patchState(room.id, {
+      phase: "build", level: state.level_1 ?? null, round: 1,
+      code_1: null, code_2: null, attempts_1: [], attempts_2: [],
+      found_1: null, found_2: null, tries_1: null, tries_2: null,
       winner_slot: null, wheel_index: null, dare_text: null,
     });
   };
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Mastermind 💞</p>
-        <h1 className="mt-1 font-script text-4xl text-primary">💗💛💚💙</h1>
-        <p className="mt-1 text-xs text-muted-foreground">Devine le code de l'autre — moins d'essais = gagne !</p>
-      </div>
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 36px" }}>
+      <Header onBack={onBack} subtitle="Retrouvez le code de l'autre — le moins d'essais gagne !" />
 
-      <p className="mt-5 text-center text-sm font-medium">Choisissez ENSEMBLE le niveau :</p>
-
-      <div className="mt-4 grid gap-3">
+      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
         {(Object.keys(LEVELS) as Level[]).map((l) => {
           const info = LEVELS[l];
           const iPicked = mine === l;
@@ -181,162 +237,179 @@ function LevelSelect({ state, room, mySlot, myName, otherName }: { state: MMStat
               key={l}
               whileTap={{ scale: 0.97 }}
               onClick={() => choose(l)}
-              className={`relative flex items-center gap-4 rounded-3xl border-2 p-4 text-left shadow-md bg-gradient-to-br ${info.gradient} ${iPicked ? "border-primary ring-2 ring-primary/40" : "border-white/60"}`}
+              style={{
+                ...glass,
+                borderRadius: 20,
+                padding: "18px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                cursor: "pointer",
+                textAlign: "left",
+                border: iPicked
+                  ? "2px solid " + info.color
+                  : "1px solid rgba(255,255,255,0.10)",
+                boxShadow: iPicked ? "0 0 20px " + info.glow : "none",
+                transition: "box-shadow 0.2s, border 0.2s",
+                background: iPicked ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.05)",
+              }}
             >
-              <span className="text-4xl">{info.emoji}</span>
-              <div className="flex-1">
-                <p className="font-script text-2xl text-foreground/90">{info.label}</p>
-                <p className="text-[11px] text-foreground/70">{info.size} cases · {info.palette} couleurs · {info.maxAttempts} essais</p>
-                <div className="mt-1 flex gap-2 text-[11px] font-medium">
-                  {iPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">Toi ✓</span>}
-                  {theyPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">{otherName} ✓</span>}
+              <span style={{ fontSize: 36, flexShrink: 0 }}>{info.emoji}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: info.color, fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>{info.label}</p>
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, margin: 0 }}>{info.desc}</p>
+                <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                  {iPicked && (
+                    <span style={{ background: info.color + "22", border: "1px solid " + info.color + "66", color: info.color, borderRadius: 100, fontSize: 11, padding: "2px 10px", fontWeight: 600 }}>
+                      Toi ✓
+                    </span>
+                  )}
+                  {theyPicked && (
+                    <span style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", borderRadius: 100, fontSize: 11, padding: "2px 10px" }}>
+                      {otherName} ✓
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.button>
           );
         })}
-      </div>
 
-      <div className="mt-4 text-center text-sm">
-        <p>
-          <span className="font-semibold">{myName}</span> : {mine ? LEVELS[mine].label : "—"} · <span className="font-semibold">{otherName}</span> : {theirs ? LEVELS[theirs].label : "—"}
-        </p>
-        {both && !match && <p className="mt-2 text-muted-foreground">Mettez-vous d'accord 😅</p>}
-      </div>
+        <div style={{ ...glass, borderRadius: 16, padding: "12px 16px", marginTop: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: mine ? LEVELS[mine].color : "rgba(255,255,255,0.2)", boxShadow: mine ? "0 0 6px " + LEVELS[mine!].color : "none" }} />
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>{myName} : {mine ? LEVELS[mine].label : "—"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>{otherName} : {theirs ? LEVELS[theirs].label : "—"}</span>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: theirs ? LEVELS[theirs].color : "rgba(255,255,255,0.2)", boxShadow: theirs ? "0 0 6px " + LEVELS[theirs!].color : "none" }} />
+            </div>
+          </div>
+          {both && !match && (
+            <p style={{ color: "#fbbf24", fontSize: 12, textAlign: "center", marginTop: 8, marginBottom: 0 }}>
+              Mettez-vous d'accord sur le même niveau 😅
+            </p>
+          )}
+        </div>
 
-      <div className="mt-auto pt-6">
-        <Button disabled={!match} onClick={start} className="h-14 w-full rounded-2xl text-base font-semibold">
-          {match ? "C'est parti ! 🎮" : "En attente du niveau commun…"}
-        </Button>
+        <div style={{ marginTop: "auto", paddingTop: 16 }}>
+          <motion.button
+            whileTap={match ? { scale: 0.97 } : {}}
+            onClick={start}
+            disabled={!match}
+            style={{
+              width: "100%", padding: "16px 0", borderRadius: 18, border: "none", cursor: match ? "pointer" : "not-allowed",
+              background: match
+                ? "linear-gradient(135deg, " + (mine ? LEVELS[mine].color : "#4ade80") + "dd, " + (mine ? LEVELS[mine].color : "#4ade80") + "88)"
+                : "rgba(255,255,255,0.08)",
+              color: match ? "#fff" : "rgba(255,255,255,0.35)",
+              fontSize: 16, fontWeight: 700,
+              boxShadow: match ? "0 6px 24px " + (mine ? LEVELS[mine].color + "44" : "#4ade8044") : "none",
+            }}
+          >
+            {match ? "C'est parti ! 🎮" : "En attente d'un niveau commun…"}
+          </motion.button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─────────── Étape 2/3 : manches ───────────
-function Round({ state, room, mySlot, otherName }: { state: MMState; room: Room; mySlot: number; myName: string; otherName: string }) {
+// ── Round dispatcher ──────────────────────────────────────────────────────
+function Round({ state, room, mySlot, myName, otherName, onBack }: {
+  state: MMState; room: Room; mySlot: number; myName: string; otherName: string; onBack: () => void;
+}) {
   const level = (state.level ?? "easy") as Level;
   const { size, palette, maxAttempts } = LEVELS[level];
   const palettes = COLORS.slice(0, palette);
   const round = state.round ?? 1;
 
-  // Rôles selon manche
   const codemakerSlot = round === 1 ? 1 : 2;
-  const guesserSlot = round === 1 ? 2 : 1;
-  const iAmMaker = mySlot === codemakerSlot;
+  const iAmMaker      = mySlot === codemakerSlot;
 
-  const codeKey = round === 1 ? "code_1" : "code_2";
-  const attemptsKey = round === 1 ? "attempts_2" : "attempts_1";
-  const foundKey = round === 1 ? "found_2" : "found_1";
-  const triesKey = round === 1 ? "tries_2" : "tries_1";
+  const codeKey     = round === 1 ? "code_1"     : "code_2"     as keyof MMState;
+  const attemptsKey = round === 1 ? "attempts_2" : "attempts_1" as keyof MMState;
+  const foundKey    = round === 1 ? "found_2"    : "found_1"    as keyof MMState;
+  const triesKey    = round === 1 ? "tries_2"    : "tries_1"    as keyof MMState;
 
-  const code = (state[codeKey] as string[] | null | undefined) ?? null;
+  const code     = (state[codeKey] as string[] | null | undefined) ?? null;
   const attempts = (state[attemptsKey] as Attempt[] | undefined) ?? [];
 
-  // ── Phase "build" : le codemaker compose son code, le guesser attend ──
   if (state.phase === "build") {
     if (iAmMaker) {
       return (
         <BuildCode
-          size={size}
-          palettes={palettes}
-          level={level}
-          round={round}
+          size={size} palettes={palettes} level={level} round={round} otherName={otherName}
+          onBack={onBack}
           onValidate={async (newCode) => {
-            await patch(room.id, { [codeKey]: newCode, phase: "guess" } as MMState);
+            await patchState(room.id, { [codeKey]: newCode, phase: "guess" } as MMState);
           }}
-          otherName={otherName}
         />
       );
     }
-    return (
-      <WaitingScreen
-        title={round === 1 ? "Manche 1" : "Manche 2"}
-        message={`${otherName} prépare son code secret… 🔒`}
-      />
-    );
+    return <WaitingScreen onBack={onBack} otherName={otherName} round={round} level={level} />;
   }
 
-  // ── Phase "guess" ──
+  // guess phase
   if (iAmMaker) {
-    // Codemaker regarde la progression
     return (
       <WatcherView
-        level={level}
-        round={round}
-        otherName={otherName}
-        attempts={attempts}
-        maxAttempts={maxAttempts}
-        size={size}
-        palettes={palettes}
+        level={level} round={round} otherName={otherName}
+        attempts={attempts} maxAttempts={maxAttempts} size={size} palettes={palettes}
+        myCode={code}
+        onBack={onBack}
       />
     );
   }
 
-  // Guesser propose des combinaisons
   return (
     <GuesserView
-      level={level}
-      round={round}
-      size={size}
-      palettes={palettes}
-      maxAttempts={maxAttempts}
-      attempts={attempts}
-      otherName={otherName}
+      level={level} round={round} size={size} palettes={palettes}
+      maxAttempts={maxAttempts} attempts={attempts} otherName={otherName}
+      onBack={onBack}
       onSubmit={async (guess) => {
         if (!code) return;
         const result = evaluate(code, guess);
         const newAttempt: Attempt = { guess, black: result.black, white: result.white };
         const newAttempts = [...attempts, newAttempt];
-        const found = result.black === size;
-        const ended = found || newAttempts.length >= maxAttempts;
+        const found  = result.black === size;
+        const ended  = found || newAttempts.length >= maxAttempts;
 
         if (!ended) {
-          await patch(room.id, { [attemptsKey]: newAttempts } as MMState);
+          await patchState(room.id, { [attemptsKey]: newAttempts } as MMState);
           return;
         }
 
         const tries = newAttempts.length;
-        // Fin de manche
         if (round === 1) {
-          await patch(room.id, {
-            [attemptsKey]: newAttempts,
-            [foundKey]: found,
-            [triesKey]: tries,
-            phase: "build",
-            round: 2,
+          await patchState(room.id, {
+            [attemptsKey]: newAttempts, [foundKey]: found, [triesKey]: tries,
+            phase: "build", round: 2,
           } as MMState);
         } else {
-          // Fin de manche 2 → calcul du gagnant
-          const found1 = round === 2 ? found : (state.found_1 ?? false);
-          const tries1 = round === 2 ? tries : (state.tries_1 ?? maxAttempts);
-          const found2 = state.found_2 ?? false;
-          const tries2 = state.tries_2 ?? maxAttempts;
+          const found1  = round === 2 ? found : (state.found_1 ?? false);
+          const tries1  = round === 2 ? tries : (state.tries_1 ?? maxAttempts);
+          const found2  = state.found_2 ?? false;
+          const tries2  = state.tries_2 ?? maxAttempts;
 
           let winner: 0 | 1 | 2 = 0;
-          if (found1 && !found2) winner = 1;
-          else if (found2 && !found1) winner = 2;
+          if      (found1 && !found2)             winner = 1;
+          else if (found2 && !found1)             winner = 2;
           else if (found1 && found2) {
-            if (tries1 < tries2) winner = 1;
+            if      (tries1 < tries2) winner = 1;
             else if (tries2 < tries1) winner = 2;
-            else winner = 0;
-          } else {
-            winner = 0;
           }
 
-          const gageList: string[] = [...GAGES_RPS[level]];
-          const dareScope = `dare:mastermind:${level}`;
+          const gageList   = [...GAGES_RPS[level]];
+          const dareScope  = "dare:mastermind:" + level;
           const selectedDare = pickNonRepeating(gageList, dareScope, (x) => x);
           if (selectedDare) markItemsUsed(dareScope, [selectedDare], (x) => x);
           const wheel_index = selectedDare ? gageList.indexOf(selectedDare) : 0;
 
-          await patch(room.id, {
-            [attemptsKey]: newAttempts,
-            [foundKey]: found,
-            [triesKey]: tries,
-            phase: "dare",
-            winner_slot: winner,
-            wheel_index,
+          await patchState(room.id, {
+            [attemptsKey]: newAttempts, [foundKey]: found, [triesKey]: tries,
+            phase: "dare", winner_slot: winner, wheel_index,
             dare_text: winner === 0 ? null : selectedDare ?? gageList[wheel_index],
           } as MMState);
         }
@@ -345,287 +418,463 @@ function Round({ state, room, mySlot, otherName }: { state: MMState; room: Room;
   );
 }
 
-// ─────────── Sous-vues ───────────
-function BuildCode({ size, palettes, level, round, onValidate, otherName }: {
+// ── BuildCode ─────────────────────────────────────────────────────────────
+function BuildCode({ size, palettes, level, round, onValidate, otherName, onBack }: {
   size: number; palettes: typeof COLORS; level: Level; round: number;
-  onValidate: (code: string[]) => void | Promise<void>; otherName: string;
+  onValidate: (code: string[]) => void | Promise<void>; otherName: string; onBack: () => void;
 }) {
   const [slots, setSlots] = useState<(string | null)[]>(() => Array(size).fill(null));
   const [active, setActive] = useState(0);
   const filled = slots.every((s) => s !== null);
-
-  const setSlot = (i: number, id: string | null) => {
-    setSlots((prev) => prev.map((s, idx) => (idx === i ? id : s)));
-  };
+  const cfg = LEVELS[level];
 
   const pickColor = (id: string) => {
-    setSlot(active, id);
-    const next = slots.findIndex((s, i) => i !== active && s === null);
-    if (next !== -1 && active === slots.findIndex((s) => s === null)) setActive(next);
+    setSlots((prev) => {
+      const next = [...prev];
+      next[active] = id;
+      return next;
+    });
+    // Advance to next empty slot
+    const nextEmpty = slots.findIndex((s, i) => i > active && s === null);
+    if (nextEmpty !== -1) setActive(nextEmpty);
     else if (active < size - 1) setActive(active + 1);
   };
 
+  const tapSlot = (i: number) => {
+    setActive(i);
+    // Tap filled slot: clear it
+    if (slots[i] !== null) {
+      setSlots((prev) => prev.map((s, idx) => idx === i ? null : s));
+    }
+  };
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          Manche {round} · {LEVELS[level].emoji} {LEVELS[level].label}
-        </p>
-        <h2 className="mt-1 font-script text-3xl text-primary">Crée ton code secret 🔒</h2>
-        <p className="mt-1 text-xs text-muted-foreground">{otherName} devra le retrouver. Les répétitions sont autorisées.</p>
-      </div>
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 36px" }}>
+      <Header onBack={onBack} />
 
-      <div className="mt-6 flex justify-center gap-2">
-        {slots.map((s, i) => {
-          const c = s ? palettes.find((p) => p.id === s) : null;
-          return (
-            <button
-              key={i}
-              onClick={() => setActive(i)}
-              className={`h-14 w-14 rounded-2xl border-2 flex items-center justify-center text-2xl transition ${active === i ? "border-primary ring-2 ring-primary/40" : "border-border"} ${c ? c.bg : "bg-card/80"}`}
-            >
-              {c ? c.emoji : "·"}
-            </button>
-          );
-        })}
-      </div>
+      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", flex: 1, gap: 0 }}>
+        {/* Manche badge */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <span style={{ background: cfg.color + "22", border: "1px solid " + cfg.color + "55", color: cfg.color, borderRadius: 100, fontSize: 13, padding: "4px 16px", fontWeight: 600 }}>
+            Manche {round} · {cfg.emoji} {cfg.label}
+          </span>
+        </div>
 
-      <p className="mt-5 text-center text-xs text-muted-foreground">Choisis une couleur :</p>
-      <div className="mt-2 grid grid-cols-3 gap-3">
-        {palettes.map((p) => (
-          <motion.button
-            key={p.id}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => pickColor(p.id)}
-            className={`flex flex-col items-center rounded-2xl border-2 border-white/60 p-3 text-3xl shadow-sm ${p.bg}`}
+        {/* Title */}
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "#fff", margin: "0 0 4px" }}>
+            Crée ton code secret 🔒
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: 0 }}>
+            {otherName} devra le retrouver. Répétitions autorisées.
+          </p>
+        </div>
+
+        {/* Code slots */}
+        <div style={{ ...glass, padding: "20px 16px", marginBottom: 24, borderRadius: 22 }}>
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", textAlign: "center", marginBottom: 14, marginTop: 0 }}>
+            Ton code
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            {slots.map((s, i) => (
+              <motion.button
+                key={i}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => tapSlot(i)}
+                style={{
+                  background: "none", border: "none", padding: 0, cursor: "pointer",
+                  outline: "none",
+                  transform: active === i && !s ? "scale(1.08)" : "scale(1)",
+                  transition: "transform 0.15s",
+                }}
+              >
+                <Disc colorId={s} size={52} active={active === i} />
+              </motion.button>
+            ))}
+          </div>
+          <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, textAlign: "center", marginTop: 12, marginBottom: 0 }}>
+            Appuie sur une case remplie pour la vider
+          </p>
+        </div>
+
+        {/* Color palette */}
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.09em", textAlign: "center", marginBottom: 14 }}>
+            Palette
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+            {palettes.map((p) => (
+              <motion.button
+                key={p.id}
+                whileTap={{ scale: 0.85 }}
+                onClick={() => pickColor(p.id)}
+                style={{
+                  width: 56, height: 56, borderRadius: "50%", border: "none", cursor: "pointer",
+                  background: "radial-gradient(circle at 32% 30%, " + p.hex + "ff 0%, " + p.hex + "cc 55%)",
+                  boxShadow: "0 0 14px " + p.hex + "66, 0 4px 12px rgba(0,0,0,0.3)",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => { setSlots(Array(size).fill(null)); setActive(0); }}
+            style={{
+              padding: "12px 0", borderRadius: 16, cursor: "pointer",
+              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 500,
+            }}
           >
-            <span>{p.emoji}</span>
+            Tout effacer 🧽
+          </button>
+          <motion.button
+            whileTap={filled ? { scale: 0.97 } : {}}
+            disabled={!filled}
+            onClick={() => filled && onValidate(slots.filter((s): s is string => !!s))}
+            style={{
+              padding: "16px 0", borderRadius: 18, border: "none", cursor: filled ? "pointer" : "not-allowed",
+              background: filled
+                ? "linear-gradient(135deg, " + cfg.color + "dd, " + cfg.color + "88)"
+                : "rgba(255,255,255,0.08)",
+              color: filled ? "#fff" : "rgba(255,255,255,0.3)", fontSize: 16, fontWeight: 700,
+              boxShadow: filled ? "0 6px 24px " + cfg.color + "44" : "none",
+            }}
+          >
+            Code prêt 🔒
           </motion.button>
-        ))}
-      </div>
-
-      <div className="mt-auto pt-6 space-y-2">
-        <Button
-          variant="secondary"
-          className="h-11 w-full rounded-2xl"
-          onClick={() => { setSlots(Array(size).fill(null)); setActive(0); }}
-        >
-          Effacer 🧽
-        </Button>
-        <Button
-          disabled={!filled}
-          onClick={() => filled && onValidate(slots.filter((s): s is string => !!s))}
-          className="h-14 w-full rounded-2xl text-base font-semibold"
-        >
-          Code prêt 🔒
-        </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function WaitingScreen({ title, message }: { title: string; message: string }) {
+// ── WaitingScreen ─────────────────────────────────────────────────────────
+function WaitingScreen({ onBack, otherName, round, level }: { onBack: () => void; otherName: string; round: number; level: Level }) {
+  const cfg = LEVELS[level];
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{title}</p>
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="mt-4 text-6xl"
-      >
-        🤫
-      </motion.div>
-      <p className="mt-6 font-script text-2xl text-primary">{message}</p>
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 36px" }}>
+      <Header onBack={onBack} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 20 }}>
+        <span style={{ background: cfg.color + "22", border: "1px solid " + cfg.color + "55", color: cfg.color, borderRadius: 100, fontSize: 13, padding: "4px 16px", fontWeight: 600 }}>
+          Manche {round} · {cfg.emoji} {cfg.label}
+        </span>
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          style={{ fontSize: 72 }}
+        >
+          🤫
+        </motion.div>
+        <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "#fff", margin: 0 }}>
+          {otherName} prépare son code…
+        </h2>
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, margin: 0 }}>
+          Patience, le secret se forge 🔒
+        </p>
+      </div>
     </div>
   );
 }
 
-function AttemptsList({ attempts, size, palettes }: { attempts: Attempt[]; size: number; palettes: typeof COLORS }) {
+// ── WatcherView ───────────────────────────────────────────────────────────
+// CRITICAL: le codemaker voit TOUJOURS son propre code en haut
+function WatcherView({ level, round, otherName, attempts, maxAttempts, size, palettes, myCode, onBack }: {
+  level: Level; round: number; otherName: string; attempts: Attempt[];
+  maxAttempts: number; size: number; palettes: typeof COLORS;
+  myCode: string[] | null; onBack: () => void;
+}) {
+  const cfg = LEVELS[level];
+  const listEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    listEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [attempts.length]);
+
   return (
-    <div className="mt-4 space-y-2">
-      {attempts.length === 0 && (
-        <p className="text-center text-xs text-muted-foreground">Aucun essai pour l'instant.</p>
-      )}
-      <AnimatePresence initial={false}>
-        {attempts.map((a, idx) => (
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 36px" }}>
+      <Header onBack={onBack} />
+
+      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", flex: 1 }}>
+        {/* Manche badge */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <span style={{ background: cfg.color + "22", border: "1px solid " + cfg.color + "55", color: cfg.color, borderRadius: 100, fontSize: 13, padding: "4px 16px", fontWeight: 600 }}>
+            Manche {round} · {cfg.emoji} {cfg.label}
+          </span>
+        </div>
+
+        {/* ── TON CODE — always visible ── */}
+        {myCode && (
           <motion.div
-            key={idx}
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between gap-2 rounded-xl bg-card/80 p-2 shadow-sm"
+            style={{ ...glass, padding: "14px 18px", marginBottom: 16, borderRadius: 20, border: "1px solid " + cfg.color + "44" }}
           >
-            <span className="w-6 text-center text-[11px] font-semibold text-muted-foreground">#{idx + 1}</span>
-            <div className="flex flex-1 justify-center gap-1.5">
-              {a.guess.map((g, i) => {
-                const c = palettes.find((p) => p.id === g);
-                return (
-                  <span key={i} className={`h-7 w-7 rounded-full flex items-center justify-center text-sm ${c?.bg ?? "bg-muted"}`}>
-                    {c?.emoji ?? "·"}
-                  </span>
-                );
-              })}
-              {Array.from({ length: Math.max(0, size - a.guess.length) }).map((_, i) => (
-                <span key={`pad${i}`} className="h-7 w-7 rounded-full bg-muted/40" />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <p style={{ color: cfg.color, fontSize: 12, fontWeight: 700, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Ton code secret 🔒
+              </p>
+              <span style={{ background: cfg.color + "22", color: cfg.color, borderRadius: 100, fontSize: 10, padding: "2px 8px" }}>
+                Visible que par toi
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              {myCode.map((colorId, i) => (
+                <Disc key={i} colorId={colorId} size={44} />
               ))}
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold">
-              <span className="rounded-full bg-foreground/90 px-1.5 py-0.5 text-background">{a.black}⚫</span>
-              <span className="rounded-full bg-background px-1.5 py-0.5 text-foreground border border-border">{a.white}⚪</span>
-            </div>
           </motion.div>
-        ))}
-      </AnimatePresence>
+        )}
+
+        {/* Progress */}
+        <div style={{ ...glass, padding: "10px 16px", marginBottom: 16, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+            {otherName} cherche…
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{attempts.length}</span>
+            <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 13 }}>/ {maxAttempts}</span>
+          </div>
+        </div>
+
+        {/* Attempts */}
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          <AttemptsList attempts={attempts} size={size} palettes={palettes} />
+          <div ref={listEndRef} />
+        </div>
+      </div>
     </div>
   );
 }
 
-function GuesserView({ level, round, size, palettes, maxAttempts, attempts, otherName, onSubmit }: {
+// ── GuesserView ───────────────────────────────────────────────────────────
+function GuesserView({ level, round, size, palettes, maxAttempts, attempts, otherName, onSubmit, onBack }: {
   level: Level; round: number; size: number; palettes: typeof COLORS; maxAttempts: number;
   attempts: Attempt[]; otherName: string;
-  onSubmit: (guess: string[]) => void | Promise<void>;
+  onSubmit: (guess: string[]) => void | Promise<void>; onBack: () => void;
 }) {
-  const [slots, setSlots] = useState<(string | null)[]>(() => Array(size).fill(null));
+  const [slots, setSlots]   = useState<(string | null)[]>(() => Array(size).fill(null));
   const [active, setActive] = useState(0);
   const [sending, setSending] = useState(false);
-  const filled = slots.every((s) => s !== null);
+  const listEndRef = useRef<HTMLDivElement>(null);
+
+  const filled    = slots.every((s) => s !== null);
   const remaining = Math.max(0, maxAttempts - attempts.length);
+  const cfg       = LEVELS[level];
 
   useEffect(() => {
     setSlots(Array(size).fill(null));
     setActive(0);
   }, [attempts.length, size]);
 
+  useEffect(() => {
+    listEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [attempts.length]);
+
   const pickColor = (id: string) => {
-    setSlots((prev) => prev.map((s, idx) => (idx === active ? id : s)));
+    setSlots((prev) => prev.map((s, idx) => idx === active ? id : s));
     if (active < size - 1) setActive(active + 1);
+  };
+
+  const tapSlot = (i: number) => {
+    setActive(i);
+    if (slots[i] !== null) {
+      setSlots((prev) => prev.map((s, idx) => idx === i ? null : s));
+    }
   };
 
   const submit = async () => {
     if (!filled || sending) return;
     setSending(true);
-    try {
-      await onSubmit(slots.filter((s): s is string => !!s));
-    } finally {
-      setSending(false);
-    }
+    try { await onSubmit(slots.filter((s): s is string => !!s)); }
+    finally { setSending(false); }
   };
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          Manche {round} · {LEVELS[level].emoji} {LEVELS[level].label}
-        </p>
-        <h2 className="mt-1 font-script text-2xl text-primary">Devine le code de {otherName} 🔍</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          ⚫ bien placé · ⚪ bonne couleur, mauvaise place · {remaining} essai{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}
-        </p>
-      </div>
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 36px" }}>
+      <Header onBack={onBack} />
 
-      {/* Slots de saisie */}
-      <div className="mt-4 flex justify-center gap-2">
-        {slots.map((s, i) => {
-          const c = s ? palettes.find((p) => p.id === s) : null;
+      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", flex: 1 }}>
+        {/* Header info */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <span style={{ background: cfg.color + "22", border: "1px solid " + cfg.color + "55", color: cfg.color, borderRadius: 100, fontSize: 13, padding: "4px 16px", fontWeight: 600 }}>
+            Manche {round} · {cfg.emoji} {cfg.label}
+          </span>
+        </div>
+
+        <div style={{ textAlign: "center", marginBottom: 18 }}>
+          <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 24, color: "#fff", margin: "0 0 4px" }}>
+            Devine le code de {otherName}
+          </h2>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>⚫ bien placé · ⚪ bonne couleur</span>
+            <span style={{
+              background: remaining <= 2 ? "#f43f5e22" : "rgba(255,255,255,0.08)",
+              border: "1px solid " + (remaining <= 2 ? "#f43f5e55" : "rgba(255,255,255,0.14)"),
+              color: remaining <= 2 ? "#f43f5e" : "rgba(255,255,255,0.7)",
+              borderRadius: 100, fontSize: 12, padding: "2px 10px", fontWeight: 600,
+            }}>
+              {remaining} essai{remaining > 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+
+        {/* Current guess builder */}
+        <div style={{ ...glass, padding: "16px", marginBottom: 16, borderRadius: 20 }}>
+          {/* Slots */}
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 14 }}>
+            {slots.map((s, i) => (
+              <motion.button
+                key={i}
+                whileTap={{ scale: 0.88 }}
+                onClick={() => tapSlot(i)}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
+                <Disc colorId={s} size={48} active={active === i} />
+              </motion.button>
+            ))}
+          </div>
+
+          {/* Color palette */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+            {palettes.map((p) => (
+              <motion.button
+                key={p.id}
+                whileTap={{ scale: 0.84 }}
+                onClick={() => pickColor(p.id)}
+                style={{
+                  width: 48, height: 48, borderRadius: "50%", border: "none", cursor: "pointer",
+                  background: "radial-gradient(circle at 32% 30%, " + p.hex + "ff 0%, " + p.hex + "cc 55%)",
+                  boxShadow: "0 0 12px " + p.hex + "55, 0 3px 10px rgba(0,0,0,0.3)",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Attempts history */}
+        {attempts.length > 0 && (
+          <div style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>
+            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, textAlign: "center" }}>
+              Historique
+            </p>
+            <AttemptsList attempts={attempts} size={size} palettes={palettes} />
+            <div ref={listEndRef} />
+          </div>
+        )}
+
+        {/* Submit */}
+        <div style={{ marginTop: "auto", paddingTop: 8 }}>
+          <motion.button
+            whileTap={filled && !sending ? { scale: 0.97 } : {}}
+            disabled={!filled || sending}
+            onClick={submit}
+            style={{
+              width: "100%", padding: "16px 0", borderRadius: 18, border: "none",
+              cursor: filled && !sending ? "pointer" : "not-allowed",
+              background: filled && !sending
+                ? "linear-gradient(135deg, " + cfg.color + "dd, " + cfg.color + "88)"
+                : "rgba(255,255,255,0.08)",
+              color: filled && !sending ? "#fff" : "rgba(255,255,255,0.3)",
+              fontSize: 16, fontWeight: 700,
+              boxShadow: filled && !sending ? "0 6px 24px " + cfg.color + "44" : "none",
+            }}
+          >
+            {sending ? "Envoi…" : "Tenter 🎯"}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AttemptsList ──────────────────────────────────────────────────────────
+function AttemptsList({ attempts, size, palettes }: { attempts: Attempt[]; size: number; palettes: typeof COLORS }) {
+  if (attempts.length === 0) {
+    return <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, textAlign: "center" }}>Aucun essai pour l'instant.</p>;
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <AnimatePresence initial={false}>
+        {attempts.map((a, idx) => {
+          const isLast = idx === attempts.length - 1;
           return (
-            <button
-              key={i}
-              onClick={() => setActive(i)}
-              className={`h-12 w-12 rounded-2xl border-2 flex items-center justify-center text-xl transition ${active === i ? "border-primary ring-2 ring-primary/40" : "border-border"} ${c ? c.bg : "bg-card/80"}`}
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                ...glass,
+                borderRadius: 16,
+                padding: "10px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                border: isLast ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(255,255,255,0.07)",
+              }}
             >
-              {c ? c.emoji : "·"}
-            </button>
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 700, minWidth: 24, textAlign: "right" }}>
+                #{idx + 1}
+              </span>
+              <div style={{ display: "flex", gap: 6, flex: 1, justifyContent: "center" }}>
+                {a.guess.map((g, i) => {
+                  const c = palettes.find((p) => p.id === g);
+                  return (
+                    <div key={i} style={{
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: c ? "radial-gradient(circle at 32% 30%, " + c.hex + "ff 0%, " + c.hex + "cc 55%)" : "rgba(255,255,255,0.15)",
+                      boxShadow: c ? "0 0 8px " + c.hex + "44" : "none",
+                      flexShrink: 0,
+                    }} />
+                  );
+                })}
+              </div>
+              <Pegs black={a.black} white={a.white} total={size} />
+            </motion.div>
           );
         })}
-      </div>
-
-      <div className="mt-3 grid grid-cols-6 gap-2">
-        {palettes.map((p) => (
-          <motion.button
-            key={p.id}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => pickColor(p.id)}
-            className={`h-10 rounded-xl border border-white/60 text-xl shadow-sm ${p.bg}`}
-          >
-            {p.emoji}
-          </motion.button>
-        ))}
-      </div>
-
-      {/* Historique */}
-      <div className="mt-3 max-h-[40vh] overflow-y-auto pr-1">
-        <AttemptsList attempts={attempts} size={size} palettes={palettes} />
-      </div>
-
-      <div className="mt-auto pt-4">
-        <Button
-          disabled={!filled || sending}
-          onClick={submit}
-          className="h-14 w-full rounded-2xl text-base font-semibold"
-        >
-          Tenter 🎯
-        </Button>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
 
-function WatcherView({ level, round, otherName, attempts, maxAttempts, size, palettes }: {
-  level: Level; round: number; otherName: string; attempts: Attempt[]; maxAttempts: number;
-  size: number; palettes: typeof COLORS;
-}) {
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          Manche {round} · {LEVELS[level].emoji} {LEVELS[level].label}
-        </p>
-        <h2 className="mt-1 font-script text-2xl text-primary">{otherName} cherche ton code… 🤔</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {attempts.length} / {maxAttempts} essai{attempts.length > 1 ? "s" : ""}
-        </p>
-      </div>
-      <div className="mt-4 flex-1 overflow-y-auto">
-        <AttemptsList attempts={attempts} size={size} palettes={palettes} />
-      </div>
-    </div>
-  );
-}
-
-// ─────────── Gage ───────────
-function DareView({ state, room, mySlot, otherName, onDareDone }: {
-  state: MMState; room: Room; mySlot: number; otherName: string; onDareDone: () => void;
+// ── DareView ──────────────────────────────────────────────────────────────
+function DareView({ state, room, mySlot, otherName, onDareDone, onBack }: {
+  state: MMState; room: Room; mySlot: number; otherName: string; onDareDone: () => void; onBack: () => void;
 }) {
   const winner = state.winner_slot ?? 0;
-  const level = (state.level ?? "easy") as Level;
-  const gageList = GAGES_RPS[level];
-  const idx = typeof state.wheel_index === "number" ? state.wheel_index : 0;
-  const dare = state.dare_text ?? gageList[idx % gageList.length];
+  const level  = (state.level ?? "easy") as Level;
+  const cfg    = LEVELS[level];
+  const idx    = typeof state.wheel_index === "number" ? state.wheel_index : 0;
+  const dare   = state.dare_text ?? GAGES_RPS[level][idx % GAGES_RPS[level].length];
 
-  // Égalité → on rejoue
   if (winner === 0) {
     const replay = async () => {
-      await patch(room.id, {
-        phase: "level_select",
-        round: 1,
+      await patchState(room.id, {
+        phase: "level_select", round: 1,
         level_1: null, level_2: null, level: null,
-        code_1: null, code_2: null,
-        attempts_1: [], attempts_2: [],
-        found_1: null, found_2: null,
-        tries_1: null, tries_2: null,
+        code_1: null, code_2: null, attempts_1: [], attempts_2: [],
+        found_1: null, found_2: null, tries_1: null, tries_2: null,
         winner_slot: null, wheel_index: null, dare_text: null,
       });
     };
     return (
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-7xl">🤝</motion.div>
-        <h2 className="mt-4 font-script text-3xl text-primary">Égalité 💕</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Pas de gage cette fois. On remet ça ?</p>
+      <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 14px" }}>
+        <motion.div initial={{ scale: 0.3 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 18 }} style={{ fontSize: 72, marginBottom: 20 }}>🤝</motion.div>
+        <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 32, color: "#fff", margin: "0 0 8px", textAlign: "center" }}>Égalité !</h2>
+        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, textAlign: "center", margin: "0 0 40px" }}>Pas de gage cette fois. On remet ça ?</p>
         {mySlot === 1 ? (
-          <Button onClick={replay} className="mt-8 h-14 w-full max-w-xs rounded-2xl text-base font-semibold">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={replay}
+            style={{ padding: "16px 48px", borderRadius: 18, border: "none", cursor: "pointer", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 16, fontWeight: 700 }}
+          >
             Rejouer 🔁
-          </Button>
+          </motion.button>
         ) : (
-          <p className="mt-8 text-sm text-muted-foreground">{otherName} relance la manche…</p>
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{otherName} va relancer…</p>
         )}
       </div>
     );
@@ -636,59 +885,109 @@ function DareView({ state, room, mySlot, otherName, onDareDone }: {
 
   const validate = async () => {
     onDareDone();
-    await patch(room.id, { phase: "done" });
+    await patchState(room.id, { phase: "done" });
   };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }} className="text-6xl">🎁</motion.div>
-      <div className="mt-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-        {LEVELS[level].emoji} {LEVELS[level].label}
-      </div>
-      <p className="mt-4 text-xs uppercase tracking-wider text-muted-foreground">
-        {iLost ? "Ton gage" : `Gage pour ${otherName}`}
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 20px", textAlign: "center" }}>
+      <motion.div
+        initial={{ scale: 0.3, rotate: -10 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 320, damping: 18 }}
+        style={{ fontSize: 64, marginBottom: 16 }}
+      >
+        {iLost ? "😅" : "🏆"}
+      </motion.div>
+
+      <span style={{ background: cfg.color + "22", border: "1px solid " + cfg.color + "55", color: cfg.color, borderRadius: 100, fontSize: 13, padding: "4px 16px", fontWeight: 600, marginBottom: 16, display: "inline-block" }}>
+        {cfg.emoji} {cfg.label}
+      </span>
+
+      <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.09em", margin: "0 0 8px" }}>
+        {iLost ? "Ton gage" : "Gage pour " + otherName}
       </p>
-      <h2 className="mt-3 font-script text-3xl leading-tight text-primary px-4">{dare}</h2>
+
+      <div style={{ ...glass, borderRadius: 22, padding: "22px 24px", maxWidth: 380, width: "100%", marginBottom: 32 }}>
+        <p style={{ color: "#fff", fontFamily: "Cormorant Garamond, serif", fontSize: 22, lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
+          "{dare}"
+        </p>
+      </div>
+
       {iLost ? (
-        <Button onClick={validate} className="mt-10 h-14 w-full max-w-xs rounded-2xl text-base font-semibold">
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={validate}
+          style={{
+            width: "100%", maxWidth: 380, padding: "16px 0", borderRadius: 18, border: "none", cursor: "pointer",
+            background: "linear-gradient(135deg, " + cfg.color + "dd, " + cfg.color + "88)",
+            color: "#fff", fontSize: 16, fontWeight: 700,
+            boxShadow: "0 6px 24px " + cfg.color + "44",
+          }}
+        >
           C'est fait ! ✅
-        </Button>
+        </motion.button>
       ) : (
-        <p className="mt-8 text-muted-foreground">On attend que {otherName} fasse son gage… 🥹</p>
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>On attend que {otherName} fasse son gage… 🥹</p>
       )}
     </div>
   );
 }
 
-// ─────────── Fin ───────────
-function DoneView({ state, mySlot, onReplay, onBackToMenu }: {
-  state: MMState; mySlot: number; onReplay: () => void; onBackToMenu: () => void;
+// ── DoneView ──────────────────────────────────────────────────────────────
+function DoneView({ state, mySlot, onReplay, onBack }: {
+  state: MMState; mySlot: number; onReplay: () => void; onBack: () => void;
 }) {
   const winner = state.winner_slot ?? 0;
-  const iWon = winner === mySlot;
+  const iWon   = winner === mySlot;
 
   useEffect(() => {
-    if (iWon) confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    if (iWon) void confetti({ particleCount: 120, spread: 75, origin: { y: 0.5 }, colors: ["#4ade80", "#fbbf24", "#f43f5e", "#fff"] });
   }, [iWon]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} className="text-8xl">
+    <div style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 20px", textAlign: "center" }}>
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: [0, 1.25, 1] }}
+        transition={{ duration: 0.7, ease: "easeOut" }}
+        style={{ fontSize: 80, marginBottom: 20 }}
+      >
         {iWon ? "🏆" : "💖"}
       </motion.div>
-      <h2 className="mt-6 font-script text-4xl text-primary">
-        {iWon ? "Tu as gagné ! 🎉" : "Bravo pour le gage 😘"}
+
+      <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 32, color: "#fff", margin: "0 0 8px" }}>
+        {iWon ? "Tu as gagné !" : "Bravo pour le gage 😘"}
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Essais : {state.tries_1 ?? "—"} (J1) · {state.tries_2 ?? "—"} (J2)
-      </p>
-      <div className="mt-8 w-full max-w-xs space-y-3">
-        <Button onClick={onReplay} className="h-14 w-full rounded-2xl text-base font-semibold">
+
+      <div style={{ ...glass, borderRadius: 18, padding: "14px 24px", marginBottom: 36, display: "inline-block" }}>
+        <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, margin: 0 }}>
+          Essais : <span style={{ color: "#fff", fontWeight: 700 }}>{state.tries_1 ?? "—"}</span> (J1) · <span style={{ color: "#fff", fontWeight: 700 }}>{state.tries_2 ?? "—"}</span> (J2)
+        </p>
+      </div>
+
+      <div style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 10 }}>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={onReplay}
+          style={{
+            padding: "16px 0", borderRadius: 18, border: "none", cursor: "pointer",
+            background: "linear-gradient(135deg, #4ade80dd, #4ade8088)",
+            color: "#fff", fontSize: 16, fontWeight: 700,
+            boxShadow: "0 6px 24px #4ade8044",
+          }}
+        >
           Rejouer 🔁
-        </Button>
-        <Button variant="secondary" onClick={onBackToMenu} className="h-12 w-full rounded-2xl">
+        </motion.button>
+        <button
+          onClick={onBack}
+          style={{
+            padding: "13px 0", borderRadius: 16, cursor: "pointer",
+            background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)",
+            color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 500,
+          }}
+        >
           ← Retour au menu
-        </Button>
+        </button>
       </div>
     </div>
   );
