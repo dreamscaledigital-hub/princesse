@@ -1,7 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { useGenerateAIContent, type AIWouldYou, type Ambiance } from "@/lib/use-ai-content";
@@ -10,17 +9,15 @@ import { markItemsUsed, nonRepeatingSample } from "@/lib/non-repeating";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
 
-// ─────────── RÉGLAGES ───────────
 const NB_QUESTIONS = 10;
 
 type Mode = "doux" | "coquin";
-
 type Question = { a: string; b: string };
 
 const QUESTIONS_DOUX: Question[] = [
   { a: "Un massage sensuel aux huiles chaudes sur tout le corps 💆‍♀️", b: "Un bain moussant à deux avec champagne et fraises 🍾" },
   { a: "M'embrasser passionnément dans le cou pendant 5 min 💋", b: "Recevoir des baisers dans le dos qui descendent lentement 😘" },
-  { a: "Te retrouver les yeux bandés, guide par mes mains 🙈", b: "M'observer te déshabiller lentement, sans me toucher 👀" },
+  { a: "Te retrouver les yeux bandés, guidé par mes mains 🙈", b: "M'observer te déshabiller lentement, sans me toucher 👀" },
   { a: "Une nuit à l'hôtel avec vue sur la ville 🌃", b: "Une nuit de folie dans notre lit transformé en tente de soie 🛏️" },
   { a: "Moi qui prends l'initiative et te domine doucement 😈", b: "Toi qui me plaque contre le mur et prend le contrôle 🔥" },
   { a: "Des caresses lentes et tendres qui durent une heure 🕊️", b: "Un baiser sauvage qui nous mène directement au lit 💥" },
@@ -37,7 +34,7 @@ const QUESTIONS_DOUX: Question[] = [
 
 const QUESTIONS_COQUIN: Question[] = [
   { a: "M'attacher au lit pour que tu fasses ce que tu veux de moi ⛓️", b: "T'attacher et te torturer avec des caresses lentes 🪶" },
-  { a: "Recevoir un cunni langoureux pendant que je suis allongée 🛏️", b: "T'asseoir sur mon visage pendant que je te léche 👅" },
+  { a: "Recevoir un cunni langoureux pendant que je suis allongée 🛏️", b: "T'asseoir sur mon visage pendant que je te lèche 👅" },
   { a: "Faire l'amour à la fenêtre, risque d'être vus 🪟", b: "Faire l'amour en pleine nature, risque d'être entendus 🌳" },
   { a: "Te voir jouir avant même que je ne commence 😏", b: "Te faire attendre, au bord, pendant un quart d'heure ⏳" },
   { a: "Qu'on utilise des menottes douces en fourrure 🐻", b: "Qu'on utilise un bandeau et un plug 🎀" },
@@ -54,9 +51,25 @@ const QUESTIONS_COQUIN: Question[] = [
 
 const BANKS: Record<Mode, Question[]> = { doux: QUESTIONS_DOUX, coquin: QUESTIONS_COQUIN };
 
-const MODE_INFO: Record<Mode, { label: string; emoji: string; gradient: string; desc: string }> = {
-  doux:    { label: "Doux",    emoji: "💋", gradient: "from-rose-200 to-pink-200",  desc: "Sensuel, romantique et doux" },
-  coquin:  { label: "Coquin",  emoji: "🔥", gradient: "from-rose-400 to-red-400",   desc: "Osé, torride et sans tabou" },
+const MODE_INFO: Record<Mode, {
+  label: string; emoji: string; desc: string;
+  accentHex: string; glow: string;
+  cardA: string; cardB: string;
+}> = {
+  doux: {
+    label: "Doux & Sensuel", emoji: "💋",
+    desc: "Romantique, tendre et enivrant",
+    accentHex: "#f4a0b5", glow: "rgba(244,160,181,0.35)",
+    cardA: "linear-gradient(145deg, oklch(0.76 0.09 345), oklch(0.66 0.13 328))",
+    cardB: "linear-gradient(145deg, oklch(0.72 0.11 320), oklch(0.60 0.15 305))",
+  },
+  coquin: {
+    label: "Torride & Osé", emoji: "🔥",
+    desc: "Intense, sans tabou et enflammé",
+    accentHex: "#e8805a", glow: "rgba(232,128,90,0.35)",
+    cardA: "linear-gradient(145deg, oklch(0.58 0.20 22), oklch(0.48 0.22 8))",
+    cardB: "linear-gradient(145deg, oklch(0.55 0.21 340), oklch(0.44 0.22 325))",
+  },
 };
 
 type WYRState = {
@@ -65,8 +78,8 @@ type WYRState = {
   mode_1?: Mode | null;
   mode_2?: Mode | null;
   mode?: Mode | null;
-  order?: number[];          // indices dans la banque (fallback uniquement)
-  index?: number;            // index courant dans `order` ou dans ai_questions
+  order?: number[];
+  index?: number;
   choice_1?: "a" | "b" | null;
   choice_2?: "a" | "b" | null;
   matches?: number;
@@ -82,8 +95,8 @@ type Props = {
   onBackToMenu: () => void;
 };
 
-const update = (roomId: string, patch: WYRState) =>
-  supabase.from("rooms").update({ minigame_state: patch }).eq("id", roomId);
+const update = (roomId: string, p: WYRState) =>
+  supabase.from("rooms").update({ minigame_state: p }).eq("id", roomId);
 
 async function patch(roomId: string, partial: WYRState) {
   const { data } = await supabase.from("rooms").select("minigame_state").eq("id", roomId).maybeSingle();
@@ -93,15 +106,23 @@ async function patch(roomId: string, partial: WYRState) {
 
 function freshReset(): WYRState {
   return {
-    game: "wouldyou",
-    phase: "mode_select",
+    game: "wouldyou", phase: "mode_select",
     mode_1: null, mode_2: null, mode: null,
     order: [], index: 0,
-    choice_1: null, choice_2: null,
-    matches: 0,
-    ai_questions: null,
-    ai_failed: false,
+    choice_1: null, choice_2: null, matches: 0,
+    ai_questions: null, ai_failed: false,
   };
+}
+
+function Orb({ size, x, y, delay, color }: { size: number; x: string; y: string; delay: number; color: string }) {
+  return (
+    <motion.div
+      className="pointer-events-none absolute rounded-full"
+      style={{ width: size, height: size, left: x, top: y, background: color, filter: `blur(${size * 0.55}px)`, opacity: 0.4 }}
+      animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3], y: [0, -14, 0] }}
+      transition={{ duration: 6 + delay, repeat: Infinity, ease: "easeInOut", delay }}
+    />
+  );
 }
 
 export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }: Props) {
@@ -109,20 +130,14 @@ export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }
   const phase = s.phase ?? "mode_select";
 
   useEffect(() => {
-    if (Object.keys(s).length === 0 && mySlot === 1) {
-      void update(room.id, freshReset());
-    }
+    if (Object.keys(s).length === 0 && mySlot === 1) void update(room.id, freshReset());
   }, [room.id, s, mySlot]);
 
-  if (phase === "mode_select") {
+  if (phase === "mode_select")
     return <ModeSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
-  }
-  if (phase === "loading") {
-    return <LoadingView />;
-  }
-  if (phase === "play" || phase === "reveal") {
-    return <PlayView state={s} room={room} mySlot={mySlot} otherName={otherName} />;
-  }
+  if (phase === "loading") return <LoadingView />;
+  if (phase === "play" || phase === "reveal")
+    return <PlayView state={s} room={room} mySlot={mySlot} otherName={otherName} onBackToMenu={onBackToMenu} />;
   return (
     <DoneView
       state={s}
@@ -132,24 +147,49 @@ export function WouldYouRather({ room, mySlot, myName, otherName, onBackToMenu }
   );
 }
 
+// ── Loading ──────────────────────────────────────────────────────────────────
 function LoadingView() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="text-7xl">💞</motion.div>
-      <p className="mt-4 font-script text-2xl text-primary">L'IA prépare vos questions…</p>
-      <p className="mt-1 text-xs text-muted-foreground">Une nouvelle série rien que pour vous ✨</p>
+    <div
+      className="flex flex-1 flex-col items-center justify-center text-center relative overflow-hidden"
+      style={{ background: "linear-gradient(160deg, oklch(0.20 0.04 340), oklch(0.16 0.05 320))" }}
+    >
+      <Orb size={160} x="10%" y="15%" delay={0} color="oklch(0.62 0.18 340)" />
+      <Orb size={120} x="65%" y="55%" delay={2} color="oklch(0.58 0.16 20)" />
+      <div className="relative z-10 flex flex-col items-center gap-5">
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
+          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+          className="text-7xl"
+        >💞</motion.div>
+        <div>
+          <p style={{ fontFamily: "Cormorant Garamond, serif", color: "#fde8ee" }} className="text-3xl font-semibold">
+            L'IA prépare vos questions…
+          </p>
+          <p className="mt-2 text-sm" style={{ color: "rgba(253,232,238,0.55)" }}>
+            Une série unique rien que pour vous ✨
+          </p>
+        </div>
+        <div className="flex gap-2 mt-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div key={i} className="w-2 h-2 rounded-full" style={{ background: "#fde8ee" }}
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.3 }}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─────────── Choix du mode ───────────
+// ── Mode Select ───────────────────────────────────────────────────────────────
 function ModeSelect({ state, room, mySlot, myName, otherName }:
   { state: WYRState; room: Room; mySlot: number; myName: string; otherName: string }) {
   const mine = mySlot === 1 ? state.mode_1 : state.mode_2;
   const theirs = mySlot === 1 ? state.mode_2 : state.mode_1;
   const both = state.mode_1 && state.mode_2;
   const match = both && state.mode_1 === state.mode_2;
-
   const generate = useGenerateAIContent();
 
   const choose = async (m: Mode) => {
@@ -160,100 +200,186 @@ function ModeSelect({ state, room, mySlot, myName, otherName }:
     if (!match || mySlot !== 1) return;
     const chosen = state.mode_1 as Mode;
     const ambiance: Ambiance = chosen === "doux" ? "mignon" : "hot";
-
-    // Passe en loading et tente l'IA
     await patch(room.id, { phase: "loading", mode: chosen });
     const scope = `wouldyou:${chosen}`;
     const keyOf = (q: Question) => `${q.a}|${q.b}`;
     const ai = await generate<AIWouldYou>("wouldyou", ambiance, NB_QUESTIONS * 3);
-
     if (ai?.questions?.length) {
       const questions = nonRepeatingSample(ai.questions, NB_QUESTIONS, scope, keyOf);
       markItemsUsed(scope, questions, keyOf);
       await patch(room.id, {
-        phase: "play",
-        mode: chosen,
-        ai_questions: questions,
-        order: questions.map((_, i) => i),
-        index: 0,
-        choice_1: null, choice_2: null,
-        matches: 0,
-        ai_failed: false,
+        phase: "play", mode: chosen, ai_questions: questions,
+        order: questions.map((_, i) => i), index: 0,
+        choice_1: null, choice_2: null, matches: 0, ai_failed: false,
       });
     } else {
-      // Fallback banque locale
       const bank = BANKS[chosen];
-      const chosenQuestions = nonRepeatingSample(bank, Math.min(NB_QUESTIONS, bank.length), `${scope}:local`, keyOf);
-      markItemsUsed(`${scope}:local`, chosenQuestions, keyOf);
-      const idxs = chosenQuestions.map((q) => bank.indexOf(q));
+      const chosenQs = nonRepeatingSample(bank, Math.min(NB_QUESTIONS, bank.length), `${scope}:local`, keyOf);
+      markItemsUsed(`${scope}:local`, chosenQs, keyOf);
+      const idxs = chosenQs.map((q) => bank.indexOf(q));
       await patch(room.id, {
-        phase: "play",
-        mode: chosen,
-        ai_questions: null,
-        order: idxs,
-        index: 0,
-        choice_1: null, choice_2: null,
-        matches: 0,
-        ai_failed: true,
+        phase: "play", mode: chosen, ai_questions: null,
+        order: idxs, index: 0,
+        choice_1: null, choice_2: null, matches: 0, ai_failed: true,
       });
     }
   };
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Tu préfères ?</p>
-        <h1 className="mt-1 font-script text-4xl text-primary">A ou B 💞</h1>
-        <p className="mt-1 text-xs text-muted-foreground">Choisissez le mode ensemble :</p>
-      </div>
+    <div
+      className="flex flex-1 flex-col relative overflow-hidden"
+      style={{ background: "linear-gradient(160deg, oklch(0.18 0.04 340) 0%, oklch(0.15 0.05 320) 100%)" }}
+    >
+      <Orb size={200} x="-5%" y="-5%" delay={0} color="oklch(0.60 0.18 340)" />
+      <Orb size={150} x="60%" y="60%" delay={3} color="oklch(0.55 0.16 20)" />
+      <Orb size={100} x="75%" y="10%" delay={1.5} color="oklch(0.65 0.14 350)" />
 
-      <div className="mt-5 grid gap-3">
-        {(Object.keys(MODE_INFO) as Mode[]).map((m) => {
-          const info = MODE_INFO[m];
-          const iPicked = mine === m;
-          const theyPicked = theirs === m;
-          return (
-            <motion.button
-              key={m}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => choose(m)}
-              className={`flex items-center gap-4 rounded-3xl border-2 p-4 text-left shadow-md bg-gradient-to-br ${info.gradient} ${iPicked ? "border-primary ring-2 ring-primary/40" : "border-white/60"}`}
-            >
-              <span className="text-4xl">{info.emoji}</span>
-              <div className="flex-1">
-                <p className="font-script text-2xl text-foreground/90">{info.label}</p>
-                <p className="text-[11px] text-foreground/70">{info.desc}</p>
-                <div className="mt-1 flex gap-2 text-[11px] font-medium">
-                  {iPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">Toi ✓</span>}
-                  {theyPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">{otherName} ✓</span>}
+      <div className="relative z-10 flex flex-1 flex-col px-5 pt-8 pb-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="text-center mb-8"
+        >
+          <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "rgba(253,232,238,0.45)" }}>
+            Tu préfères ?
+          </p>
+          <h1 className="mt-2 text-5xl font-semibold leading-tight"
+            style={{ fontFamily: "Cormorant Garamond, serif", color: "#fde8ee" }}>
+            Choisissez l'ambiance
+          </h1>
+          <p className="mt-2 text-sm" style={{ color: "rgba(253,232,238,0.4)" }}>
+            Vous devez être d'accord pour commencer
+          </p>
+        </motion.div>
+
+        {/* Mode cards */}
+        <div className="flex flex-col gap-4 flex-1">
+          {(Object.keys(MODE_INFO) as Mode[]).map((m, i) => {
+            const info = MODE_INFO[m];
+            const iPicked = mine === m;
+            const theyPicked = theirs === m;
+            const cardBg = m === "doux"
+              ? "linear-gradient(145deg, oklch(0.76 0.09 345), oklch(0.66 0.13 328))"
+              : "linear-gradient(145deg, oklch(0.58 0.20 22), oklch(0.48 0.22 8))";
+            return (
+              <motion.button
+                key={m}
+                initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.15, duration: 0.45, ease: "easeOut" }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => choose(m)}
+                className="relative rounded-3xl overflow-hidden text-left flex-1"
+                style={{
+                  background: cardBg,
+                  boxShadow: iPicked
+                    ? `0 0 0 3px ${info.accentHex}, 0 12px 40px ${info.glow}`
+                    : "0 8px 28px rgba(0,0,0,0.25)",
+                  minHeight: 110,
+                }}
+              >
+                {iPicked && (
+                  <motion.div className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    style={{ background: "rgba(255,255,255,0.12)" }} />
+                )}
+                <div className="relative z-10 p-5 flex items-center gap-4 h-full">
+                  <motion.span className="text-5xl flex-shrink-0"
+                    animate={iPicked ? { scale: [1, 1.3, 1] } : { scale: 1 }}
+                    transition={{ duration: 0.4 }}>
+                    {info.emoji}
+                  </motion.span>
+                  <div className="flex-1">
+                    <p className="text-2xl font-semibold leading-tight"
+                      style={{ fontFamily: "Cormorant Garamond, serif", color: "rgba(255,255,255,0.95)" }}>
+                      {info.label}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>{info.desc}</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {iPicked && (
+                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
+                          className="text-[11px] font-semibold rounded-full px-2.5 py-0.5"
+                          style={{ background: "rgba(255,255,255,0.25)", color: "white" }}>
+                          Toi ✓
+                        </motion.span>
+                      )}
+                      {theyPicked && (
+                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
+                          className="text-[11px] font-semibold rounded-full px-2.5 py-0.5"
+                          style={{ background: "rgba(255,255,255,0.25)", color: "white" }}>
+                          {otherName} ✓
+                        </motion.span>
+                      )}
+                    </div>
+                  </div>
+                  {iPicked && (
+                    <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(255,255,255,0.3)" }}>
+                      <span className="text-white text-sm font-bold">✓</span>
+                    </motion.div>
+                  )}
                 </div>
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
+              </motion.button>
+            );
+          })}
+        </div>
 
-      <div className="mt-4 text-center text-sm">
-        <p>
-          <span className="font-semibold">{myName}</span> : {mine ? MODE_INFO[mine].label : "—"} ·{" "}
-          <span className="font-semibold">{otherName}</span> : {theirs ? MODE_INFO[theirs].label : "—"}
-        </p>
-        {both && !match && <p className="mt-2 text-muted-foreground">Mettez-vous d'accord 😅</p>}
-      </div>
+        {/* Statut */}
+        <motion.div className="mt-5 text-center text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+          {both && !match ? (
+            <motion.p animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 2 }}
+              style={{ color: "#f4a0b5" }}>
+              Mettez-vous d'accord 😅
+            </motion.p>
+          ) : (
+            <p style={{ color: "rgba(253,232,238,0.5)" }}>
+              <span style={{ color: "rgba(253,232,238,0.8)" }}>{myName}</span>{" : "}
+              {mine ? MODE_INFO[mine].label : "—"}{"  ·  "}
+              <span style={{ color: "rgba(253,232,238,0.8)" }}>{otherName}</span>{" : "}
+              {theirs ? MODE_INFO[theirs].label : "—"}
+            </p>
+          )}
+        </motion.div>
 
-      <div className="mt-auto pt-6">
-        <Button disabled={!match || mySlot !== 1} onClick={start} className="h-14 w-full rounded-2xl text-base font-semibold">
-          {match ? (mySlot === 1 ? "C'est parti ! 💕" : `${otherName} va lancer…`) : "En attente du mode commun…"}
-        </Button>
+        {/* CTA */}
+        <motion.div className="mt-4" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+          <motion.button
+            disabled={!match || mySlot !== 1}
+            onClick={start}
+            whileTap={match && mySlot === 1 ? { scale: 0.97 } : {}}
+            className="w-full h-14 rounded-2xl text-base font-semibold relative overflow-hidden"
+            style={{
+              background: match
+                ? "linear-gradient(135deg, oklch(0.72 0.16 350), oklch(0.62 0.20 10))"
+                : "rgba(255,255,255,0.08)",
+              color: match ? "white" : "rgba(255,255,255,0.3)",
+              boxShadow: match ? "0 8px 28px rgba(220,80,100,0.35)" : "none",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            {match && (
+              <motion.div className="absolute inset-0"
+                animate={{ x: ["100%", "-100%"] }}
+                transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)" }}
+              />
+            )}
+            <span className="relative z-10">
+              {match ? (mySlot === 1 ? "C'est parti ! 💕" : `${otherName} va lancer…`) : "En attente du mode commun…"}
+            </span>
+          </motion.button>
+        </motion.div>
       </div>
     </div>
   );
 }
 
-// ─────────── Phase de jeu ───────────
-function PlayView({ state, room, mySlot, otherName }:
-  { state: WYRState; room: Room; mySlot: number; otherName: string }) {
+// ── Play ──────────────────────────────────────────────────────────────────────
+function PlayView({ state, room, mySlot, otherName, onBackToMenu }:
+  { state: WYRState; room: Room; mySlot: number; otherName: string; onBackToMenu: () => void }) {
   const mode = (state.mode ?? "doux") as Mode;
+  const info = MODE_INFO[mode];
   const aiQuestions = state.ai_questions ?? null;
   const bank: Question[] = aiQuestions && aiQuestions.length ? aiQuestions : BANKS[mode];
   const order = state.order ?? [];
@@ -267,10 +393,11 @@ function PlayView({ state, room, mySlot, otherName }:
   const same = bothAnswered && state.choice_1 === state.choice_2;
   const total = order.length;
   const isLast = idx >= total - 1;
-
   const matches = state.matches ?? 0;
+  const prevKeyRef = useRef<string>("");
+  const qKey = `q-${idx}`;
+  if (qKey !== prevKeyRef.current) prevKeyRef.current = qKey;
 
-  // Auto transition vers reveal côté slot 1 (source de vérité unique)
   useEffect(() => {
     if (state.phase === "play" && bothAnswered && mySlot === 1) {
       const inc = same ? 1 : 0;
@@ -278,7 +405,6 @@ function PlayView({ state, room, mySlot, otherName }:
     }
   }, [state.phase, bothAnswered, same, mySlot, room.id, matches]);
 
-  // Confettis si match
   useEffect(() => {
     if (state.phase === "reveal" && same) {
       confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
@@ -292,137 +418,308 @@ function PlayView({ state, room, mySlot, otherName }:
 
   const next = async () => {
     if (mySlot !== 1) return;
-    if (isLast) {
-      await patch(room.id, { phase: "done" });
-    } else {
-      await patch(room.id, { phase: "play", index: idx + 1, choice_1: null, choice_2: null });
-    }
+    if (isLast) await patch(room.id, { phase: "done" });
+    else await patch(room.id, { phase: "play", index: idx + 1, choice_1: null, choice_2: null });
   };
 
   if (!question) return null;
-
   const reveal = state.phase === "reveal";
 
+  const bgStyle = mode === "doux"
+    ? "linear-gradient(160deg, oklch(0.20 0.04 340), oklch(0.16 0.05 320))"
+    : "linear-gradient(160deg, oklch(0.16 0.06 20), oklch(0.13 0.07 10))";
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{MODE_INFO[mode].emoji} {MODE_INFO[mode].label}</span>
-        <span>Question {idx + 1} / {total}</span>
-        <span>💞 {matches}</span>
-      </div>
+    <div className="flex flex-1 flex-col relative overflow-hidden" style={{ background: bgStyle }}>
+      <Orb size={180} x="-8%" y="5%" delay={0} color={mode === "doux" ? "oklch(0.65 0.16 340)" : "oklch(0.58 0.22 20)"} />
+      <Orb size={130} x="65%" y="65%" delay={2.5} color={mode === "doux" ? "oklch(0.60 0.14 320)" : "oklch(0.52 0.20 350)"} />
 
-      <div className="mt-4 text-center">
-        <h2 className="font-script text-3xl text-primary">Tu préfères…</h2>
-      </div>
-
-      <div className="mt-5 grid gap-4">
-        {(["a", "b"] as const).map((opt) => {
-          const text = opt === "a" ? question.a : question.b;
-          const iPicked = myChoice === opt;
-          const theyPicked = reveal && otherChoice === opt;
-          const grad = opt === "a"
-            ? "from-rose-200 to-pink-300"
-            : "from-emerald-200 to-teal-300";
-          return (
-            <motion.button
-              key={opt}
-              whileTap={{ scale: myChoice ? 1 : 0.97 }}
-              disabled={!!myChoice}
-              onClick={() => pick(opt)}
-              className={`relative rounded-3xl border-2 p-6 text-center shadow-md bg-gradient-to-br ${grad}
-                ${iPicked ? "border-primary ring-2 ring-primary/50" : "border-white/60"}
-                ${myChoice && !iPicked ? "opacity-60" : ""}`}
-            >
-              <p className="text-[10px] uppercase tracking-widest text-foreground/60">
-                {opt === "a" ? "Option A" : "Option B"}
-              </p>
-              <p className="mt-1 font-script text-2xl text-foreground/90 leading-snug">{text}</p>
-              <div className="mt-3 flex flex-wrap justify-center gap-1 text-[11px] font-medium">
-                {iPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">Toi 💚</span>}
-                {theyPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">{otherName} 🧡</span>}
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-
-      <div className="mt-5 min-h-[80px] text-center">
-        <AnimatePresence mode="wait">
-          {!myChoice && (
-            <motion.p key="pick" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="text-sm text-muted-foreground">
-              Tape ton choix 👆
-            </motion.p>
-          )}
-          {myChoice && !reveal && (
-            <motion.p key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="text-sm text-muted-foreground">
-              {otherName} réfléchit… 👀
-            </motion.p>
-          )}
-          {reveal && same && (
-            <motion.div key="same" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
-              <p className="font-script text-2xl text-primary">Vous êtes d'accord 💕 +1</p>
-            </motion.div>
-          )}
-          {reveal && !same && (
-            <motion.div key="diff" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <p className="font-script text-2xl text-foreground/80">Ah, pas d'accord 😏</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {reveal && (
-        <div className="mt-auto pt-4">
-          {mySlot === 1 ? (
-            <Button onClick={next} className="h-14 w-full rounded-2xl text-base font-semibold">
-              {isLast ? "Voir le verdict 🏆" : "Suivante ➡️"}
-            </Button>
-          ) : (
-            <p className="text-center text-sm text-muted-foreground">{otherName} enchaîne…</p>
-          )}
+      <div className="relative z-10 flex flex-1 flex-col px-5 pt-5 pb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <motion.button whileTap={{ scale: 0.9 }} onClick={onBackToMenu}
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", fontSize: 18 }}>
+            ←
+          </motion.button>
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {info.emoji} {info.label.split(" ")[0]}
+            </p>
+            <div className="flex gap-1.5">
+              {Array.from({ length: total }).map((_, i) => (
+                <motion.div key={i} className="h-1.5 rounded-full"
+                  style={{
+                    width: i === idx ? 18 : 6,
+                    background: i < idx ? info.accentHex : i === idx ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.2)",
+                  }}
+                  transition={{ duration: 0.3 }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+            style={{ background: "rgba(255,255,255,0.1)" }}>
+            <span className="text-sm">💞</span>
+            <span className="text-sm font-bold" style={{ color: info.accentHex }}>{matches}</span>
+          </div>
         </div>
-      )}
+
+        {/* Question + Cards */}
+        <AnimatePresence mode="wait">
+          <motion.div key={qKey}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="flex flex-col flex-1 gap-4">
+            <h2 className="text-center text-3xl font-semibold"
+              style={{ fontFamily: "Cormorant Garamond, serif", color: "rgba(255,255,255,0.9)" }}>
+              Tu préfères…
+            </h2>
+
+            {(["a", "b"] as const).map((opt, oi) => {
+              const text = opt === "a" ? question.a : question.b;
+              const iPicked = myChoice === opt;
+              const theyPicked = reveal && otherChoice === opt;
+              const isWrongSide = !!(myChoice && !iPicked);
+              const cardBg = opt === "a" ? info.cardA : info.cardB;
+
+              return (
+                <motion.button key={opt}
+                  whileTap={!myChoice ? { scale: 0.97 } : {}}
+                  disabled={!!myChoice}
+                  onClick={() => pick(opt)}
+                  initial={{ opacity: 0, x: oi === 0 ? -24 : 24 }}
+                  animate={{ opacity: isWrongSide ? 0.45 : 1, x: 0 }}
+                  transition={{ duration: 0.35, delay: oi * 0.08 }}
+                  className="relative rounded-3xl overflow-hidden text-left flex-1"
+                  style={{
+                    background: cardBg,
+                    boxShadow: iPicked
+                      ? `0 0 0 3px rgba(255,255,255,0.7), 0 12px 36px ${info.glow}`
+                      : "0 6px 22px rgba(0,0,0,0.2)",
+                    minHeight: 100,
+                  }}
+                >
+                  {iPicked && (
+                    <motion.div className="absolute inset-0 pointer-events-none"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      style={{ background: "rgba(255,255,255,0.12)" }} />
+                  )}
+                  <div className="relative z-10 p-5 h-full flex flex-col justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.18em] mb-2"
+                        style={{ color: "rgba(255,255,255,0.5)" }}>
+                        Option {opt.toUpperCase()}
+                      </p>
+                      <p className="text-xl font-medium leading-snug"
+                        style={{ fontFamily: "Cormorant Garamond, serif", color: "rgba(255,255,255,0.95)" }}>
+                        {text}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      {iPicked && (
+                        <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                          className="text-[11px] font-semibold rounded-full px-3 py-1"
+                          style={{ background: "rgba(255,255,255,0.25)", color: "white" }}>
+                          Toi 💚
+                        </motion.span>
+                      )}
+                      {theyPicked && (
+                        <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.15 }}
+                          className="text-[11px] font-semibold rounded-full px-3 py-1"
+                          style={{ background: "rgba(255,255,255,0.25)", color: "white" }}>
+                          {otherName} 🧡
+                        </motion.span>
+                      )}
+                    </div>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Statut */}
+        <div className="mt-4 min-h-[60px] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            {!myChoice && (
+              <motion.p key="pick"
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                Tape ton choix 👆
+              </motion.p>
+            )}
+            {myChoice && !reveal && (
+              <motion.div key="wait"
+                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                className="flex items-center gap-2 px-4 py-2 rounded-full"
+                style={{ background: "rgba(255,255,255,0.1)" }}>
+                <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.5 }}>👀</motion.span>
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>{otherName} réfléchit…</p>
+              </motion.div>
+            )}
+            {reveal && same && (
+              <motion.div key="match"
+                initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
+                <motion.p animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: 2, duration: 0.4 }}
+                  className="text-2xl font-semibold"
+                  style={{ fontFamily: "Cormorant Garamond, serif", color: info.accentHex }}>
+                  Vous êtes d'accord 💕 +1
+                </motion.p>
+              </motion.div>
+            )}
+            {reveal && !same && (
+              <motion.div key="diff"
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <p className="text-2xl font-semibold"
+                  style={{ fontFamily: "Cormorant Garamond, serif", color: "rgba(255,255,255,0.65)" }}>
+                  Ah, pas d'accord 😏
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Next button */}
+        {reveal && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-2">
+            {mySlot === 1 ? (
+              <motion.button whileTap={{ scale: 0.97 }} onClick={next}
+                className="w-full h-14 rounded-2xl text-base font-semibold relative overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg, oklch(0.72 0.16 350), oklch(0.62 0.20 10))",
+                  color: "white", boxShadow: "0 8px 28px rgba(220,80,100,0.3)",
+                }}>
+                <motion.div className="absolute inset-0"
+                  animate={{ x: ["100%", "-100%"] }}
+                  transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                  style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)" }}
+                />
+                <span className="relative z-10">{isLast ? "Voir le verdict 🏆" : "Question suivante →"}</span>
+              </motion.button>
+            ) : (
+              <div className="w-full h-12 rounded-2xl flex items-center justify-center text-sm"
+                style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}>
+                {otherName} enchaîne…
+              </div>
+            )}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ─────────── Verdict final ───────────
+// ── Done ──────────────────────────────────────────────────────────────────────
 function DoneView({ state, onReplay, onBackToMenu }:
   { state: WYRState; onReplay: () => void | Promise<void>; onBackToMenu: () => void }) {
   const total = state.order?.length ?? 0;
   const matches = state.matches ?? 0;
   const ratio = total ? matches / total : 0;
+  const mode = (state.mode ?? "doux") as Mode;
+  const info = MODE_INFO[mode];
 
   const verdict = useMemo(() => {
-    if (ratio >= 0.9) return { title: "Âmes sœurs 💞", desc: "Vous lisez dans les pensées l'un de l'autre !" };
-    if (ratio >= 0.7) return { title: "Une belle alchimie ✨", desc: "Vous vous comprenez vraiment bien." };
-    if (ratio >= 0.5) return { title: "Vous vous complétez 🧩", desc: "Assez d'accords, juste ce qu'il faut de surprises." };
-    if (ratio >= 0.3) return { title: "Les opposés s'attirent 🌗", desc: "Vous avez vos différences… et c'est mignon !" };
-    return { title: "Le jour et la nuit 🌒", desc: "Mais c'est ça qui rend tout intéressant 😉" };
+    if (ratio >= 0.9) return { title: "Âmes sœurs 💞", desc: "Vous lisez dans les pensées l'un de l'autre !", emoji: "💞" };
+    if (ratio >= 0.7) return { title: "Une belle alchimie ✨", desc: "Vous vous comprenez vraiment bien.", emoji: "✨" };
+    if (ratio >= 0.5) return { title: "Vous vous complétez 🧩", desc: "Assez d'accords, juste ce qu'il faut de surprises.", emoji: "🧩" };
+    if (ratio >= 0.3) return { title: "Les opposés s'attirent 🌗", desc: "Vous avez vos différences… et c'est mignon !", emoji: "🌗" };
+    return { title: "Le jour et la nuit 🌒", desc: "Mais c'est ça qui rend tout intéressant 😉", emoji: "🌒" };
   }, [ratio]);
 
   useEffect(() => {
     if (ratio >= 0.5) confetti({ particleCount: 120, spread: 90, origin: { y: 0.6 } });
   }, [ratio]);
 
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-7xl">💞</motion.div>
-      <h2 className="mt-4 font-script text-4xl text-primary">{verdict.title}</h2>
-      <p className="mt-2 text-sm text-muted-foreground max-w-xs">{verdict.desc}</p>
-      <p className="mt-5 rounded-2xl bg-card/80 px-5 py-3 text-lg shadow-md">
-        Vous avez répondu pareil <span className="font-bold text-primary">{matches}</span> fois sur {total} 💕
-      </p>
+  const pct = Math.round(ratio * 100);
+  const circleR = 58;
+  const circleDash = 2 * Math.PI * circleR;
 
-      <div className="mt-auto w-full space-y-3 pt-8">
-        <Button onClick={() => onReplay()} className="h-14 w-full rounded-2xl text-base font-semibold">
-          Rejouer 🔁
-        </Button>
-        <Button variant="secondary" onClick={onBackToMenu} className="h-12 w-full rounded-2xl">
-          ← Retour au menu
-        </Button>
+  return (
+    <div className="flex flex-1 flex-col relative overflow-hidden"
+      style={{ background: "linear-gradient(160deg, oklch(0.18 0.04 340), oklch(0.14 0.05 320))" }}>
+      <Orb size={200} x="-10%" y="-5%" delay={0} color="oklch(0.62 0.18 340)" />
+      <Orb size={150} x="60%" y="55%" delay={2} color="oklch(0.55 0.16 20)" />
+
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 text-center">
+        {/* Emoji */}
+        <motion.div
+          initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.1 }}
+          className="text-7xl mb-2">
+          {verdict.emoji}
+        </motion.div>
+
+        {/* Titre */}
+        <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          className="text-4xl font-semibold mt-2"
+          style={{ fontFamily: "Cormorant Garamond, serif", color: "#fde8ee" }}>
+          {verdict.title}
+        </motion.h2>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+          className="mt-2 text-sm max-w-xs" style={{ color: "rgba(253,232,238,0.5)" }}>
+          {verdict.desc}
+        </motion.p>
+
+        {/* Score circle */}
+        <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6, type: "spring", stiffness: 160 }}
+          className="mt-8 relative flex items-center justify-center" style={{ width: 140, height: 140 }}>
+          <svg className="absolute inset-0 -rotate-90" width="140" height="140">
+            <circle cx="70" cy="70" r={circleR} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
+            <motion.circle cx="70" cy="70" r={circleR} fill="none"
+              stroke={info.accentHex} strokeWidth="10" strokeLinecap="round"
+              strokeDasharray={`${circleDash}`}
+              initial={{ strokeDashoffset: circleDash }}
+              animate={{ strokeDashoffset: circleDash * (1 - ratio) }}
+              transition={{ delay: 0.8, duration: 1.2, ease: "easeOut" }}
+              style={{ filter: `drop-shadow(0 0 8px ${info.accentHex})` }}
+            />
+          </svg>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
+            className="flex flex-col items-center">
+            <span className="text-4xl font-bold" style={{ color: "#fde8ee" }}>{pct}%</span>
+            <span className="text-[11px] mt-0.5" style={{ color: "rgba(253,232,238,0.4)" }}>en commun</span>
+          </motion.div>
+        </motion.div>
+
+        {/* Détail */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
+          className="mt-6 px-6 py-3 rounded-2xl"
+          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <p className="text-sm" style={{ color: "rgba(253,232,238,0.6)" }}>
+            Vous avez répondu pareil{" "}
+            <span className="font-bold text-lg" style={{ color: info.accentHex }}>{matches}</span>
+            {" "}fois sur {total} 💕
+          </p>
+        </motion.div>
+
+        {/* Boutons */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }}
+          className="mt-auto w-full space-y-3 pt-8">
+          <motion.button whileTap={{ scale: 0.97 }} onClick={() => onReplay()}
+            className="w-full h-14 rounded-2xl text-base font-semibold relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.72 0.16 350), oklch(0.62 0.20 10))",
+              color: "white", boxShadow: "0 8px 28px rgba(220,80,100,0.3)",
+            }}>
+            <motion.div className="absolute inset-0"
+              animate={{ x: ["100%", "-100%"] }}
+              transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+              style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)" }}
+            />
+            <span className="relative z-10">Rejouer 🔁</span>
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.97 }} onClick={onBackToMenu}
+            className="w-full h-12 rounded-2xl text-sm font-medium"
+            style={{
+              background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)",
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}>
+            ← Retour au menu
+          </motion.button>
+        </motion.div>
       </div>
     </div>
   );
