@@ -235,7 +235,9 @@ function ProfilPage() {
       style={{ background: "linear-gradient(160deg,oklch(0.97 0.018 352) 0%,oklch(0.99 0.006 355) 50%,oklch(0.97 0.015 15) 100%)" }}>
 
       {/* ── FULL BLEED HERO ── */}
-      <div className="relative h-[340px] w-full overflow-hidden">
+      <div className="relative h-[340px] w-full">
+        {/* Decorations clipped to hero bounds */}
+        <div className="absolute inset-0 overflow-hidden">
         {/* Gradient */}
         <div className="absolute inset-0"
           style={{ background: "linear-gradient(150deg,oklch(0.62 0.18 358),oklch(0.52 0.20 2),oklch(0.70 0.16 330),oklch(0.55 0.22 8))" }}/>
@@ -270,6 +272,7 @@ function ProfilPage() {
         {/* Gradient fade-out to page bg */}
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-36"
           style={{ background: "linear-gradient(to bottom,transparent,oklch(0.97 0.018 352))" }}/>
+        </div>{/* end decorations */}
         {/* Edit button */}
         <button onClick={() => setEditing(true)}
           className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-2xl transition active:scale-90"
@@ -301,7 +304,7 @@ function ProfilPage() {
       </div>
 
       {/* ── NAME + CTA ── */}
-      <div className="mt-16 flex flex-col items-center px-5 pb-2 text-center">
+      <div className="mt-20 flex flex-col items-center px-5 pb-2 text-center">
         <motion.h1 initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }}
           className="font-serif text-4xl leading-tight"
           style={{ color: "oklch(0.35 0.10 358)", textShadow: "0 1px 20px oklch(0.75 0.13 355/0.18)" }}>
