@@ -358,7 +358,7 @@ function MessagesPage() {
     (async () => {
       for (const m of unread) {
         const next = Array.from(new Set([...(m.read_by || []), me.id]));
-        await supabase.from("messages").update({ read_by: next, read_at: m.read_at || now }).eq("id", m.id);
+        await supabase.from("messages").update({ read_by: next, read_at: m.read_at || now } as any).eq("id", m.id);
       }
     })();
   }, [messages, me]);
