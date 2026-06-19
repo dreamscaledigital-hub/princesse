@@ -17,7 +17,7 @@ type Props = {
 // ── Game catalogue organisation ───────────────────────────────────────────────
 const FEATURED_IDS: ModeId[]  = ["full", "quiz"];
 const TOGETHER_IDS: ModeId[]  = ["wouldyou", "mostlikely", "cupidon", "paysville"];
-const DUELS_IDS: ModeId[]     = ["minigames", "p4", "mastermind", "hangman", "draw", "tap", "tower", "bounce", "riddles", "wheel"];
+const DUELS_IDS: ModeId[]     = ["minigames", "p4", "mastermind", "hangman", "draw", "tap", "tower", "bounce", "riddles", "wheel", "airhockey"];
 const PERSONAL_IDS: ModeId[]  = ["edit_secrets"];
 
 // Rich gradient overrides per mode
@@ -37,6 +37,7 @@ const CARD_STYLE: Partial<Record<ModeId, { bg: string; shadow: string; accent: s
   tower:       { bg: "linear-gradient(145deg,#bae6fd,#38bdf8,#0284c7)", shadow: "0 8px 22px rgba(56,189,248,0.22)", accent: "#38bdf8" },
   bounce:      { bg: "linear-gradient(145deg,#fbcfe8,#f9a8d4,#22d3ee)", shadow: "0 8px 22px rgba(34,211,238,0.22)", accent: "#22d3ee" },
   riddles:     { bg: "linear-gradient(145deg,#bbf7d0,#4ade80,#16a34a)", shadow: "0 8px 22px rgba(74,222,128,0.22)", accent: "#4ade80" },
+  airhockey:   { bg: "linear-gradient(145deg,#bae6fd,#0ea5e9,#0369a1)", shadow: "0 8px 28px rgba(14,165,233,0.28)", accent: "#0ea5e9" },
   wheel:       { bg: "linear-gradient(145deg,#f5d0fe,#e879f9,#a21caf)", shadow: "0 8px 22px rgba(232,121,249,0.22)", accent: "#e879f9" },
   edit_secrets:{ bg: "linear-gradient(145deg,#e0e7ff,#818cf8,#4338ca)", shadow: "0 8px 22px rgba(129,140,248,0.22)", accent: "#818cf8" },
 };

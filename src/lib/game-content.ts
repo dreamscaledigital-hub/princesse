@@ -3,7 +3,7 @@
 export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
 
 // ── Menu / Modes de jeu ──
-export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "p4" | "wheel" | "full" | "edit_secrets" | "wishlist";
+export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "p4" | "wheel" | "full" | "edit_secrets" | "wishlist" | "airhockey";
 
 export const MENU_TITLE = "Notre petit nid 💞";
 export const MENU_SUBTITLE = "Choisis ce qu'on fait ensemble ✨";
@@ -127,6 +127,13 @@ export const MODES: { id: ModeId; emoji: string; title: string; subtitle: string
     title: "Nos pièges",
     subtitle: "Crée tes questions & gages secrets",
     gradient: "from-violet-200/80 to-fuchsia-300/80",
+  },
+  {
+    id: "airhockey",
+    emoji: "🏒",
+    title: "Air Hockey",
+    subtitle: "Glisse le palet dans le but de l'autre !",
+    gradient: "from-cyan-200/80 to-sky-300/80",
   },
   {
     id: "wishlist",

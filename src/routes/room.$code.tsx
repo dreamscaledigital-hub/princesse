@@ -53,6 +53,7 @@ import { WouldYouRather } from "@/components/WouldYouRather";
 import { CupidonDuel } from "@/components/CupidonDuel";
 import { PaysVille } from "@/components/PaysVille";
 import { MostLikely } from "@/components/MostLikely";
+import { AirHockey } from "@/components/AirHockey";
 import { Riddles } from "@/components/Riddles";
 import { StackTower } from "@/components/StackTower";
 import { ColorBounce } from "@/components/ColorBounce";
@@ -239,7 +240,7 @@ function GamePage() {
           })
           .eq("id", room.id);
       }
-    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower" || mode === "bounce" || mode === "tap" || mode === "draw" || mode === "p4" || mode === "wheel") {
+    } else if (mode === "minigames" || mode === "mastermind" || mode === "hangman" || mode === "wouldyou" || mode === "cupidon" || mode === "paysville" || mode === "mostlikely" || mode === "riddles" || mode === "tower" || mode === "bounce" || mode === "tap" || mode === "draw" || mode === "p4" || mode === "wheel" || mode === "airhockey") {
       await supabase
         .from("rooms")
         .update({
@@ -890,6 +891,18 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
     );
   }
 
+
+  if (room.mode === "airhockey") {
+    return (
+      <AirHockey
+        room={room}
+        mySlot={mySlot}
+        myName={myName}
+        otherName={otherName}
+        onBackToMenu={backToMenu}
+      />
+    );
+  }
   if (room.mode === "riddles") {
     return (
       <Riddles
