@@ -403,7 +403,6 @@ function PlayView({ state, room, mySlot, otherName }:
                           caretColor: GOLD,
                         }}
                         
-                          "::placeholder": { color: "rgba(253,240,186,0.2)" },
                       />
                     </div>
                     {/* Validation icon */}
