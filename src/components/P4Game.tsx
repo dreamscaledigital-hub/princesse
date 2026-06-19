@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 
@@ -11,6 +10,14 @@ const supabase = _supabase as any;
 const ROWS = 6;
 const COLS = 7;
 
+// ── Palette ───────────────────────────────────────────────────────────────
+const BG    = "linear-gradient(160deg, oklch(0.10 0.07 260) 0%, oklch(0.07 0.04 250) 100%)";
+const BOARD = "oklch(0.17 0.09 240)";
+const EMPTY = "oklch(0.09 0.05 255)";
+const ROSE  = "#f43f5e";
+const AMBER = "#fbbf24";
+
+// ── Dares ─────────────────────────────────────────────────────────────────
 const DARES = [
   "Un bisou de 10 secondes 💋",
   "Un câlin de 30 secondes 🤗",
@@ -24,7 +31,8 @@ const DARES = [
   "Cuisine ou prépare un truc à boire à l'autre 🍹",
 ];
 
-type Board = number[][]; // 0=vide, 1=slot1, 2=slot2
+// ── Types ─────────────────────────────────────────────────────────────────
+type Board = number[][];
 
 type P4State = {
   phase?: "playing" | "won" | "draw";
@@ -46,6 +54,7 @@ type Props = {
   onDareDone: () => void;
 };
 
+// ── Game logic (unchanged) ────────────────────────────────────────────────
 function emptyBoard(): Board {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 }
@@ -58,7 +67,7 @@ function dropPiece(board: Board, col: number, player: number): { board: Board; r
       return { board: next, row: r };
     }
   }
-  return null; // colonne pleine
+  return null;
 }
 
 function checkWin(board: Board, row: number, col: number, player: number): number[][] | null {
@@ -88,50 +97,68 @@ function pickDare() {
   return DARES[Math.floor(Math.random() * DARES.length)];
 }
 
+function discColor(slot: number) {
+  return slot === 1 ? ROSE : AMBER;
+}
+
+// ── Shared styles ─────────────────────────────────────────────────────────
+const glass: React.CSSProperties = {
+  background: "rgba(255,255,255,0.06)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 20,
+};
+
+// ── Component ─────────────────────────────────────────────────────────────
 export function P4Game({ room, mySlot, myName, otherName, onBackToMenu, onDareDone }: Props) {
-  const raw = (room.minigame_state ?? {}) as P4State;
-  const phase = raw.phase ?? "playing";
-  const board = raw.board ?? emptyBoard();
-  const turn = raw.turn ?? 1;
-  const winner = raw.winner;
+  const raw      = (room.minigame_state ?? {}) as P4State;
+  const phase    = raw.phase ?? "playing";
+  const board    = raw.board ?? emptyBoard();
+  const turn     = raw.turn ?? 1;
+  const winner   = raw.winner;
   const winCells = raw.winning_cells ?? [];
-  const gage = raw.gage ?? "";
-  const lastCol = raw.last_col;
-  const lastRow = raw.last_row;
+  const gage     = raw.gage ?? "";
+  const lastCol  = raw.last_col;
+  const lastRow  = raw.last_row;
 
   const isMyTurn = turn === mySlot;
-  const isHost = mySlot === 1;
+  const isHost   = mySlot === 1;
+  const myColor  = discColor(mySlot);
+
   const [hoverCol, setHoverCol] = useState<number | null>(null);
   const [dropping, setDropping] = useState(false);
   const confettiFired = useRef(false);
 
-  // Init board si vide (host seulement)
+  const p1Name = mySlot === 1 ? myName : otherName;
+  const p2Name = mySlot === 2 ? myName : otherName;
+
+  // ── Init (host) ──
   useEffect(() => {
-    if (!isHost) return;
-    if (!raw.phase) {
-      void supabase.from("rooms").update({
-        minigame_state: {
-          phase: "playing",
-          board: emptyBoard(),
-          turn: 1,
-          gage: pickDare(),
-        } as P4State,
-      }).eq("id", room.id);
-    }
+    if (!isHost || raw.phase) return;
+    void supabase.from("rooms").update({
+      minigame_state: { phase: "playing", board: emptyBoard(), turn: 1, gage: pickDare() } as P4State,
+    }).eq("id", room.id);
   }, [isHost, room.id, raw.phase]);
 
-  // Confettis si victoire
+  // ── Confetti ──
   useEffect(() => {
     if (phase === "won" && winner === mySlot && !confettiFired.current) {
       confettiFired.current = true;
-      void confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ["#e88aab", "#f8c8d8", "#fff"] });
+      void confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.5 },
+        colors: [myColor, "#ffffff", myColor + "88"],
+      });
     }
-  }, [phase, winner, mySlot]);
+  }, [phase, winner, mySlot, myColor]);
 
+  // ── Play ──
   async function playCol(col: number) {
     if (!isMyTurn || phase !== "playing" || dropping) return;
     const result = dropPiece(board, col, mySlot);
-    if (!result) return; // colonne pleine
+    if (!result) return;
 
     setDropping(true);
     const { board: newBoard, row } = result;
@@ -148,20 +175,11 @@ export function P4Game({ room, mySlot, myName, otherName, onBackToMenu, onDareDo
     setDropping(false);
   }
 
-  function handleDare() {
-    onDareDone();
-  }
-
   function restart() {
     if (!isHost) return;
     confettiFired.current = false;
     void supabase.from("rooms").update({
-      minigame_state: {
-        phase: "playing",
-        board: emptyBoard(),
-        turn: 1,
-        gage: pickDare(),
-      } as P4State,
+      minigame_state: { phase: "playing", board: emptyBoard(), turn: 1, gage: pickDare() } as P4State,
     }).eq("id", room.id);
   }
 
@@ -169,116 +187,222 @@ export function P4Game({ room, mySlot, myName, otherName, onBackToMenu, onDareDo
     return winCells.some(([wr, wc]) => wr === r && wc === c);
   }
 
-  const p1Color = "bg-rose-400";
-  const p2Color = "bg-blue-400";
-  const p1Emoji = "❤️";
-  const p2Emoji = "💙";
+  const interactive = isMyTurn && phase === "playing";
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-between bg-gradient-to-b from-rose-50 to-pink-50 px-4 pb-8 pt-6">
-
-      {/* Header */}
-      <div className="w-full max-w-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <button onClick={onBackToMenu} className="text-xs text-muted-foreground hover:text-foreground">
-            ← Menu
-          </button>
-          <h2 className="font-serif text-2xl text-primary">Puissance 4</h2>
-          <div className="w-12" />
-        </div>
-
-        {/* Scores / tour */}
-        <div className="mb-4 flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 shadow-sm">
-          <div className="text-center">
-            <p className="text-lg">{p1Emoji}</p>
-            <p className="text-xs font-medium">{mySlot === 1 ? myName : otherName}</p>
-          </div>
-          <div className="text-center">
-            <AnimatePresence mode="wait">
-              {phase === "playing" ? (
-                <motion.p key="turn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm font-semibold text-primary">
-                  {isMyTurn ? "À toi 👆" : `${otherName}…`}
-                </motion.p>
-              ) : phase === "won" ? (
-                <motion.p key="won" initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-sm font-bold text-primary">
-                  {winner === mySlot ? "Tu gagnes 🎉" : `${otherName} gagne`}
-                </motion.p>
-              ) : (
-                <motion.p key="draw" className="text-sm font-semibold text-muted-foreground">Égalité 🤝</motion.p>
-              )}
-            </AnimatePresence>
-          </div>
-          <div className="text-center">
-            <p className="text-lg">{p2Emoji}</p>
-            <p className="text-xs font-medium">{mySlot === 2 ? myName : otherName}</p>
-          </div>
-        </div>
+    <div
+      style={{ background: BG, minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 36px" }}
+      onMouseLeave={() => setHoverCol(null)}
+    >
+      {/* ── Header ── */}
+      <div style={{ width: "100%", maxWidth: 390, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <button
+          onClick={onBackToMenu}
+          style={{
+            background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 12, padding: "6px 14px", color: "rgba(255,255,255,0.65)",
+            fontSize: 13, cursor: "pointer",
+          }}
+        >
+          ← Menu
+        </button>
+        <h1 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 27, color: "#fff", margin: 0, letterSpacing: "0.03em" }}>
+          Puissance 4
+        </h1>
+        <div style={{ width: 76 }} />
       </div>
 
-      {/* Grille */}
-      <div className="w-full max-w-sm">
-        {/* Indicateur colonne hover */}
-        <div className="mb-1 flex">
+      {/* ── Player HUD ── */}
+      <div style={{ width: "100%", maxWidth: 390, display: "flex", gap: 8, marginBottom: 18 }}>
+        {/* P1 */}
+        <motion.div
+          animate={{
+            boxShadow: turn === 1 && phase === "playing"
+              ? "0 0 0 2px " + ROSE + ", 0 0 18px " + ROSE + "44"
+              : "0 0 0 1px rgba(255,255,255,0.08)",
+          }}
+          transition={{ duration: 0.35 }}
+          style={{ ...glass, flex: 1, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}
+        >
+          <div style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, " + ROSE + "ff, " + ROSE + "aa)", boxShadow: "0 0 10px " + ROSE, flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, margin: 0 }}>Joueur 1</p>
+            <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p1Name}</p>
+          </div>
+          <AnimatePresence>
+            {turn === 1 && phase === "playing" && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}
+                style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: ROSE, boxShadow: "0 0 8px " + ROSE, flexShrink: 0 }}
+              />
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Center */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minWidth: 40 }}>
+          <AnimatePresence mode="wait">
+            {phase === "playing" ? (
+              <motion.span key="vs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>VS</motion.span>
+            ) : phase === "won" ? (
+              <motion.span key="won" initial={{ scale: 0.3 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                style={{ fontSize: 24 }}>🏆</motion.span>
+            ) : (
+              <motion.span key="draw" initial={{ scale: 0.3 }} animate={{ scale: 1 }} style={{ fontSize: 24 }}>🤝</motion.span>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* P2 */}
+        <motion.div
+          animate={{
+            boxShadow: turn === 2 && phase === "playing"
+              ? "0 0 0 2px " + AMBER + ", 0 0 18px " + AMBER + "44"
+              : "0 0 0 1px rgba(255,255,255,0.08)",
+          }}
+          transition={{ duration: 0.35 }}
+          style={{ ...glass, flex: 1, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}
+        >
+          <div style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, " + AMBER + "ff, " + AMBER + "aa)", boxShadow: "0 0 10px " + AMBER, flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, margin: 0 }}>Joueur 2</p>
+            <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p2Name}</p>
+          </div>
+          <AnimatePresence>
+            {turn === 2 && phase === "playing" && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}
+                style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: AMBER, boxShadow: "0 0 8px " + AMBER, flexShrink: 0 }}
+              />
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+
+      {/* ── Turn label ── */}
+      <div style={{ minHeight: 28, display: "flex", alignItems: "center", marginBottom: 10 }}>
+        <AnimatePresence mode="wait">
+          {phase === "playing" && (
+            <motion.div
+              key={"turn-" + turn}
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22 }}
+              style={{ display: "flex", alignItems: "center", gap: 7 }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: discColor(turn), boxShadow: "0 0 10px " + discColor(turn) }} />
+              <span style={{ color: isMyTurn ? "#fff" : "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: isMyTurn ? 600 : 400 }}>
+                {isMyTurn ? "C'est ton tour !" : (turn === 1 ? p1Name : p2Name) + " réfléchit…"}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Board ── */}
+      <div style={{ width: "100%", maxWidth: 390 }}>
+
+        {/* Column indicators */}
+        <div style={{ display: "flex", paddingLeft: 12, paddingRight: 12, marginBottom: 6, height: 26, gap: 7 }}>
           {Array.from({ length: COLS }).map((_, c) => (
-            <div key={c} className="flex flex-1 justify-center">
+            <div
+              key={c}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: interactive ? "pointer" : "default" }}
+              onClick={() => playCol(c)}
+              onMouseEnter={() => interactive && setHoverCol(c)}
+              onMouseLeave={() => setHoverCol(null)}
+            >
               <AnimatePresence>
-                {hoverCol === c && isMyTurn && phase === "playing" && (
+                {hoverCol === c && interactive && (
                   <motion.div
-                    initial={{ y: -6, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -6, opacity: 0 }}
-                    className="text-base"
-                  >
-                    {mySlot === 1 ? p1Emoji : p2Emoji}
-                  </motion.div>
+                    initial={{ opacity: 0, y: -10, scale: 0.4 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.4 }}
+                    transition={{ type: "spring", stiffness: 520, damping: 26 }}
+                    style={{
+                      width: 15, height: 15, borderRadius: "50%",
+                      background: "radial-gradient(circle at 35% 35%, " + myColor + "ff, " + myColor + "cc)",
+                      boxShadow: "0 0 12px " + myColor + ", 0 0 22px " + myColor + "55",
+                    }}
+                  />
                 )}
               </AnimatePresence>
             </div>
           ))}
         </div>
 
-        {/* Board */}
-        <div
-          className="overflow-hidden rounded-3xl bg-primary/90 p-2 shadow-2xl"
-          onMouseLeave={() => setHoverCol(null)}
-        >
+        {/* Board frame */}
+        <div style={{
+          background: BOARD,
+          borderRadius: 24,
+          padding: 12,
+          boxShadow: "0 28px 80px rgba(0,0,30,0.75), inset 0 1px 0 rgba(255,255,255,0.06)",
+        }}>
           {board.map((row, r) => (
-            <div key={r} className="flex gap-1 mb-1 last:mb-0">
+            <div key={r} style={{ display: "flex", gap: 7, marginBottom: r < ROWS - 1 ? 7 : 0 }}>
               {row.map((cell, c) => {
                 const isWin = isWinCell(r, c);
                 const isNew = r === lastRow && c === lastCol;
+                const isHov = hoverCol === c && interactive && cell === 0;
+                const color = cell !== 0 ? discColor(cell) : null;
+
                 return (
-                  <motion.button
+                  <div
                     key={c}
-                    className="flex flex-1 aspect-square items-center justify-center rounded-full bg-white/20 text-lg sm:text-xl"
-                    style={{ minWidth: 0 }}
                     onClick={() => playCol(c)}
-                    onMouseEnter={() => setHoverCol(c)}
-                    whileTap={isMyTurn && phase === "playing" ? { scale: 0.92 } : {}}
+                    onMouseEnter={() => interactive && setHoverCol(c)}
+                    onMouseLeave={() => setHoverCol(null)}
+                    style={{
+                      flex: 1,
+                      aspectRatio: "1",
+                      borderRadius: "50%",
+                      background: isHov ? myColor + "22" : EMPTY,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: isHov
+                        ? "inset 0 3px 10px rgba(0,0,0,0.55), 0 0 10px " + myColor + "33"
+                        : "inset 0 3px 10px rgba(0,0,0,0.55)",
+                      cursor: interactive ? "pointer" : "default",
+                      transition: "background 0.12s, box-shadow 0.12s",
+                      overflow: "hidden",
+                    }}
                   >
                     <AnimatePresence>
-                      {cell !== 0 && (
+                      {cell !== 0 && color && (
                         <motion.div
-                          key={`${r}-${c}-${cell}`}
-                          initial={isNew ? { y: -120, opacity: 0 } : { opacity: 1 }}
+                          key={r + "-" + c + "-" + cell}
+                          initial={isNew ? { y: "-400%", scale: 0.85 } : { scale: 1 }}
                           animate={{
-                            y: 0,
-                            opacity: 1,
-                            scale: isWin ? [1, 1.25, 1] : 1,
+                            y: "0%",
+                            scale: isWin ? [1, 1.18, 1] : 1,
                           }}
-                          transition={{
-                            y: { type: "spring", stiffness: 300, damping: 20 },
-                            scale: isWin ? { delay: 0.2, duration: 0.5, repeat: Infinity, repeatDelay: 0.5 } : {},
+                          transition={isNew
+                            ? {
+                                y: { type: "spring", stiffness: 520, damping: 26, mass: 0.9 },
+                                scale: isWin
+                                  ? { delay: 0.3, duration: 0.65, repeat: Infinity, repeatDelay: 0.55 }
+                                  : { duration: 0 },
+                              }
+                            : {
+                                scale: isWin
+                                  ? { delay: 0.3, duration: 0.65, repeat: Infinity, repeatDelay: 0.55 }
+                                  : { duration: 0 },
+                              }
+                          }
+                          style={{
+                            width: "84%",
+                            height: "84%",
+                            borderRadius: "50%",
+                            background: "radial-gradient(circle at 32% 30%, " + color + "ff 0%, " + color + "cc 60%, " + color + "99 100%)",
+                            boxShadow: isWin
+                              ? "0 0 0 2.5px #fff, 0 0 14px " + color + ", 0 0 30px " + color + "88"
+                              : "0 0 8px " + color + "55, inset 0 -3px 6px rgba(0,0,0,0.25)",
                           }}
-                          className={`flex h-full w-full items-center justify-center rounded-full text-base sm:text-xl ${
-                            isWin ? "ring-2 ring-yellow-300 ring-offset-1" : ""
-                          }`}
-                        >
-                          {cell === 1 ? p1Emoji : p2Emoji}
-                        </motion.div>
+                        />
                       )}
                     </AnimatePresence>
-                  </motion.button>
+                  </div>
                 );
               })}
             </div>
@@ -286,51 +410,91 @@ export function P4Game({ room, mySlot, myName, otherName, onBackToMenu, onDareDo
         </div>
       </div>
 
-      {/* Footer — fin de partie */}
-      <div className="w-full max-w-sm">
-        <AnimatePresence>
-          {(phase === "won" || phase === "draw") && (
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="mt-4 overflow-hidden rounded-3xl bg-white/80 p-5 shadow-lg text-center"
-            >
-              {phase === "won" && winner !== mySlot && (
-                <>
-                  <p className="mb-1 text-2xl">😅</p>
-                  <p className="mb-1 font-serif text-lg text-primary">Ton gage :</p>
-                  <p className="mb-4 text-sm font-medium text-foreground">"{gage}"</p>
-                  <Button onClick={handleDare} className="w-full rounded-2xl">
-                    Gage accompli ✅
-                  </Button>
-                </>
-              )}
-              {phase === "won" && winner === mySlot && (
-                <>
-                  <p className="mb-1 text-2xl">🎉</p>
-                  <p className="mb-3 font-serif text-lg text-primary">Tu as gagné !</p>
-                  {isHost && (
-                    <Button onClick={restart} variant="outline" className="w-full rounded-2xl">
-                      Revanche 🔄
-                    </Button>
-                  )}
-                </>
-              )}
-              {phase === "draw" && (
-                <>
-                  <p className="mb-1 text-2xl">🤝</p>
-                  <p className="mb-3 font-serif text-lg text-primary">Égalité parfaite !</p>
-                  {isHost && (
-                    <Button onClick={restart} variant="outline" className="w-full rounded-2xl">
-                      Revanche 🔄
-                    </Button>
-                  )}
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* ── End panel ── */}
+      <AnimatePresence>
+        {(phase === "won" || phase === "draw") && (
+          <motion.div
+            initial={{ y: 36, opacity: 0, scale: 0.94 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 24, delay: 0.3 }}
+            style={{ ...glass, width: "100%", maxWidth: 390, marginTop: 22, padding: "24px 22px", textAlign: "center" }}
+          >
+            {phase === "won" && (
+              <>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.65, delay: 0.45 }}
+                  style={{ fontSize: 40, marginBottom: 10 }}
+                >
+                  {winner === mySlot ? "🏆" : "😅"}
+                </motion.div>
+                <p style={{ color: "#fff", fontFamily: "Cormorant Garamond, serif", fontSize: 23, fontWeight: 600, margin: "0 0 6px" }}>
+                  {winner === mySlot ? "Tu as gagné !" : (winner === 1 ? p1Name : p2Name) + " gagne !"}
+                </p>
+                {winner !== mySlot && (
+                  <>
+                    <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.09em" }}>Ton gage</p>
+                    <p style={{ color: "rgba(255,255,255,0.88)", fontSize: 16, fontStyle: "italic", margin: "0 0 22px", lineHeight: 1.5 }}>"{gage}"</p>
+                    <button
+                      onClick={onDareDone}
+                      style={{
+                        width: "100%", padding: "14px 0", borderRadius: 16, border: "none", cursor: "pointer",
+                        background: "linear-gradient(135deg, " + ROSE + "ee, " + ROSE + "99)",
+                        color: "#fff", fontSize: 15, fontWeight: 700,
+                        boxShadow: "0 6px 24px " + ROSE + "55",
+                      }}
+                    >
+                      Gage accompli ✅
+                    </button>
+                  </>
+                )}
+                {winner === mySlot && (
+                  <>
+                    <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "0 0 18px" }}>
+                      {isHost ? "Tu veux te battre encore ?" : "En attente de " + otherName + "…"}
+                    </p>
+                    {isHost && (
+                      <button
+                        onClick={restart}
+                        style={{
+                          width: "100%", padding: "14px 0", borderRadius: 16, cursor: "pointer",
+                          background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.16)",
+                          color: "rgba(255,255,255,0.85)", fontSize: 15, fontWeight: 600,
+                        }}
+                      >
+                        Revanche 🔄
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {phase === "draw" && (
+              <>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>🤝</div>
+                <p style={{ color: "#fff", fontFamily: "Cormorant Garamond, serif", fontSize: 23, fontWeight: 600, margin: "0 0 6px" }}>Égalité parfaite !</p>
+                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "0 0 20px" }}>
+                  {isHost ? "On remet ça ?" : "En attente de " + otherName + "…"}
+                </p>
+                {isHost && (
+                  <button
+                    onClick={restart}
+                    style={{
+                      width: "100%", padding: "14px 0", borderRadius: 16, cursor: "pointer",
+                      background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.16)",
+                      color: "rgba(255,255,255,0.85)", fontSize: 15, fontWeight: 600,
+                    }}
+                  >
+                    Revanche 🔄
+                  </button>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
