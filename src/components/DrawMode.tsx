@@ -1,13 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
+
+// ─────────── Design tokens ───────────
+const BG = "linear-gradient(160deg, oklch(0.10 0.07 260) 0%, oklch(0.07 0.04 250) 100%)";
+const glass: React.CSSProperties = {
+  background: "rgba(255,255,255,0.06)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 20,
+};
+const ROSE    = "#f43f5e";
+const AMBER   = "#fbbf24";
+const EMERALD = "#4ade80";
+const SKY     = "#38bdf8";
+const SERIF   = "'Cormorant Garamond', Georgia, serif";
 
 // ─────────── Constantes ───────────
 const WORDS = [
@@ -33,16 +46,24 @@ const GAGES_TAP = [
   "Lis un message d'amour à voix haute 💌",
 ];
 
-const COLORS = ["#1a1a1a", "#e74c3c", "#e88aab", "#3498db", "#2ecc71", "#f39c12"];
-const SIZES = [3, 8];
-const ERASER = { color: "#ffffff", width: 20 };
+const DRAW_COLORS = [
+  "#0d0d1a",
+  "#f43f5e",
+  "#fbbf24",
+  "#4ade80",
+  "#38bdf8",
+  "#a78bfa",
+  "#fb923c",
+  "#f9a8d4",
+];
+const SIZES = [3, 7, 14];
+const ERASER = { color: "#ffffff", width: 24 };
 
 const TOTAL_ROUNDS = 4;
 const DRAW_DURATION_MS = 90_000;
 const PICK_DURATION_MS = 5_000;
 const HINT_INTERVAL_MS = 25_000;
 const POST_RESULT_AUTO_MS = 5000;
-
 const AUTHORITY_SLOT = 1;
 
 // ─────────── Types ───────────
@@ -120,7 +141,7 @@ function normalize(s: string): string {
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[̀-ͯ]/g, "");
 }
 
 async function patchState(roomId: string, patch: Record<string, unknown>) {
@@ -135,6 +156,46 @@ function computeScore(elapsedMs: number): number {
   if (elapsedMs < 20_000) return 10;
   if (elapsedMs < 45_000) return 7;
   return 4;
+}
+
+// ─────────── HintDisplay ───────────
+function HintDisplay({ hint, color = EMERALD }: { hint: string; color?: string }) {
+  if (!hint) return null;
+  const chars = hint.split(" ");
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center", alignItems: "flex-end" }}>
+      {chars.map((ch, i) => {
+        if (ch === "") return <div key={i} style={{ width: 14, height: 38 }} />;
+        const isRevealed = ch !== "_";
+        return (
+          <motion.div
+            key={i}
+            animate={isRevealed ? { scale: [1.25, 1] } : { scale: 1 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              width: 26,
+              height: 38,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 7,
+              background: isRevealed ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.04)",
+              border: isRevealed ? `1.5px solid ${color}55` : "1.5px solid rgba(255,255,255,0.10)",
+              borderBottom: isRevealed ? `3px solid ${color}` : "3px solid rgba(255,255,255,0.22)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 700,
+              textShadow: isRevealed ? `0 0 10px ${color}` : "none",
+              textTransform: "uppercase" as const,
+              letterSpacing: 1,
+            }}
+          >
+            {isRevealed ? ch : ""}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ─────────── Composant principal ───────────
@@ -217,11 +278,9 @@ export function DrawMode({ room, mySlot, myName, otherName, onBackToMenu, onDare
     if (!isAuthority) return;
     if (phase !== "drawing") return;
     if (!state.started_at || !state.word) return;
-    const word = state.word;
     const tick = () => {
       const cur = (room.minigame_state ?? {}) as DrawState;
       if (cur.phase !== "drawing" || !cur.word_hint || !cur.word) return;
-      // Trouver les lettres encore cachées
       const hidden: number[] = [];
       const letters = cur.word.split("");
       const hintChars = (cur.word_hint.match(/\S|\s/g) || []).filter((c) => c !== " ");
@@ -310,66 +369,116 @@ export function DrawMode({ room, mySlot, myName, otherName, onBackToMenu, onDare
     await setState(room.id, fresh as Record<string, unknown>);
   };
 
-  // ─────────── UI ───────────
   return (
-    <div className="flex min-h-[80vh] flex-col" style={{ touchAction: "manipulation" }}>
-      <div className="mb-3 flex items-center justify-between px-1">
-        <button onClick={onBackToMenu} className="text-xs text-muted-foreground hover:text-foreground">
+    <div style={{
+      minHeight: "100dvh",
+      background: BG,
+      display: "flex",
+      flexDirection: "column",
+      padding: "14px 14px 28px",
+      gap: 12,
+      fontFamily: "'Inter', system-ui, sans-serif",
+      touchAction: "manipulation",
+      color: "#fff",
+    }}>
+      {/* Header */}
+      <div style={{ ...glass, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: 16 }}>
+        <button
+          onClick={onBackToMenu}
+          style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+        >
           ← Menu
         </button>
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Dessine & Devine 🎨 · Round {Math.min(round, TOTAL_ROUNDS)}/{TOTAL_ROUNDS}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+          <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.35)" }}>
+            Dessine & Devine
+          </span>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", letterSpacing: 1 }}>
+            Round {Math.min(round, TOTAL_ROUNDS)}/{TOTAL_ROUNDS}
+          </span>
         </div>
-        <div className="text-xs font-semibold">
-          {myScore} <span className="text-muted-foreground">–</span> {otherScore}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ color: EMERALD, fontSize: 17, fontWeight: 800 }}>{myScore}</span>
+          <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13 }}>–</span>
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 17, fontWeight: 800 }}>{otherScore}</span>
         </div>
       </div>
 
-      {phase === "word_pick" && (
-        <WordPickScreen
-          state={state}
-          isDrawer={isDrawer}
-          isAuthority={isAuthority}
-          roomId={room.id}
-          drawerName={isDrawer ? myName : otherName}
-        />
-      )}
-
-      {phase === "drawing" && (
-        <DrawingScreen
-          room={room}
-          state={state}
-          isDrawer={isDrawer}
-          mySlot={mySlot}
-          myName={myName}
-          otherName={otherName}
-        />
-      )}
-
-      {(phase === "correct" || phase === "timeout") && (
-        <ResultScreen
-          state={state}
-          phase={phase}
-          isAuthority={isAuthority}
-          onNext={goNextRound}
-        />
-      )}
-
-      {phase === "game_over" && (
-        <GameOverScreen
-          state={state}
-          mySlot={mySlot}
-          myName={myName}
-          otherName={otherName}
-          isAuthority={isAuthority}
-          onReplay={replay}
-          onBackToMenu={onBackToMenu}
-          onDareDone={async () => {
-            await patchState(room.id, { dare_done: true });
-            onDareDone();
-          }}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {phase === "word_pick" && (
+          <motion.div
+            key="pick"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={{ flex: 1, display: "flex", flexDirection: "column" }}
+          >
+            <WordPickScreen
+              state={state}
+              isDrawer={isDrawer}
+              isAuthority={isAuthority}
+              roomId={room.id}
+              drawerName={isDrawer ? myName : otherName}
+            />
+          </motion.div>
+        )}
+        {phase === "drawing" && (
+          <motion.div
+            key="draw"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}
+          >
+            <DrawingScreen
+              room={room}
+              state={state}
+              isDrawer={isDrawer}
+              mySlot={mySlot}
+              myName={myName}
+              otherName={otherName}
+            />
+          </motion.div>
+        )}
+        {(phase === "correct" || phase === "timeout") && (
+          <motion.div
+            key="result"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ flex: 1, display: "flex", flexDirection: "column" }}
+          >
+            <ResultScreen
+              state={state}
+              phase={phase}
+              isAuthority={isAuthority}
+              onNext={goNextRound}
+            />
+          </motion.div>
+        )}
+        {phase === "game_over" && (
+          <motion.div
+            key="over"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ flex: 1, display: "flex", flexDirection: "column" }}
+          >
+            <GameOverScreen
+              state={state}
+              mySlot={mySlot}
+              myName={myName}
+              otherName={otherName}
+              isAuthority={isAuthority}
+              onReplay={replay}
+              onBackToMenu={onBackToMenu}
+              onDareDone={async () => {
+                await patchState(room.id, { dare_done: true });
+                onDareDone();
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -385,6 +494,7 @@ function WordPickScreen({
   drawerName: string;
 }) {
   const [remaining, setRemaining] = useState(PICK_DURATION_MS);
+
   useEffect(() => {
     if (!state.pick_started_at) return;
     const update = () => {
@@ -398,8 +508,6 @@ function WordPickScreen({
 
   const pickWord = async (word: string) => {
     if (!isAuthority) {
-      // Si le devineur est non-authority mais c'est lui le dessinateur, on demande à l'authority via patch
-      // Simplification : seul l'authority écrit, donc on signale via une autre clé
       await patchState(roomId, { word_choice_pending: word });
       return;
     }
@@ -414,7 +522,6 @@ function WordPickScreen({
     });
   };
 
-  // L'authority surveille word_choice_pending (cas où drawer = slot 2)
   useEffect(() => {
     if (!isAuthority) return;
     const pending = (state as DrawState & { word_choice_pending?: string }).word_choice_pending;
@@ -431,22 +538,65 @@ function WordPickScreen({
     });
   }, [isAuthority, state, roomId]);
 
+  const secs = Math.ceil(remaining / 1000);
+  const pct = remaining / PICK_DURATION_MS;
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center px-4">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">
-        {Math.ceil(remaining / 1000)}s
-      </p>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28, padding: "0 8px" }}>
+      {/* Countdown ring */}
+      <div style={{ position: "relative", width: 68, height: 68 }}>
+        <svg width="68" height="68" viewBox="0 0 68 68" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="34" cy="34" r="29" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+          <circle
+            cx="34" cy="34" r="29"
+            fill="none"
+            stroke={secs <= 1 ? ROSE : AMBER}
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 29}
+            strokeDashoffset={(2 * Math.PI * 29) * (1 - pct)}
+            style={{ transition: "stroke-dashoffset 0.1s linear, stroke 0.3s" }}
+          />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: secs <= 1 ? ROSE : "#fff" }}>
+          {secs}
+        </div>
+      </div>
+
       {isDrawer ? (
         <>
-          <h2 className="mt-2 font-serif text-3xl text-primary italic">Choisis ton mot</h2>
-          <p className="mt-1 text-sm text-muted-foreground">À toi de le faire deviner ✨</p>
-          <div className="mt-6 flex flex-col gap-3 w-full max-w-xs">
-            {(state.word_choices ?? []).map((w) => (
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 34, fontStyle: "italic", color: "#fff", margin: 0, lineHeight: 1 }}>
+              Choisis ton mot
+            </h2>
+            <p style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.40)" }}>
+              À toi de le faire deviner ✨
+            </p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 320 }}>
+            {(state.word_choices ?? []).map((w, idx) => (
               <motion.button
                 key={w}
-                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.08 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => pickWord(w)}
-                className="rounded-2xl border-2 border-primary/30 bg-card/80 px-4 py-4 text-lg font-medium shadow-sm hover:bg-primary/10 transition"
+                style={{
+                  ...glass,
+                  padding: "18px 24px",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  cursor: "pointer",
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: "#fff",
+                  textAlign: "center",
+                  textTransform: "capitalize",
+                  letterSpacing: 0.5,
+                  background: "rgba(255,255,255,0.07)",
+                  transition: "background 0.2s",
+                  borderRadius: 18,
+                }}
               >
                 {w}
               </motion.button>
@@ -456,14 +606,20 @@ function WordPickScreen({
       ) : (
         <>
           <motion.div
-            animate={{ rotate: [0, -5, 5, 0] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className="text-6xl"
+            animate={{ rotate: [0, -8, 8, -4, 4, 0], scale: [1, 1.1, 1] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+            style={{ fontSize: 72, lineHeight: 1 }}
           >
             🎨
           </motion.div>
-          <h2 className="mt-4 font-serif text-3xl text-primary italic">{drawerName} choisit…</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Prépare-toi à deviner 💭</p>
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 30, fontStyle: "italic", color: "#fff", margin: 0 }}>
+              {drawerName} choisit…
+            </h2>
+            <p style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.40)" }}>
+              Prépare-toi à deviner 💭
+            </p>
+          </div>
         </>
       )}
     </div>
@@ -483,8 +639,8 @@ function DrawingScreen({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const [color, setColor] = useState(COLORS[0]);
-  const [width, setWidth] = useState(SIZES[0]);
+  const [color, setColor] = useState(DRAW_COLORS[0]);
+  const [brushSize, setBrushSize] = useState(SIZES[0]);
   const [isErasing, setIsErasing] = useState(false);
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<StrokePoint | null>(null);
@@ -496,7 +652,12 @@ function DrawingScreen({
   const [guess, setGuess] = useState("");
   const [remaining, setRemaining] = useState(DRAW_DURATION_MS);
 
-  // Timer affichage
+  // suppress unused warning
+  void mySlot;
+  void myName;
+  void lastPointRef;
+
+  // Timer display
   useEffect(() => {
     if (!state.started_at) return;
     const update = () => {
@@ -588,7 +749,7 @@ function DrawingScreen({
     const payload: StrokePayload = {
       pts: batchRef.current,
       color: isErasing ? ERASER.color : color,
-      width: isErasing ? ERASER.width : width,
+      width: isErasing ? ERASER.width : brushSize,
       newPath: newPathRef.current,
     };
     drawStrokeOnCanvas(payload);
@@ -597,7 +758,7 @@ function DrawingScreen({
     newPathRef.current = false;
   };
 
-  const getPoint = (e: PointerEvent | React.PointerEvent): StrokePoint => {
+  const getPoint = (e: React.PointerEvent): StrokePoint => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -647,7 +808,6 @@ function DrawingScreen({
     channelRef.current?.send({ type: "broadcast", event: "clear", payload: {} });
   };
 
-  // Devineur : soumettre une tentative
   const submitGuess = async () => {
     if (isDrawer || !guess.trim() || !state.word || !state.started_at) return;
     const g = normalize(guess);
@@ -672,113 +832,305 @@ function DrawingScreen({
   };
 
   const secs = Math.ceil(remaining / 1000);
-  const timerColor = secs <= 10 ? "text-red-500" : secs <= 30 ? "text-orange-500" : "text-primary";
+  const pct = remaining / DRAW_DURATION_MS;
+  const timerColor = secs <= 10 ? ROSE : secs <= 30 ? AMBER : EMERALD;
 
   return (
-    <div className="flex flex-1 flex-col gap-3">
-      {/* Timer + mot */}
-      <div className="flex items-center justify-between rounded-2xl bg-card/80 px-4 py-2 backdrop-blur">
-        <span className={`font-mono text-lg font-bold ${timerColor}`}>{secs}s</span>
-        {isDrawer ? (
-          <span className="text-sm">
-            <span className="text-muted-foreground">Dessine : </span>
-            <span className="font-bold text-primary">{state.word}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+      {/* Timer bar + info */}
+      <div style={{ ...glass, padding: "10px 14px 14px", borderRadius: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <motion.span
+            animate={{ color: timerColor }}
+            style={{ fontFamily: "'Courier New', monospace", fontSize: 22, fontWeight: 800 }}
+          >
+            {secs}s
+          </motion.span>
+          {isDrawer ? (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 2 }}>
+                Dessine
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: timerColor, textShadow: `0 0 18px ${timerColor}88`, textTransform: "capitalize" }}>
+                {state.word}
+              </div>
+            </div>
+          ) : (
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.40)" }}>
+              {otherName} dessine…
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
+            {isDrawer ? `${otherName} devine` : "Devine !"}
           </span>
-        ) : (
-          <span className="font-mono text-lg font-bold tracking-widest">
-            {state.word_hint ?? state.word_display ?? ""}
-          </span>
+        </div>
+        {/* Progress bar */}
+        <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+          <motion.div
+            animate={{ width: `${pct * 100}%`, backgroundColor: timerColor }}
+            transition={{ duration: 0.2, ease: "linear" }}
+            style={{ height: "100%", borderRadius: 4 }}
+          />
+        </div>
+        {/* Guesser: hint tiles */}
+        {!isDrawer && (
+          <div style={{ marginTop: 14 }}>
+            <HintDisplay hint={state.word_hint ?? state.word_display ?? ""} color={timerColor} />
+          </div>
         )}
       </div>
 
       {/* Canvas */}
       <div
-        className="relative w-full overflow-hidden rounded-2xl border-2 border-primary/20 bg-white shadow-inner"
-        style={{ aspectRatio: "1 / 1", touchAction: "none" }}
+        style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: "1 / 1",
+          borderRadius: 20,
+          overflow: "hidden",
+          border: `2px solid ${isDrawer ? timerColor + "55" : "rgba(255,255,255,0.10)"}`,
+          boxShadow: isDrawer ? `0 0 24px ${timerColor}22, inset 0 0 0 1px ${timerColor}22` : "none",
+          background: "#fff",
+          touchAction: "none",
+          transition: "border-color 0.5s, box-shadow 0.5s",
+          flexShrink: 0,
+        }}
       >
         <canvas
           ref={canvasRef}
-          className="absolute inset-0"
-          style={{ touchAction: "none", cursor: isDrawer ? "crosshair" : "default" }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            touchAction: "none",
+            cursor: isDrawer ? (isErasing ? "cell" : "crosshair") : "default",
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onPointerLeave={handlePointerUp}
         />
+        {!isDrawer && (
+          <div style={{
+            position: "absolute",
+            bottom: 10,
+            right: 12,
+            fontSize: 11,
+            color: "rgba(0,0,0,0.22)",
+            pointerEvents: "none",
+            userSelect: "none",
+          }}>
+            🎨 {otherName} dessine
+          </div>
+        )}
       </div>
 
       {isDrawer ? (
-        <>
-          {/* Palette */}
-          <div className="flex items-center justify-center gap-2">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => { setColor(c); setIsErasing(false); }}
-                className={`h-8 w-8 rounded-full border-2 transition ${
-                  !isErasing && color === c ? "border-primary scale-110" : "border-white/50"
-                }`}
-                style={{ background: c }}
-              />
-            ))}
-            <button
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Color palette + eraser */}
+          <div style={{ ...glass, padding: "10px 12px", borderRadius: 16, display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8, flex: 1, overflowX: "auto", scrollbarWidth: "none" }}>
+              {DRAW_COLORS.map((c) => {
+                const active = !isErasing && color === c;
+                return (
+                  <motion.button
+                    key={c}
+                    whileTap={{ scale: 0.82 }}
+                    onClick={() => { setColor(c); setIsErasing(false); }}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      flexShrink: 0,
+                      borderRadius: "50%",
+                      background: c === "#0d0d1a"
+                        ? "radial-gradient(circle at 35% 30%, #2a2a3a, #0d0d1a)"
+                        : `radial-gradient(circle at 32% 30%, ${c}ff 0%, ${c}cc 55%, ${c}99 100%)`,
+                      border: active ? "2.5px solid #fff" : "2.5px solid transparent",
+                      boxShadow: active
+                        ? `0 0 0 2px ${c}, 0 0 14px ${c}aa`
+                        : `0 0 6px ${c}33, inset 0 -2px 4px rgba(0,0,0,0.2)`,
+                      cursor: "pointer",
+                      transform: active ? "scale(1.2)" : "scale(1)",
+                      transition: "transform 0.15s, box-shadow 0.15s, border 0.15s",
+                      padding: 0,
+                    }}
+                  />
+                );
+              })}
+            </div>
+            {/* Eraser */}
+            <motion.button
+              whileTap={{ scale: 0.88 }}
               onClick={() => setIsErasing((v) => !v)}
-              className={`h-8 rounded-full border-2 px-3 text-xs font-medium transition ${
-                isErasing ? "border-primary bg-primary/10" : "border-border bg-white"
-              }`}
+              style={{
+                flexShrink: 0,
+                width: 44,
+                height: 36,
+                borderRadius: 12,
+                border: isErasing ? `2px solid ${AMBER}` : "2px solid rgba(255,255,255,0.14)",
+                background: isErasing ? `${AMBER}1e` : "rgba(255,255,255,0.05)",
+                cursor: "pointer",
+                fontSize: 17,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: isErasing ? `0 0 14px ${AMBER}55` : "none",
+                transition: "all 0.2s",
+                padding: 0,
+              }}
             >
               🧽
-            </button>
+            </motion.button>
           </div>
-          <div className="flex items-center justify-center gap-2">
-            {SIZES.map((s) => (
-              <button
-                key={s}
-                onClick={() => { setWidth(s); setIsErasing(false); }}
-                className={`flex h-8 w-12 items-center justify-center rounded-xl border-2 transition ${
-                  !isErasing && width === s ? "border-primary bg-primary/10" : "border-border bg-white"
-                }`}
-              >
-                <span className="rounded-full bg-foreground" style={{ width: s, height: s }} />
-              </button>
-            ))}
-            <Button size="sm" variant="outline" onClick={handleClear} className="h-8">
-              Effacer
-            </Button>
+
+          {/* Brush sizes + clear */}
+          <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+            <div style={{ ...glass, padding: "8px 12px", borderRadius: 14, display: "flex", gap: 8, alignItems: "center", flex: 1, justifyContent: "center" }}>
+              {SIZES.map((s) => {
+                const active = !isErasing && brushSize === s;
+                return (
+                  <motion.button
+                    key={s}
+                    whileTap={{ scale: 0.88 }}
+                    onClick={() => { setBrushSize(s); setIsErasing(false); }}
+                    style={{
+                      width: 52,
+                      height: 38,
+                      borderRadius: 10,
+                      border: active ? `2px solid ${EMERALD}` : "2px solid rgba(255,255,255,0.10)",
+                      background: active ? `${EMERALD}18` : "rgba(255,255,255,0.04)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: active ? `0 0 10px ${EMERALD}44` : "none",
+                      transition: "all 0.15s",
+                      padding: 0,
+                    }}
+                  >
+                    <div style={{
+                      width: Math.min(s * 2.2, 28),
+                      height: Math.min(s * 2.2, 28),
+                      borderRadius: "50%",
+                      background: isErasing ? "rgba(255,255,255,0.3)" : color,
+                      boxShadow: active ? `0 0 6px ${color}88` : "none",
+                      flexShrink: 0,
+                    }} />
+                  </motion.button>
+                );
+              })}
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={handleClear}
+              style={{
+                height: "auto",
+                minHeight: 54,
+                paddingLeft: 16,
+                paddingRight: 16,
+                borderRadius: 14,
+                border: `1.5px solid ${ROSE}44`,
+                background: `${ROSE}12`,
+                color: ROSE,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              🗑️ Effacer
+            </motion.button>
           </div>
-          <p className="text-center text-xs text-muted-foreground">
+
+          <p style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.30)", margin: 0 }}>
             {otherName} essaie de deviner 💭
           </p>
-        </>
+        </div>
       ) : (
-        <>
-          <div className="flex gap-2">
-            <Input
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Guess input */}
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
               value={guess}
               onChange={(e) => setGuess(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") submitGuess(); }}
               placeholder="Ta proposition…"
-              className="flex-1"
               autoFocus
+              style={{
+                flex: 1,
+                height: 52,
+                borderRadius: 14,
+                border: "1.5px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.07)",
+                color: "#fff",
+                fontSize: 16,
+                padding: "0 16px",
+                outline: "none",
+                fontFamily: "inherit",
+                WebkitAppearance: "none",
+              }}
             />
-            <Button onClick={submitGuess} disabled={!guess.trim()}>
+            <motion.button
+              whileTap={{ scale: 0.94 }}
+              onClick={submitGuess}
+              disabled={!guess.trim()}
+              style={{
+                height: 52,
+                paddingLeft: 20,
+                paddingRight: 20,
+                borderRadius: 14,
+                border: "none",
+                background: guess.trim()
+                  ? `linear-gradient(135deg, ${EMERALD}, #22d3ee)`
+                  : "rgba(255,255,255,0.08)",
+                color: guess.trim() ? "#0a1a0a" : "rgba(255,255,255,0.28)",
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: guess.trim() ? "pointer" : "not-allowed",
+                transition: "all 0.2s",
+                boxShadow: guess.trim() ? `0 0 18px ${EMERALD}55` : "none",
+                whiteSpace: "nowrap",
+              }}
+            >
               Deviner
-            </Button>
+            </motion.button>
           </div>
-          {(state.wrong_guesses?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {state.wrong_guesses?.map((g, i) => (
-                <span
-                  key={i}
-                  className="rounded-full bg-card/60 px-2 py-0.5 text-xs text-muted-foreground line-through"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
-          )}
-        </>
+
+          {/* Wrong guesses */}
+          <AnimatePresence>
+            {(state.wrong_guesses?.length ?? 0) > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
+              >
+                {state.wrong_guesses?.map((g, i) => (
+                  <motion.span
+                    key={i}
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                      background: `${ROSE}16`,
+                      border: `1px solid ${ROSE}44`,
+                      color: ROSE,
+                      borderRadius: 20,
+                      padding: "4px 12px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: "line-through",
+                      opacity: 0.75,
+                    }}
+                  >
+                    {g}
+                  </motion.span>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
     </div>
   );
@@ -794,37 +1146,70 @@ function ResultScreen({
   onNext: () => void;
 }) {
   const correct = phase === "correct";
+  const [countdown, setCountdown] = useState(Math.ceil(POST_RESULT_AUTO_MS / 1000));
+  const accentColor = correct ? EMERALD : ROSE;
+
   useEffect(() => {
     if (correct) {
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
     }
   }, [correct]);
 
+  useEffect(() => {
+    const i = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(i);
+  }, []);
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center px-4">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: "0 16px", textAlign: "center" }}>
       <motion.div
-        initial={{ scale: 0.4, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="text-6xl"
+        initial={{ scale: 0.3, opacity: 0 }}
+        animate={{ scale: [0.3, 1.3, 1], opacity: 1 }}
+        transition={{ duration: 0.5, times: [0, 0.6, 1] }}
+        style={{ fontSize: 72, lineHeight: 1 }}
       >
         {correct ? "🎉" : "⏱️"}
       </motion.div>
-      <h2 className="mt-4 font-serif text-3xl text-primary italic">
-        {correct ? "Trouvé !" : "Temps écoulé"}
-      </h2>
-      <p className="mt-2 text-base">
-        Le mot était <span className="font-bold text-primary">{state.word}</span>
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Score : {state.scores?.[0] ?? 0} – {state.scores?.[1] ?? 0}
-      </p>
-      {isAuthority && (
-        <Button onClick={onNext} className="mt-6 h-12 rounded-xl px-6">
+
+      <div style={{ ...glass, padding: "24px 28px", width: "100%", maxWidth: 320, borderRadius: 24, border: `1px solid ${accentColor}33` }}>
+        <h2 style={{ fontFamily: SERIF, fontSize: 34, fontStyle: "italic", color: accentColor, margin: "0 0 8px", textShadow: `0 0 20px ${accentColor}66` }}>
+          {correct ? "Trouvé !" : "Temps écoulé"}
+        </h2>
+        <p style={{ margin: "0 0 10px", fontSize: 13, color: "rgba(255,255,255,0.45)" }}>Le mot était</p>
+        <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: 2, textTransform: "capitalize", marginBottom: 16, textShadow: `0 0 18px ${accentColor}55` }}>
+          {state.word}
+        </div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.40)" }}>
+          Score · {state.scores?.[0] ?? 0} – {state.scores?.[1] ?? 0}
+        </div>
+      </div>
+
+      {isAuthority ? (
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={onNext}
+          style={{
+            height: 52,
+            paddingLeft: 28,
+            paddingRight: 28,
+            borderRadius: 16,
+            border: "none",
+            background: correct
+              ? `linear-gradient(135deg, ${EMERALD}, ${SKY})`
+              : `linear-gradient(135deg, ${ROSE}, ${AMBER})`,
+            color: "#0d0d0d",
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: "pointer",
+            boxShadow: `0 0 24px ${accentColor}44`,
+          }}
+        >
           Round suivant →
-        </Button>
-      )}
-      {!isAuthority && (
-        <p className="mt-6 text-sm text-muted-foreground">Round suivant dans un instant…</p>
+        </motion.button>
+      ) : (
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>
+          Round suivant dans {countdown}s…
+        </p>
       )}
     </div>
   );
@@ -847,50 +1232,122 @@ function GameOverScreen({
   const tie = s1 === s2;
   const winnerSlot: 1 | 2 | null = tie ? null : s1 > s2 ? 1 : 2;
   const iWon = winnerSlot === mySlot;
-  const winnerName = winnerSlot === 1 ? (mySlot === 1 ? myName : otherName) : (mySlot === 2 ? myName : otherName);
+  const winnerName = winnerSlot === 1
+    ? (mySlot === 1 ? myName : otherName)
+    : (mySlot === 2 ? myName : otherName);
   const dare = state.gage ?? "";
   const dareDone = !!state.dare_done;
+  const topColor = tie ? AMBER : iWon ? EMERALD : ROSE;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center px-4">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: "0 14px", textAlign: "center" }}>
       <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: [0, 1.3, 1] }}
-        className="text-7xl"
+        initial={{ scale: 0, rotate: -20 }}
+        animate={{ scale: [0, 1.35, 1], rotate: [0, 5, 0] }}
+        transition={{ duration: 0.6, times: [0, 0.65, 1] }}
+        style={{ fontSize: 80, lineHeight: 1 }}
       >
         {tie ? "🤝" : iWon ? "🏆" : "🥹"}
       </motion.div>
-      <h2 className="mt-4 font-serif text-4xl text-primary italic">
-        {tie ? "Égalité 💕" : iWon ? "Tu es l'artiste 🎨" : `${winnerName} l'emporte 🎨`}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Score final : {s1} – {s2}
-      </p>
+
+      <div style={{ ...glass, padding: "22px 24px", width: "100%", maxWidth: 340, borderRadius: 24, border: `1px solid ${topColor}33` }}>
+        <h2 style={{ fontFamily: SERIF, fontSize: 30, fontStyle: "italic", color: topColor, margin: "0 0 4px", textShadow: `0 0 20px ${topColor}66` }}>
+          {tie ? "Égalité 💕" : iWon ? "Tu es l'artiste 🎨" : `${winnerName} l'emporte 🎨`}
+        </h2>
+        <p style={{ margin: "8px 0 0", fontSize: 13, color: "rgba(255,255,255,0.38)" }}>
+          Score final ·{" "}
+          <span style={{ color: "#fff", fontWeight: 700 }}>{s1}</span>
+          {" – "}
+          <span style={{ color: "#fff", fontWeight: 700 }}>{s2}</span>
+        </p>
+      </div>
+
       {!tie && !iWon && (
-        <div className="mt-6 w-full max-w-sm rounded-2xl border-2 border-primary/30 bg-primary/5 p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Ton gage</p>
-          <p className="mt-1 text-base font-medium">{dare}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          style={{ ...glass, padding: "20px 22px", width: "100%", maxWidth: 340, borderRadius: 22, border: `1.5px solid ${AMBER}44`, background: `${AMBER}0c` }}
+        >
+          <p style={{ margin: "0 0 6px", fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: AMBER }}>
+            Ton gage 🎭
+          </p>
+          <p style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#fff", lineHeight: 1.45 }}>
+            {dare}
+          </p>
           {!dareDone ? (
-            <Button onClick={onDareDone} className="mt-3 w-full h-12 rounded-xl">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onDareDone}
+              style={{
+                width: "100%",
+                height: 48,
+                borderRadius: 14,
+                border: "none",
+                background: `linear-gradient(135deg, ${AMBER}, #fb923c)`,
+                color: "#0d0d0d",
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: "pointer",
+                boxShadow: `0 0 20px ${AMBER}44`,
+              }}
+            >
               C'est fait ✅
-            </Button>
+            </motion.button>
           ) : (
-            <p className="mt-3 text-sm text-primary">Bravo 💕</p>
+            <motion.p
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              style={{ margin: 0, fontSize: 15, color: EMERALD, fontWeight: 600 }}
+            >
+              Bravo 💕
+            </motion.p>
           )}
-        </div>
+        </motion.div>
       )}
+
       {!tie && iWon && (
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)" }}>
           On attend que {otherName} fasse le gage 💕
         </p>
       )}
-      <div className="mt-6 flex w-full max-w-xs flex-col gap-2">
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 320 }}>
         {isAuthority && (
-          <Button onClick={onReplay} className="h-12 rounded-xl">Rejouer 🔁</Button>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={onReplay}
+            style={{
+              height: 52,
+              borderRadius: 16,
+              border: "none",
+              background: `linear-gradient(135deg, ${SKY}, #6366f1)`,
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              boxShadow: `0 0 20px ${SKY}44`,
+            }}
+          >
+            Rejouer 🔁
+          </motion.button>
         )}
-        <Button variant="outline" onClick={onBackToMenu} className="h-12 rounded-xl">
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={onBackToMenu}
+          style={{
+            height: 52,
+            borderRadius: 16,
+            border: "1.5px solid rgba(255,255,255,0.13)",
+            background: "rgba(255,255,255,0.05)",
+            color: "rgba(255,255,255,0.65)",
+            fontWeight: 600,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
           ← Retour au menu
-        </Button>
+        </motion.button>
       </div>
     </div>
   );
