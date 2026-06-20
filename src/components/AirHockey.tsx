@@ -15,10 +15,10 @@ const GOAL_W = AW * 0.42;
 const GOAL_X1 = (AW - GOAL_W) / 2;
 const GOAL_X2 = GOAL_X1 + GOAL_W;
 const MAX_SCORE = 5;
-const SPEED_INIT = 7.5;
-const SPEED_MAX = 17;
-const SPEED_MIN = 4;
-const FRICTION = 0.999;
+const SPEED_INIT = 3.5;   // serve lent — la vitesse vient des frappes
+const SPEED_MAX = 24;    // peut monter très haut sur frappe violente
+const SPEED_MIN = 1.0;   // peut devenir quasi-immobile
+const FRICTION = 0.988;  // décélère en ~1.5s — chaque frappe compte
 const TRAIL_LEN = 14;
 const HIT_FRAMES = 12;
 
@@ -312,11 +312,11 @@ function GameView({ state, room, mySlot, myName, otherName, onBackToMenu }: Prop
             if (dot < 0) {
               vx -= 2 * dot * nx;
               vy -= 2 * dot * ny;
-              vx += pv.x * 0.65;
-              vy += pv.y * 0.65;
+              vx += pv.x * 0.92;
+              vy += pv.y * 0.92;
               const spd = Math.sqrt(vx * vx + vy * vy);
               if (spd > 0) {
-                const ns = Math.min(Math.max(spd, SPEED_MIN + 1), SPEED_MAX);
+                const ns = Math.min(spd, SPEED_MAX);
                 vx = (vx / spd) * ns;
                 vy = (vy / spd) * ns;
               }
