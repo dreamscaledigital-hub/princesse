@@ -38,7 +38,6 @@ export function AccessGate({ children }: { children: ReactNode }) {
       <motion.form
         onSubmit={submit}
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-        animate-shake={error ? "1" : "0"}
         className="w-full max-w-sm rounded-[32px] p-8 text-center"
         style={{
           background: "rgba(255,255,255,0.78)",
