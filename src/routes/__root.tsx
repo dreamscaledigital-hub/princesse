@@ -15,6 +15,7 @@ import { MusicPlayer } from "../components/MusicPlayer";
 import { BottomNav } from "../components/BottomNav";
 import { Toaster } from "../components/ui/sonner";
 import { useNotificationSoundBridge } from "../lib/notification-sound";
+import { AccessGate } from "../components/AccessGate";
 
 function NotFoundComponent() {
   return (
@@ -137,10 +138,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-      <BottomNav />
-      <MusicPlayer />
+      <AccessGate>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        <BottomNav />
+        <MusicPlayer />
+      </AccessGate>
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );
