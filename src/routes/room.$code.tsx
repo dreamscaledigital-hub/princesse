@@ -892,7 +892,7 @@ function MinigamesMode({ ctx }: { ctx: Ctx }) {
   }
 
 
-  if (room.mode === "airhockey") {
+  if ((room.mode as string) === "airhockey") {
     return (
       <AirHockey
         room={room}
