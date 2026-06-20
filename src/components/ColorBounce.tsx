@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Button } from "@/components/ui/button";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import type { Room } from "@/lib/use-room-state";
 import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/lib/game-content";
@@ -9,28 +8,50 @@ import { GAGES_BY_LEVEL, getGagesPool, LEVEL_LABELS, type DareLevel } from "@/li
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const supabase = _supabase as any;
 
-// ─────────── RÉGLAGES PHYSIQUE / JEU ───────────
-const VIEW_W = 360;
-const VIEW_H = 560;
-const BALL_R = 11;
-const GRAVITY = 1500;          // px/s²
-const JUMP_V = 400;             // px/s impulsion (rebonds plus petits)
-const RING_R = 92;              // rayon des anneaux
-const RING_THICK = 14;
-const ARC_TOL = 0.08;           // tolérance radians sur la collision d'arc
-const RING_GAP = 230;           // distance verticale entre anneaux
+// ─────────── Design tokens ───────────
+const BG = "linear-gradient(160deg, oklch(0.10 0.07 260) 0%, oklch(0.07 0.04 250) 100%)";
+const glass: React.CSSProperties = {
+  background: "rgba(255,255,255,0.06)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 20,
+};
+const ROSE    = "#f43f5e";
+const AMBER   = "#fbbf24";
+const EMERALD = "#4ade80";
+const SKY     = "#38bdf8";
+const SERIF   = "'Cormorant Garamond', Georgia, serif";
+
+// ─────────── Réglages physique ───────────
+const VIEW_W      = 360;
+const VIEW_H      = 520;
+const BALL_R      = 11;
+const GRAVITY     = 1500;     // px/s²
+const JUMP_V      = 400;      // px/s impulsion vers le haut
+const RING_R      = 90;       // rayon centre anneau
+const ARC_TOL     = 0.09;     // tolérance radians bord d'arc
+const RING_GAP    = 230;      // distance verticale entre anneaux
 const COUNTDOWN_S = 3;
 const BROADCAST_HZ = 5;
+const TRAIL_LEN   = 14;
 
-const COLORS = ["#ff5fa2", "#ffd23f", "#4ed1c1", "#5d9bff"]; // rose, jaune, turquoise, bleu
-const COLOR_NAMES = ["rose", "jaune", "turquoise", "bleu"];
+// 4 couleurs néon pour les arcs
+const COLORS = ["#f43f5e", "#fbbf24", "#4ade80", "#38bdf8"];
+const COLOR_NAMES = ["Rose", "Ambre", "Émeraude", "Ciel"];
 
-const LEVEL_INFO: Record<DareLevel, { emoji: string; gradient: string; desc: string; rotMult: number; gapMult: number }> = {
-  simple: { emoji: "🟢", gradient: "from-emerald-200 to-teal-200", desc: "Anneaux lents",  rotMult: 0.7, gapMult: 1.1 },
-  medium: { emoji: "🟡", gradient: "from-amber-200 to-orange-300", desc: "Vitesse normale", rotMult: 1.0, gapMult: 1.0 },
-  ultra:  { emoji: "🔴", gradient: "from-rose-300 to-red-400",     desc: "Folie colorée",   rotMult: 1.5, gapMult: 0.85 },
+// Epaisseur anneau par niveau
+const RING_THICK_BY_LEVEL: Record<DareLevel, number> = {
+  simple: 18, medium: 14, ultra: 10,
 };
 
+const LEVEL_CFG: Record<DareLevel, { color: string; glow: string; desc: string; rotMult: number; gapMult: number; emoji: string }> = {
+  simple: { color: EMERALD, glow: `${EMERALD}44`, desc: "Anneaux lents · arcs larges",  rotMult: 0.65, gapMult: 1.15, emoji: "🌿" },
+  medium: { color: AMBER,   glow: `${AMBER}44`,   desc: "Vitesse normale",               rotMult: 1.00, gapMult: 1.00, emoji: "⚡" },
+  ultra:  { color: ROSE,    glow: `${ROSE}44`,    desc: "Anneaux rapides · arcs fins",   rotMult: 1.55, gapMult: 0.82, emoji: "🔥" },
+};
+
+// ─────────── Types ───────────
 type TPhase = "level_select" | "countdown" | "play" | "result" | "dare" | "done";
 
 type TState = {
@@ -60,15 +81,19 @@ type Props = {
   onDareDone: () => void;
 };
 
-const update = (roomId: string, patchObj: TState) =>
-  supabase.from("rooms").update({ minigame_state: patchObj }).eq("id", roomId);
+type SharedProps = {
+  state: TState;
+  room: Room;
+  mySlot: number;
+  myName: string;
+  otherName: string;
+};
 
-async function patch(roomId: string, partial: TState) {
-  const { data } = await supabase.from("rooms").select("minigame_state").eq("id", roomId).maybeSingle();
-  const current = (data?.minigame_state ?? {}) as TState;
-  await update(roomId, { ...current, ...partial });
-}
+type Ring    = { y: number; rotation: number; rotSpeed: number; passed: boolean };
+type Pickup  = { y: number; color: number; taken: boolean };
+type TrailPt = { x: number; y: number };
 
+// ─────────── Utils ───────────
 function stableIndex(seed: string, max: number) {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
@@ -77,10 +102,8 @@ function stableIndex(seed: string, max: number) {
 
 function freshReset(): TState {
   return {
-    game: "bounce",
-    phase: "level_select",
-    level_1: null, level_2: null, level: null,
-    started_at: null,
+    game: "bounce", phase: "level_select",
+    level_1: null, level_2: null, level: null, started_at: null,
     score_live_1: 0, score_live_2: 0,
     done_1: false, done_2: false,
     score_1: 0, score_2: 0,
@@ -88,47 +111,67 @@ function freshReset(): TState {
   };
 }
 
+async function patchState(roomId: string, partial: Record<string, unknown>) {
+  await supabase.rpc("minigame_patch", { _room_id: roomId, _patch: partial });
+}
+
+async function dbUpdate(roomId: string, state: TState) {
+  await supabase.from("rooms").update({ minigame_state: state }).eq("id", roomId);
+}
+
+// ─────────── ColorBounce ───────────
 export function ColorBounce({ room, mySlot, myName, otherName, onBackToMenu, onDareDone }: Props) {
-  const s = (room.minigame_state ?? {}) as TState;
+  const s     = (room.minigame_state ?? {}) as TState;
   const phase = s.phase ?? "level_select";
 
   useEffect(() => {
     if ((Object.keys(s).length === 0 || s.game !== "bounce") && mySlot === 1) {
-      void update(room.id, freshReset());
+      void dbUpdate(room.id, freshReset());
     }
   }, [room.id, s, mySlot]);
 
-  if (phase === "level_select")
-    return <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
-  if (phase === "countdown" || phase === "play")
-    return <PlayView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
-  if (phase === "result")
-    return <Result state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
-  if (phase === "dare")
-    return <DareView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onDareDone={onDareDone} />;
-  return <DoneView mySlot={mySlot} onBackToMenu={onBackToMenu} onReplay={async () => { await update(room.id, freshReset()); }} />;
+  const shared: SharedProps = { state: s, room, mySlot, myName, otherName };
+
+  return (
+    <div style={{
+      minHeight: "100dvh", background: BG,
+      display: "flex", flexDirection: "column",
+      padding: "14px 14px 28px", gap: 12,
+      fontFamily: "'Inter', system-ui, sans-serif", color: "#fff",
+      touchAction: "manipulation",
+    }}>
+      {phase === "level_select"                    && <LevelSelect {...shared} />}
+      {(phase === "countdown" || phase === "play") && <PlayView    {...shared} />}
+      {phase === "result"                          && <Result       {...shared} />}
+      {phase === "dare"  && <DareView  {...shared} onDareDone={onDareDone} />}
+      {phase === "done"  && (
+        <DoneView
+          mySlot={mySlot}
+          onBackToMenu={onBackToMenu}
+          onReplay={async () => { await dbUpdate(room.id, freshReset()); }}
+        />
+      )}
+    </div>
+  );
 }
 
 // ─────────── Choix du niveau ───────────
-function LevelSelect({ state, room, mySlot, myName, otherName }:
-  { state: TState; room: Room; mySlot: number; myName: string; otherName: string }) {
-  const mine = mySlot === 1 ? state.level_1 : state.level_2;
+function LevelSelect({ state, room, mySlot, myName, otherName }: SharedProps) {
+  const mine   = mySlot === 1 ? state.level_1 : state.level_2;
   const theirs = mySlot === 1 ? state.level_2 : state.level_1;
-  const both = state.level_1 && state.level_2;
-  const match = both && state.level_1 === state.level_2;
+  const both   = !!(state.level_1 && state.level_2);
+  const match  = both && state.level_1 === state.level_2;
 
   const choose = async (l: DareLevel) => {
-    await patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
+    await patchState(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
   };
 
   const start = async () => {
     if (!match || mySlot !== 1) return;
-    const chosen = state.level_1 as DareLevel;
+    const chosen  = state.level_1 as DareLevel;
     const startAt = Date.now() + (COUNTDOWN_S + 1) * 1000;
-    await patch(room.id, {
-      phase: "countdown",
-      level: chosen,
-      started_at: startAt,
+    await patchState(room.id, {
+      phase: "countdown", level: chosen, started_at: startAt,
       score_live_1: 0, score_live_2: 0,
       done_1: false, done_2: false,
       score_1: 0, score_2: 0,
@@ -136,133 +179,193 @@ function LevelSelect({ state, room, mySlot, myName, otherName }:
     });
   };
 
+  const chosenLevel = (mine ?? "medium") as DareLevel;
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Rebond 🌈</p>
-        <h1 className="mt-1 font-serif text-4xl text-primary">Franchis les <span className="italic">couleurs</span></h1>
-        <p className="mt-2 text-xs text-muted-foreground">Choisissez ensemble le niveau du gage :</p>
+    <>
+      <div style={{ textAlign: "center", paddingTop: 6 }}>
+        <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 3, color: "rgba(255,255,255,0.32)", margin: 0 }}>
+          Rebond 🌈
+        </p>
+        <h1 style={{ fontFamily: SERIF, fontSize: 34, fontStyle: "italic", color: "#fff", margin: "4px 0 0", lineHeight: 1 }}>
+          Franchis les <em>couleurs</em>
+        </h1>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 6, marginBottom: 0 }}>
+          Rebondis pour passer dans l'arc de la bonne couleur
+        </p>
       </div>
 
-      <div className="mt-5 grid gap-3">
-        {(Object.keys(LEVEL_INFO) as DareLevel[]).map((l) => {
-          const info = LEVEL_INFO[l];
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+        {(Object.keys(LEVEL_CFG) as DareLevel[]).map((l, idx) => {
+          const cfg     = LEVEL_CFG[l];
           const iPicked = mine === l;
-          const theyPicked = theirs === l;
+          const theyPick = theirs === l;
           return (
             <motion.button
               key={l}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.07 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => choose(l)}
-              className={`flex items-center gap-4 rounded-3xl border-2 p-4 text-left shadow-md bg-gradient-to-br ${info.gradient} ${iPicked ? "border-primary ring-2 ring-primary/40" : "border-white/60"}`}
+              style={{
+                ...glass,
+                padding: "16px 18px",
+                border: iPicked ? `2px solid ${cfg.color}` : "1px solid rgba(255,255,255,0.09)",
+                background: iPicked ? `${cfg.color}12` : "rgba(255,255,255,0.04)",
+                boxShadow: iPicked ? `0 0 22px ${cfg.glow}` : "none",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 14,
+                textAlign: "left", borderRadius: 18,
+              }}
             >
-              <span className="text-4xl">{info.emoji}</span>
-              <div className="flex-1">
-                <p className="font-serif text-2xl text-foreground/90">{LEVEL_LABELS[l]}</p>
-                <p className="text-[11px] text-foreground/70">{info.desc}</p>
-                <div className="mt-1 flex gap-2 text-[11px] font-medium">
-                  {iPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">Toi ✓</span>}
-                  {theyPicked && <span className="rounded-full bg-white/80 px-2 py-0.5">{otherName} ✓</span>}
-                </div>
+              <div style={{
+                width: 46, height: 46, borderRadius: 14, flexShrink: 0,
+                background: `${cfg.color}18`, border: `2px solid ${cfg.color}55`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 22, boxShadow: iPicked ? `0 0 14px ${cfg.glow}` : "none",
+              }}>
+                {cfg.emoji}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontFamily: SERIF, fontSize: 22, fontStyle: "italic", color: cfg.color, margin: 0, textShadow: iPicked ? `0 0 14px ${cfg.color}88` : "none" }}>
+                  {LEVEL_LABELS[l]}
+                </p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", margin: "3px 0 0" }}>{cfg.desc}</p>
+                {(iPicked || theyPick) && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    {iPicked  && <span style={{ fontSize: 10, background: `${cfg.color}20`, border: `1px solid ${cfg.color}55`, color: cfg.color, borderRadius: 20, padding: "2px 8px" }}>Toi ✓</span>}
+                    {theyPick && <span style={{ fontSize: 10, background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.55)", borderRadius: 20, padding: "2px 8px" }}>{otherName} ✓</span>}
+                  </div>
+                )}
               </div>
             </motion.button>
           );
         })}
       </div>
 
-      <div className="mt-4 text-center text-sm">
-        <p>
-          <span className="font-semibold">{myName}</span> : {mine ? LEVEL_LABELS[mine] : "—"} ·{" "}
-          <span className="font-semibold">{otherName}</span> : {theirs ? LEVEL_LABELS[theirs] : "—"}
-        </p>
-        {both && !match && <p className="mt-2 text-muted-foreground">Mettez-vous d'accord 😅</p>}
+      <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.40)" }}>
+        <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{myName}</span> : {mine ? LEVEL_LABELS[mine] : "—"}
+        {" · "}
+        <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{otherName}</span> : {theirs ? LEVEL_LABELS[theirs as DareLevel] : "—"}
       </div>
+      {both && !match && (
+        <p style={{ textAlign: "center", fontSize: 13, color: ROSE, margin: 0 }}>Mettez-vous d'accord 😅</p>
+      )}
 
-      <div className="mt-auto pt-6">
-        <Button disabled={!match || mySlot !== 1} onClick={start} className="h-14 w-full rounded-2xl text-base font-semibold">
-          {match ? (mySlot === 1 ? "Top départ ! 🌈" : `${otherName} va lancer…`) : "En attente du niveau commun…"}
-        </Button>
+      <div style={{ marginTop: "auto", paddingTop: 6 }}>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          disabled={!match || mySlot !== 1}
+          onClick={start}
+          style={{
+            width: "100%", height: 56, borderRadius: 18, border: "none",
+            background: match ? `linear-gradient(135deg, ${LEVEL_CFG[chosenLevel].color}, ${SKY})` : "rgba(255,255,255,0.07)",
+            color: match ? "#0d0d0d" : "rgba(255,255,255,0.25)",
+            fontWeight: 700, fontSize: 17,
+            cursor: match && mySlot === 1 ? "pointer" : "not-allowed",
+            boxShadow: match ? `0 0 30px ${LEVEL_CFG[chosenLevel].glow}` : "none",
+            transition: "all 0.3s",
+          }}
+        >
+          {match
+            ? (mySlot === 1 ? "Top départ ! 🌈" : `${otherName} va lancer…`)
+            : "En attente du niveau commun…"}
+        </motion.button>
       </div>
-    </div>
+    </>
   );
 }
 
-// ─────────── Jeu principal ───────────
-type Ring = { y: number; rotation: number; rotSpeed: number; passed: boolean };
-type Pickup = { y: number; color: number; taken: boolean };
-
-function PlayView({ state, room, mySlot, myName, otherName }:
-  { state: TState; room: Room; mySlot: number; myName: string; otherName: string }) {
-  const level = (state.level ?? "medium") as DareLevel;
-  const info = LEVEL_INFO[level];
-
-  const startedAt = state.started_at ?? Date.now();
-  const otherScoreLive = mySlot === 1 ? (state.score_live_2 ?? 0) : (state.score_live_1 ?? 0);
-  const otherDone = mySlot === 1 ? !!state.done_2 : !!state.done_1;
-  const iAmDone = mySlot === 1 ? !!state.done_1 : !!state.done_2;
+// ─────────── Jeu ───────────
+function PlayView({ state, room, mySlot, myName, otherName }: SharedProps) {
+  const level      = (state.level ?? "medium") as DareLevel;
+  const cfg        = LEVEL_CFG[level];
+  const ringThick  = RING_THICK_BY_LEVEL[level];
+  const startedAt  = state.started_at ?? Date.now();
+  const otherLive  = mySlot === 1 ? (state.score_live_2 ?? 0) : (state.score_live_1 ?? 0);
+  const otherDone  = mySlot === 1 ? !!state.done_2 : !!state.done_1;
+  const iAmDone    = mySlot === 1 ? !!state.done_1 : !!state.done_2;
 
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 100);
+    const t = setInterval(() => setNow(Date.now()), 80);
     return () => clearInterval(t);
   }, []);
-  const msToStart = startedAt - now;
+  const msToStart  = startedAt - now;
   const inCountdown = msToStart > 0;
-  const countLabel = msToStart > 3000 ? "Prêt ?" : msToStart > 0 ? `${Math.ceil(msToStart / 1000)}` : "GO !";
 
+  // Countdown → play (slot 1)
   useEffect(() => {
     if (state.phase === "countdown" && !inCountdown && mySlot === 1) {
-      void patch(room.id, { phase: "play" });
+      void patchState(room.id, { phase: "play" });
     }
   }, [state.phase, inCountdown, mySlot, room.id]);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [finalScore, setFinalScore] = useState<number | null>(null);
-  const scoreRef = useRef(0);
-  const [, force] = useState(0);
+  const canvasRef   = useRef<HTMLCanvasElement | null>(null);
+  const [displayScore, setDisplayScore] = useState(0);
+  const [ballColorIdx, setBallColorIdx] = useState(0);
+  const [finalScore, setFinalScore]     = useState<number | null>(null);
+  const [shake, setShake]               = useState(false);
+
+  const scoreRef   = useRef(0);
+  const ringsRef   = useRef<Ring[]>([]);
+  const pickupsRef = useRef<Pickup[]>([]);
+  const ballRef    = useRef({ x: VIEW_W / 2, y: 0, vy: 0, color: 0 });
+  const cameraRef  = useRef(0);
+  const flashRef   = useRef(0);          // score flash (positive = success color flash)
+  const deathFlashRef = useRef(0);       // red flash on death
+  const trailRef   = useRef<TrailPt[]>([]);
+  const deadRef    = useRef(false);
+  const wantJumpRef = useRef(false);
 
   const playing = state.phase === "play" && !iAmDone;
 
-  // Refs pour la boucle de jeu (évite recréations)
-  const ringsRef = useRef<Ring[]>([]);
-  const pickupsRef = useRef<Pickup[]>([]);
-  const ballRef = useRef<{ x: number; y: number; vy: number; color: number }>({ x: VIEW_W / 2, y: 0, vy: 0, color: 0 });
-  const cameraRef = useRef(0);   // décalage monde (la balle commence à y=0, monte en y négatif)
-  const flashRef = useRef(0);
-  const deadRef = useRef(false);
-  const wantJumpRef = useRef(false);
+  // Pré-calculer les étoiles (static per session)
+  const starsRef = useRef(
+    Array.from({ length: 70 }, () => ({
+      x: Math.random() * VIEW_W,
+      y: Math.random() * VIEW_H * 3,
+      a: Math.random() * 0.35 + 0.05,
+      s: Math.random() < 0.12 ? 2 : 1,
+    }))
+  );
 
-  // Initialisation du monde quand on entre en play
+  // Init monde
   useEffect(() => {
     if (state.phase !== "play" && state.phase !== "countdown") return;
-    // Reset complet
     scoreRef.current = 0;
-    deadRef.current = false;
+    deadRef.current  = false;
     flashRef.current = 0;
-    ballRef.current = { x: VIEW_W / 2, y: 0, vy: -JUMP_V * 0.5, color: 0 };
+    deathFlashRef.current = 0;
+    trailRef.current = [];
+    ballRef.current  = { x: VIEW_W / 2, y: 0, vy: -JUMP_V * 0.5, color: 0 };
     cameraRef.current = 0;
-    const gap = RING_GAP * info.gapMult;
+    setDisplayScore(0);
+    setBallColorIdx(0);
+    setFinalScore(null);
+
+    const gap    = RING_GAP * cfg.gapMult;
     const rings: Ring[] = [];
-    for (let i = 1; i <= 40; i++) {
-      const baseSpeed = 0.7 + Math.min(2.0, i * 0.04);
+    for (let i = 1; i <= 50; i++) {
+      const base = 0.65 + Math.min(2.2, i * 0.035);
       rings.push({
         y: -i * gap,
         rotation: Math.random() * Math.PI * 2,
-        rotSpeed: baseSpeed * info.rotMult * (Math.random() < 0.5 ? -1 : 1),
+        rotSpeed: base * cfg.rotMult * (Math.random() < 0.5 ? -1 : 1),
         passed: false,
       });
     }
     const pickups: Pickup[] = [];
-    for (let i = 1; i <= 40; i++) {
-      pickups.push({ y: -i * gap + gap / 2, color: Math.floor(Math.random() * COLORS.length), taken: false });
+    for (let i = 1; i <= 50; i++) {
+      pickups.push({ y: -i * gap + gap / 2, color: Math.floor(Math.random() * 4), taken: false });
     }
-    ringsRef.current = rings;
+    ringsRef.current   = rings;
     pickupsRef.current = pickups;
-    force((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, state.started_at, level]);
 
-  // Boucle physique + rendu canvas
+  // Boucle physique + rendu
   useEffect(() => {
     if (!playing) return;
     const canvas = canvasRef.current;
@@ -270,51 +373,39 @@ function PlayView({ state, room, mySlot, myName, otherName }:
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Setup HiDPI
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = VIEW_W * dpr;
+    canvas.width  = VIEW_W * dpr;
     canvas.height = VIEW_H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    let raf = 0;
+    let raf  = 0;
     let last = performance.now();
 
-    const checkRingCollision = (ring: Ring): "ok" | "out" | "none" => {
-      const ball = ballRef.current;
-      const dy = ball.y - ring.y;
-      const dist = Math.abs(dy); // x est centré, donc dist = |dy| (ring centré à x = VIEW_W/2)
-      // Approche : la balle ne traverse que verticalement (centrée x). Quand elle est dans l'anneau (dist ≈ R)
-      const inner = RING_R - RING_THICK / 2 - BALL_R * 0.6;
-      const outer = RING_R + RING_THICK / 2 + BALL_R * 0.6;
-      if (dist < inner) return "none"; // à l'intérieur, traversée libre
-      if (dist > outer) return "none"; // à l'extérieur
-      // On touche l'anneau : déterminer l'arc selon l'angle
-      // angle de la balle par rapport au centre de l'anneau
-      const angle = Math.atan2(dy, 0.0001); // x diff ~ 0, donc ±π/2
-      // En fait, la balle est centrée X = ring centre X, donc dy détermine si on touche le haut ou le bas
-      // Angle réel : atan2(ball.y - ring.y, ball.x - ring.x)
-      const cx = VIEW_W / 2;
-      const realAngle = Math.atan2(ball.y - ring.y, ball.x - cx);
-      // Rotation de l'arc considéré
+    const checkRing = (ring: Ring): "ok" | "out" | "none" => {
+      const ball  = ballRef.current;
+      const inner = RING_R - ringThick / 2 - BALL_R * 0.55;
+      const outer = RING_R + ringThick / 2 + BALL_R * 0.55;
+      const dist  = Math.hypot(ball.x - VIEW_W / 2, ball.y - ring.y);
+      if (dist < inner || dist > outer) return "none";
+      const realAngle = Math.atan2(ball.y - ring.y, ball.x - VIEW_W / 2);
       let a = realAngle - ring.rotation;
-      while (a < 0) a += Math.PI * 2;
+      while (a < 0)           a += Math.PI * 2;
       while (a >= Math.PI * 2) a -= Math.PI * 2;
-      // 4 arcs de π/2 chacun
       const arcIdx = Math.floor(a / (Math.PI / 2)) % 4;
-      // Tolérance proche du bord d'arc
       const within = a - arcIdx * (Math.PI / 2);
       if (within < ARC_TOL || within > Math.PI / 2 - ARC_TOL) return "none";
-      // L'arc i a la couleur i
       return arcIdx === ball.color ? "ok" : "out";
-      void angle;
     };
 
     const die = () => {
       if (deadRef.current) return;
       deadRef.current = true;
+      deathFlashRef.current = 14;
       const score = scoreRef.current;
       setFinalScore(score);
-      void patch(room.id, mySlot === 1
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+      void patchState(room.id, mySlot === 1
         ? { done_1: true, score_1: score, score_live_1: score }
         : { done_2: true, score_2: score, score_live_2: score });
     };
@@ -324,261 +415,461 @@ function PlayView({ state, room, mySlot, myName, otherName }:
       last = ts;
 
       const ball = ballRef.current;
-      if (wantJumpRef.current) {
+      if (wantJumpRef.current && !deadRef.current) {
         ball.vy = -JUMP_V;
         wantJumpRef.current = false;
       }
 
       // Physique
       ball.vy += GRAVITY * dt;
-      ball.y += ball.vy * dt;
-
-      // Anneaux : rotation
+      ball.y  += ball.vy  * dt;
       for (const r of ringsRef.current) r.rotation += r.rotSpeed * dt;
 
-      // Caméra : suit la balle quand elle est haute
-      const targetCam = ball.y - VIEW_H * 0.35;
+      // Caméra
+      const targetCam = ball.y - VIEW_H * 0.38;
       if (targetCam < cameraRef.current) cameraRef.current = targetCam;
 
-      // Game over si la balle tombe sous l'écran
-      if (ball.y > cameraRef.current + VIEW_H + BALL_R * 2) {
-        die();
-      }
+      // Trail
+      const trail = trailRef.current;
+      trail.unshift({ x: ball.x, y: ball.y });
+      if (trail.length > TRAIL_LEN) trail.pop();
 
-      // Pickups (changeurs de couleur)
-      for (const p of pickupsRef.current) {
-        if (p.taken) continue;
-        const dy = ball.y - p.y;
-        if (Math.abs(dy) < BALL_R + 10 && Math.abs(ball.x - VIEW_W / 2) < BALL_R + 10) {
-          p.taken = true;
-          ball.color = p.color;
-          flashRef.current = 8;
-        }
-      }
-
-      // Collisions anneaux
-      for (const r of ringsRef.current) {
-        if (r.passed) continue;
-        const res = checkRingCollision(r);
-        if (res === "out") { die(); break; }
-        // Marquer comme franchi quand la balle est au-dessus
-        if (ball.y < r.y - RING_R - BALL_R) {
-          r.passed = true;
-          scoreRef.current += 1;
-          flashRef.current = 6;
-          force((n) => n + 1);
-        }
-      }
-
-      // ─── Rendu ───
-      ctx.fillStyle = "#0e0a1a";
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-
-      // Halos d'ambiance
-      const grad = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * 0.3, 20, VIEW_W / 2, VIEW_H * 0.3, 280);
-      grad.addColorStop(0, "rgba(255, 95, 162, 0.10)");
-      grad.addColorStop(1, "rgba(14, 10, 26, 0)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-
-      const camY = cameraRef.current;
-      const screenY = (worldY: number) => worldY - camY;
-
-      // Anneaux visibles
-      ctx.lineWidth = RING_THICK;
-      ctx.lineCap = "butt";
-      for (const r of ringsRef.current) {
-        const sy = screenY(r.y);
-        if (sy < -RING_R - 20 || sy > VIEW_H + RING_R + 20) continue;
-        const cx = VIEW_W / 2;
-        for (let i = 0; i < 4; i++) {
-          ctx.strokeStyle = COLORS[i];
-          ctx.beginPath();
-          const a0 = r.rotation + i * (Math.PI / 2);
-          const a1 = a0 + Math.PI / 2;
-          ctx.arc(cx, sy, RING_R, a0, a1);
-          ctx.stroke();
-        }
-      }
+      // Game over si hors écran
+      if (ball.y > cameraRef.current + VIEW_H + BALL_R * 2) die();
 
       // Pickups
       for (const p of pickupsRef.current) {
         if (p.taken) continue;
-        const sy = screenY(p.y);
-        if (sy < -20 || sy > VIEW_H + 20) continue;
-        ctx.fillStyle = COLORS[p.color];
-        ctx.beginPath();
-        ctx.arc(VIEW_W / 2, sy, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.6)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        if (Math.abs(ball.y - p.y) < BALL_R + 14 && Math.abs(ball.x - VIEW_W / 2) < BALL_R + 14) {
+          p.taken    = true;
+          ball.color = p.color;
+          setBallColorIdx(p.color);
+          flashRef.current = 10;
+        }
       }
 
-      // Balle
-      const bsy = screenY(ball.y);
-      ctx.shadowColor = COLORS[ball.color];
-      ctx.shadowBlur = 18;
-      ctx.fillStyle = COLORS[ball.color];
-      ctx.beginPath();
-      ctx.arc(ball.x, bsy, BALL_R, 0, Math.PI * 2);
-      ctx.fill();
+      // Collisions
+      for (const r of ringsRef.current) {
+        if (r.passed) continue;
+        const res = checkRing(r);
+        if (res === "out") { die(); break; }
+        if (ball.y < r.y - RING_R - BALL_R) {
+          r.passed = true;
+          scoreRef.current++;
+          flashRef.current = 8;
+          setDisplayScore(scoreRef.current);
+          if (scoreRef.current % 5 === 0) {
+            confetti({ particleCount: 20, spread: 50, origin: { y: 0.45 }, scalar: 0.8, ticks: 60 });
+          }
+        }
+      }
+
+      // ─── Rendu canvas ───
+      const camY   = cameraRef.current;
+      const screenY = (wy: number) => wy - camY;
+      const ballSY  = screenY(ball.y);
+      const ballCol = COLORS[ball.color];
+
+      // Fond
+      ctx.fillStyle = "#050510";
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+      // Étoiles (léger parallaxe)
+      for (const star of starsRef.current) {
+        const sy = ((star.y + camY * 0.08) % (VIEW_H * 3) + VIEW_H * 3) % (VIEW_H * 3);
+        if (sy > VIEW_H) continue;
+        ctx.fillStyle = `rgba(255,255,255,${star.a})`;
+        ctx.fillRect(star.x, sy, star.s, star.s);
+      }
+
+      // Halo ambiance balle
+      const ambGrad = ctx.createRadialGradient(VIEW_W / 2, ballSY, 10, VIEW_W / 2, ballSY, 200);
+      ambGrad.addColorStop(0, `${ballCol}22`);
+      ambGrad.addColorStop(1, "transparent");
+      ctx.fillStyle = ambGrad;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+      // ─── Anneaux ───
+      const nextRings = ringsRef.current.filter(r => !r.passed);
+      const targetRing = nextRings[0] ?? null;
+
+      ctx.lineCap = "butt";
+      for (const r of ringsRef.current) {
+        const sy = screenY(r.y);
+        if (sy < -RING_R - 40 || sy > VIEW_H + RING_R + 40) continue;
+        const cx      = VIEW_W / 2;
+        const isTarget = r === targetRing;
+        const thick   = isTarget ? ringThick + 3 : ringThick;
+
+        for (let i = 0; i < 4; i++) {
+          const col = COLORS[i];
+          const a0  = r.rotation + i * (Math.PI / 2);
+          const a1  = a0 + Math.PI / 2;
+
+          // Glow
+          ctx.shadowColor = col;
+          ctx.shadowBlur  = isTarget ? 22 : 10;
+          ctx.strokeStyle = col;
+          ctx.lineWidth   = thick;
+          ctx.beginPath();
+          ctx.arc(cx, sy, RING_R, a0, a1);
+          ctx.stroke();
+
+          // Highlight intérieur
+          ctx.shadowBlur  = 0;
+          ctx.strokeStyle = "rgba(255,255,255,0.18)";
+          ctx.lineWidth   = 2;
+          ctx.beginPath();
+          ctx.arc(cx, sy, RING_R - thick * 0.3, a0, a1);
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+
+        // Indicateur de passage (couleur qui sera à π/2 quand la balle arrive)
+        if (isTarget || r === nextRings[1]) {
+          let a = Math.PI / 2 - r.rotation;
+          while (a < 0)           a += Math.PI * 2;
+          while (a >= Math.PI * 2) a -= Math.PI * 2;
+          const arcAtEntry = Math.floor(a / (Math.PI / 2)) % 4;
+          const entryCol   = COLORS[arcAtEntry];
+          const isMatch    = arcAtEntry === ball.color;
+          const dotX = cx + Math.cos(Math.PI / 2) * (RING_R + ringThick / 2 + 10);
+          const dotY = sy + Math.sin(Math.PI / 2) * (RING_R + ringThick / 2 + 10);
+
+          ctx.shadowColor = entryCol;
+          ctx.shadowBlur  = isMatch ? 18 : 7;
+          ctx.fillStyle   = isMatch ? entryCol : `${entryCol}99`;
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, isMatch ? 7 : 4.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Flèche si c'est le target ring et correspondance OK
+          if (isTarget && isMatch) {
+            ctx.globalAlpha = 0.75;
+            ctx.fillStyle   = entryCol;
+            ctx.shadowBlur  = 12;
+            ctx.beginPath();
+            ctx.moveTo(dotX, dotY - 16);
+            ctx.lineTo(dotX - 6, dotY - 8);
+            ctx.lineTo(dotX + 6, dotY - 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      // ─── Pickups ───
+      const pulse = (Math.sin(ts / 280) + 1) / 2;
+      for (const p of pickupsRef.current) {
+        if (p.taken) continue;
+        const py = screenY(p.y);
+        if (py < -20 || py > VIEW_H + 20) continue;
+        const col = COLORS[p.color];
+
+        ctx.shadowColor = col;
+        ctx.shadowBlur  = 8 + pulse * 18;
+        ctx.fillStyle   = col;
+        ctx.beginPath();
+        ctx.arc(VIEW_W / 2, py, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(255,255,255,${0.3 + pulse * 0.5})`;
+        ctx.lineWidth   = 1.5;
+        ctx.shadowBlur  = 0;
+        ctx.beginPath();
+        ctx.arc(VIEW_W / 2, py, 12 + pulse * 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.shadowBlur = 0;
-      // Petit reflet
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
+
+      // ─── Trail de la balle ───
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const t  = trail[i];
+        const tsy = screenY(t.y);
+        const tr = BALL_R * (1 - (i + 1) / (trail.length + 1)) * 0.9;
+        const ta = (1 - (i + 1) / (trail.length + 1)) * 0.55;
+        ctx.globalAlpha = ta;
+        ctx.fillStyle   = ballCol;
+        ctx.beginPath();
+        ctx.arc(t.x, tsy, tr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // ─── Balle ───
+      ctx.shadowColor = ballCol;
+      ctx.shadowBlur  = 24;
+      ctx.fillStyle   = ballCol;
       ctx.beginPath();
-      ctx.arc(ball.x - 3, bsy - 3, BALL_R * 0.35, 0, Math.PI * 2);
+      ctx.arc(ball.x, ballSY, BALL_R, 0, Math.PI * 2);
       ctx.fill();
 
-      if (flashRef.current > 0) flashRef.current -= 1;
+      // Anneau coloré autour de la balle
+      ctx.strokeStyle = `${ballCol}99`;
+      ctx.lineWidth   = 2.5;
+      ctx.beginPath();
+      ctx.arc(ball.x, ballSY, BALL_R + 4 + pulse * 3, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+
+      // Reflet
+      ctx.fillStyle   = "rgba(255,255,255,0.55)";
+      ctx.beginPath();
+      ctx.arc(ball.x - 3, ballSY - 3, BALL_R * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ─── Flash succès (couleur balle) ───
+      if (flashRef.current > 0) {
+        ctx.globalAlpha = flashRef.current / 10 * 0.22;
+        ctx.fillStyle   = ballCol;
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        ctx.globalAlpha = 1;
+        flashRef.current--;
+      }
+
+      // ─── Flash mort (rouge) ───
+      if (deathFlashRef.current > 0) {
+        ctx.globalAlpha = deathFlashRef.current / 14 * 0.55;
+        ctx.fillStyle   = "#ff1a1a";
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        ctx.globalAlpha = 1;
+        deathFlashRef.current--;
+      }
 
       if (!deadRef.current) raf = requestAnimationFrame(loop);
     };
 
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [playing, level, room.id, mySlot, info.rotMult]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, level, room.id, mySlot, ringThick]);
 
   // Broadcast score live
   useEffect(() => {
     if (!playing) return;
-    let last = -1;
+    let lastBroadcast = -1;
     const t = setInterval(() => {
       const sc = scoreRef.current;
-      if (sc === last) return;
-      last = sc;
-      void patch(room.id, mySlot === 1 ? { score_live_1: sc } : { score_live_2: sc });
+      if (sc === lastBroadcast) return;
+      lastBroadcast = sc;
+      void patchState(room.id, mySlot === 1 ? { score_live_1: sc } : { score_live_2: sc });
     }, 1000 / BROADCAST_HZ);
     return () => clearInterval(t);
   }, [playing, room.id, mySlot]);
 
-  // Fin des deux → result (slot 1 déclenche)
+  // Fin des deux → résultat
   useEffect(() => {
     if (state.phase !== "play") return;
-    if (state.done_1 && state.done_2 && mySlot === 1 && state.winner_slot == null) {
-      const s1 = state.score_1 ?? 0;
-      const s2 = state.score_2 ?? 0;
-      const winner: 0 | 1 | 2 = s1 === s2 ? 0 : s1 > s2 ? 1 : 2;
-      const lvl = (state.level ?? "simple") as DareLevel;
-      const pool = (getGagesPool(room.ambiance, lvl) ?? GAGES_BY_LEVEL[lvl]);
-      const seed = `${room.id}-bounce-${lvl}-${s1}-${s2}-${winner}`;
-      const idx = stableIndex(seed, pool.length);
-      void patch(room.id, {
-        phase: "result",
-        winner_slot: winner,
-        wheel_index: idx,
-        dare_text: winner === 0 ? null : pool[idx],
-      });
-    }
+    if (!state.done_1 || !state.done_2 || mySlot !== 1 || state.winner_slot != null) return;
+    const s1 = state.score_1 ?? 0;
+    const s2 = state.score_2 ?? 0;
+    const winner: 0 | 1 | 2 = s1 === s2 ? 0 : s1 > s2 ? 1 : 2;
+    const lvl  = (state.level ?? "simple") as DareLevel;
+    const pool = getGagesPool(room.ambiance, lvl) ?? GAGES_BY_LEVEL[lvl];
+    const seed = `${room.id}-bounce-${lvl}-${s1}-${s2}-${winner}`;
+    const idx  = stableIndex(seed, pool.length);
+    void patchState(room.id, {
+      phase: "result", winner_slot: winner,
+      wheel_index: idx,
+      dare_text: winner === 0 ? null : pool[idx],
+    });
   }, [state, mySlot, room.id]);
 
-  const myScore = scoreRef.current;
-  const ballColorName = COLOR_NAMES[ballRef.current.color];
-  const ballColor = COLORS[ballRef.current.color];
+  const ballColor = COLORS[ballColorIdx];
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between text-xs">
-        <span className="rounded-full bg-card/80 px-2 py-1 font-medium">
-          🌈 <span className="font-bold text-primary">{myScore}</span>
-        </span>
-        <span className="flex items-center gap-1 rounded-full bg-card/80 px-2 py-1 font-medium">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: ballColor }} />
-          {ballColorName}
-        </span>
-        <span className="rounded-full bg-card/80 px-2 py-1 font-medium">
-          {otherName} : <span className="font-bold text-primary">{otherScoreLive}</span> {otherDone && "🏁"}
-        </span>
+    <>
+      {/* Header */}
+      <div style={{ ...glass, padding: "10px 16px", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.32)" }}>Score</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: ballColor, textShadow: `0 0 14px ${ballColor}99` }}>
+            {displayScore}
+          </div>
+        </div>
+        {/* Indicateur couleur active */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: "50%",
+            background: ballColor,
+            boxShadow: `0 0 14px ${ballColor}, 0 0 28px ${ballColor}66`,
+            border: "2px solid rgba(255,255,255,0.3)",
+          }} />
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", letterSpacing: 1 }}>
+            {COLOR_NAMES[ballColorIdx].toUpperCase()}
+          </span>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, color: "rgba(255,255,255,0.32)" }}>{otherName}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
+            {otherLive} {otherDone && "🏁"}
+          </div>
+        </div>
       </div>
 
-      <div
+      {/* Arène */}
+      <motion.div
+        animate={shake ? { x: [0, -7, 7, -5, 5, -2, 0] } : { x: 0 }}
+        transition={{ duration: 0.35 }}
         onPointerDown={() => { if (playing) wantJumpRef.current = true; }}
-        className="relative mx-auto mt-3 w-full max-w-sm touch-none select-none overflow-hidden rounded-3xl border-2 border-white/30 shadow-2xl"
-        style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}`, background: "#0e0a1a" }}
+        style={{
+          position: "relative",
+          width: "100%", maxWidth: 380, margin: "0 auto",
+          aspectRatio: `${VIEW_W} / ${VIEW_H}`,
+          borderRadius: 24, overflow: "hidden",
+          border: playing ? `2px solid ${cfg.color}66` : "2px solid rgba(255,255,255,0.09)",
+          boxShadow: playing
+            ? `0 0 30px ${cfg.glow}, inset 0 0 60px rgba(0,0,0,0.5)`
+            : "inset 0 0 60px rgba(0,0,0,0.5)",
+          touchAction: "none", userSelect: "none",
+          cursor: playing ? "pointer" : "default",
+          flexShrink: 0,
+          background: "#050510",
+          transition: "border-color 0.3s, box-shadow 0.3s",
+        }}
       >
-        <canvas
-          ref={canvasRef}
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
+        <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
 
         {/* Overlay countdown */}
         <AnimatePresence>
           {state.phase === "countdown" && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+              style={{
+                position: "absolute", inset: 0,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                background: "rgba(0,0,0,0.70)", backdropFilter: "blur(6px)", gap: 12,
+              }}
             >
-              <motion.div
-                key={countLabel}
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1.15, opacity: 1 }}
-                exit={{ scale: 1.5, opacity: 0 }}
-                className="font-serif text-7xl italic text-white drop-shadow"
-              >
-                {countLabel}
-              </motion.div>
-            </motion.div>
-          )}
-
-          {iAmDone && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 backdrop-blur-sm"
-            >
-              <p className="text-5xl">🌈</p>
-              <p className="font-serif text-3xl text-white">{finalScore ?? (mySlot === 1 ? state.score_1 : state.score_2)} franchis</p>
-              <p className="text-sm text-white/70">
-                {otherDone ? "On compare…" : `En attente de ${otherName}…`}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={inCountdown ? Math.ceil(msToStart / 1000) : "go"}
+                  initial={{ scale: 1.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  transition={{ duration: 0.22 }}
+                  style={{ fontFamily: SERIF, fontSize: 88, fontStyle: "italic", color: "#fff", textShadow: `0 0 40px ${cfg.color}`, lineHeight: 1 }}
+                >
+                  {inCountdown ? Math.ceil(msToStart / 1000) : "GO !"}
+                </motion.div>
+              </AnimatePresence>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                Tape l'écran pour rebondir !
               </p>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      <p className="mt-3 text-center text-xs text-muted-foreground">
-        {playing ? "Tape l'écran pour rebondir 👆" : inCountdown ? "Prépare-toi…" : "—"}
+        {/* Overlay fin */}
+        <AnimatePresence>
+          {iAmDone && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              style={{
+                position: "absolute", inset: 0,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", gap: 10,
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }}
+                transition={{ duration: 0.4 }}
+                style={{ fontSize: 64 }}
+              >
+                🌈
+              </motion.div>
+              <p style={{ fontFamily: SERIF, fontSize: 36, fontStyle: "italic", color: "#fff", margin: 0 }}>
+                {finalScore ?? scoreRef.current} <span style={{ fontSize: 18, color: "rgba(255,255,255,0.5)" }}>franchis</span>
+              </p>
+              <motion.p
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ repeat: Infinity, duration: 1.4 }}
+                style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", margin: 0 }}
+              >
+                {otherDone ? "On compare les scores…" : `En attente de ${otherName}…`}
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Instruction */}
+      <p style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.28)", margin: 0 }}>
+        {playing
+          ? "👆 Tape pour rebondir · passe dans le bon arc"
+          : inCountdown ? "Prépare-toi…" : "—"}
       </p>
-    </div>
+
+      {/* Légende des couleurs */}
+      {playing && (
+        <div style={{ display: "flex", justifyContent: "center", gap: 14 }}>
+          {COLORS.map((c, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: "50%", background: c,
+                boxShadow: ballColorIdx === i ? `0 0 8px ${c}` : "none",
+                border: ballColorIdx === i ? `1.5px solid rgba(255,255,255,0.6)` : `1.5px solid ${c}55`,
+              }} />
+              <span style={{ fontSize: 10, color: ballColorIdx === i ? "#fff" : "rgba(255,255,255,0.35)", fontWeight: ballColorIdx === i ? 700 : 400 }}>
+                {COLOR_NAMES[i]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
 // ─────────── Résultat ───────────
-function Result({ state, room, mySlot, myName, otherName }:
-  { state: TState; room: Room; mySlot: number; myName: string; otherName: string }) {
-  const s1 = state.score_1 ?? 0;
-  const s2 = state.score_2 ?? 0;
-  const myScore = mySlot === 1 ? s1 : s2;
+function Result({ state, room, mySlot, myName, otherName }: SharedProps) {
+  const s1     = state.score_1 ?? 0;
+  const s2     = state.score_2 ?? 0;
+  const myScore    = mySlot === 1 ? s1 : s2;
   const otherScore = mySlot === 1 ? s2 : s1;
   const winner = state.winner_slot ?? 0;
-  const iWon = winner === mySlot;
-  const tie = winner === 0;
+  const iWon   = winner === mySlot;
+  const tie    = winner === 0;
+  const topColor = tie ? AMBER : iWon ? EMERALD : ROSE;
 
   useEffect(() => {
-    if (iWon) confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    if (iWon) confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
     const t = setTimeout(() => {
-      if (mySlot === 1) {
-        void patch(room.id, { phase: tie ? "done" : "dare" });
-      }
-    }, 2200);
+      if (mySlot === 1) void patchState(room.id, { phase: tie ? "done" : "dare" });
+    }, 2600);
     return () => clearTimeout(t);
   }, [iWon, tie, mySlot, room.id]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} className="text-7xl">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, textAlign: "center", padding: "0 16px" }}>
+      <motion.div
+        initial={{ scale: 0, rotate: -15 }}
+        animate={{ scale: [0, 1.3, 1], rotate: [0, 5, 0] }}
+        transition={{ duration: 0.5, times: [0, 0.65, 1] }}
+        style={{ fontSize: 80, lineHeight: 1 }}
+      >
         {tie ? "🤝" : iWon ? "🏆" : "🌈"}
       </motion.div>
-      <h2 className="mt-6 font-serif text-4xl text-primary">
-        {tie ? "Match nul 💕" : iWon ? "Tu gagnes !" : `${otherName} gagne !`}
-      </h2>
-      <div className="mt-6 grid w-full max-w-xs grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-card/80 p-3 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{myName}</p>
-          <p className="font-serif text-3xl text-primary">{myScore}</p>
-        </div>
-        <div className="rounded-2xl bg-card/80 p-3 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{otherName}</p>
-          <p className="font-serif text-3xl text-primary">{otherScore}</p>
+
+      <div style={{ ...glass, padding: "20px 24px", width: "100%", maxWidth: 320, borderRadius: 24, border: `1px solid ${topColor}33` }}>
+        <h2 style={{ fontFamily: SERIF, fontSize: 32, fontStyle: "italic", color: topColor, margin: "0 0 16px", textShadow: `0 0 20px ${topColor}66` }}>
+          {tie ? "Match nul 💕" : iWon ? "Tu gagnes !" : `${otherName} gagne !`}
+        </h2>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {[
+            { name: myName,    score: myScore    },
+            { name: otherName, score: otherScore },
+          ].map(({ name, score }) => (
+            <div key={name} style={{ ...glass, padding: "12px 8px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
+              <p style={{ margin: "0 0 4px", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, color: "rgba(255,255,255,0.38)" }}>{name}</p>
+              <p style={{ margin: 0, fontFamily: SERIF, fontSize: 30, fontStyle: "italic", color: "#fff" }}>{score}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -586,66 +877,96 @@ function Result({ state, room, mySlot, myName, otherName }:
 }
 
 // ─────────── Gage ───────────
-function DareView({ state, room, mySlot, otherName, onDareDone }:
-  { state: TState; room: Room; mySlot: number; myName: string; otherName: string; onDareDone: () => void }) {
-  const winner = state.winner_slot ?? 0;
+function DareView({ state, room, mySlot, otherName, onDareDone }: SharedProps & { onDareDone: () => void }) {
+  const winner    = state.winner_slot ?? 0;
   const loserSlot = winner === 1 ? 2 : 1;
-  const iLost = loserSlot === mySlot;
-  const level = (state.level ?? "simple") as DareLevel;
-  const dare = state.dare_text ?? (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level])[0];
+  const iLost     = loserSlot === mySlot;
+  const level     = (state.level ?? "simple") as DareLevel;
+  const dare      = state.dare_text ?? (getGagesPool(room.ambiance, level) ?? GAGES_BY_LEVEL[level])[0];
 
   const validate = async () => {
     onDareDone();
-    await patch(room.id, { phase: "done" });
+    await patchState(room.id, { phase: "done" });
   };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }} className="text-6xl">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, textAlign: "center", padding: "0 16px" }}>
+      <motion.div
+        initial={{ scale: 0 }} animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 280, damping: 18 }}
+        style={{ fontSize: 72, lineHeight: 1 }}
+      >
         🎁
       </motion.div>
-      <div className="mt-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-        {LEVEL_LABELS[level]}
-      </div>
-      <p className="mt-4 text-xs uppercase tracking-wider text-muted-foreground">
-        {iLost ? "Ton gage" : `Gage pour ${otherName}`}
-      </p>
-      <h2 className="mt-3 px-4 font-serif text-3xl italic leading-tight text-primary">{dare}</h2>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+        style={{ ...glass, padding: "22px 24px", width: "100%", maxWidth: 340, borderRadius: 22, border: `1.5px solid ${AMBER}44`, background: `${AMBER}0c` }}
+      >
+        <p style={{ margin: "0 0 4px", fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: AMBER }}>
+          {iLost ? "Ton gage 🎭" : `Gage pour ${otherName} 🎭`}
+        </p>
+        <span style={{ fontSize: 11, background: `${LEVEL_CFG[level].color}20`, border: `1px solid ${LEVEL_CFG[level].color}44`, color: LEVEL_CFG[level].color, borderRadius: 20, padding: "2px 10px", display: "inline-block", marginTop: 4 }}>
+          {LEVEL_LABELS[level]}
+        </span>
+        <h2 style={{ fontFamily: SERIF, fontSize: 26, fontStyle: "italic", color: "#fff", margin: "12px 0 0", lineHeight: 1.4 }}>
+          {dare}
+        </h2>
+      </motion.div>
+
       {iLost ? (
-        <Button onClick={validate} className="mt-10 h-14 w-full max-w-xs rounded-2xl text-base font-semibold">
+        <motion.button
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+          whileTap={{ scale: 0.95 }} onClick={validate}
+          style={{ width: "100%", maxWidth: 320, height: 56, borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${AMBER}, #fb923c)`, color: "#0d0d0d", fontWeight: 700, fontSize: 17, cursor: "pointer", boxShadow: `0 0 24px ${AMBER}44` }}
+        >
           C'est fait ! ✅
-        </Button>
+        </motion.button>
       ) : (
-        <p className="mt-8 text-muted-foreground">On attend que {otherName} fasse son gage… 🥹</p>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>
+          On attend que {otherName} fasse son gage… 🥹
+        </p>
       )}
     </div>
   );
 }
 
 // ─────────── Fin ───────────
-function DoneView({ mySlot, onBackToMenu, onReplay }:
-  { mySlot: number; onBackToMenu: () => void; onReplay: () => void }) {
+function DoneView({ mySlot, onBackToMenu, onReplay }: {
+  mySlot: number; onBackToMenu: () => void; onReplay: () => void;
+}) {
   useEffect(() => {
-    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} className="text-8xl">🌈</motion.div>
-      <h2 className="mt-6 font-serif text-4xl italic text-primary">Joli rebond !</h2>
-      <p className="mt-2 text-sm text-muted-foreground">On en refait une ?</p>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, textAlign: "center", padding: "0 16px" }}>
+      <motion.div
+        initial={{ scale: 0, y: 20 }} animate={{ scale: [0, 1.3, 1], y: 0 }}
+        transition={{ duration: 0.5, times: [0, 0.6, 1] }}
+        style={{ fontSize: 80, lineHeight: 1 }}
+      >
+        🌈
+      </motion.div>
+      <h2 style={{ fontFamily: SERIF, fontSize: 36, fontStyle: "italic", color: "#fff", margin: 0 }}>Joli rebond !</h2>
+      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.42)", margin: 0 }}>On en refait une ?</p>
 
-      <div className="mt-8 w-full max-w-xs space-y-3">
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 320, marginTop: 8 }}>
         {mySlot === 1 ? (
-          <Button onClick={onReplay} className="h-14 w-full rounded-2xl text-base font-semibold">
+          <motion.button
+            whileTap={{ scale: 0.95 }} onClick={onReplay}
+            style={{ height: 52, borderRadius: 16, border: "none", background: `linear-gradient(135deg, ${SKY}, #6366f1)`, color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer", boxShadow: `0 0 20px ${SKY}44` }}
+          >
             Rejouer 🔁
-          </Button>
+          </motion.button>
         ) : (
-          <p className="text-sm text-muted-foreground">En attente de la décision…</p>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>En attente de la décision…</p>
         )}
-        <Button variant="secondary" onClick={onBackToMenu} className="h-12 w-full rounded-2xl">
+        <motion.button
+          whileTap={{ scale: 0.95 }} onClick={onBackToMenu}
+          style={{ height: 52, borderRadius: 16, border: "1.5px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+        >
           ← Retour au menu
-        </Button>
+        </motion.button>
       </div>
     </div>
   );
