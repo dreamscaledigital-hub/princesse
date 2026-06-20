@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Heart, Lock } from "lucide-react";
 
 const KEY = "princesse-access-ok";
-const CODE = "2233";
+const CODE = "2805";
 
 export function AccessGate({ children }: { children: ReactNode }) {
   const [ok, setOk] = useState(false);
