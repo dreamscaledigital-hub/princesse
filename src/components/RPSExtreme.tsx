@@ -147,16 +147,25 @@ function LevelSelect({ state, room, mySlot, myName, otherName, onBackToMenu }:
   const theirs = mySlot === 1 ? state.level_2 : state.level_1;
   const match  = state.level_1 && state.level_2 && state.level_1 === state.level_2;
 
-  const choose = (l: Level) =>
-    patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
+  // Optimistic local pick — mis à jour immédiatement au clic, sync serveur en fond
+  const [localPick, setLocalPick] = useState<Level | null>(mine ?? null);
+  useEffect(() => { if (mine) setLocalPick(mine); }, [mine]);
 
-  const start = () => {
-    if (!match) return;
-    patch(room.id, {
+  const choose = (l: Level) => {
+    setLocalPick(l);
+    patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
+  };
+
+  const [starting, setStarting] = useState(false);
+  const start = async () => {
+    if (!match || mySlot !== 1 || starting) return;
+    setStarting(true);
+    await patch(room.id, {
       phase: "play", level: state.level_1 ?? null,
       choice_1: null, choice_2: null, sent_1: false, sent_2: false,
       winner_slot: null, wheel_index: null, dare_text: null,
     });
+    setStarting(false);
   };
 
   return (
@@ -188,7 +197,7 @@ function LevelSelect({ state, room, mySlot, myName, otherName, onBackToMenu }:
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {(Object.keys(LEVEL_CFG) as Level[]).map((l) => {
             const cfg = LEVEL_CFG[l];
-            const iPicked     = mine === l;
+            const iPicked     = localPick === l;
             const theyPicked  = theirs === l;
             return (
               <motion.button key={l} whileTap={{ scale: 0.96 }} onClick={() => choose(l)}
@@ -235,16 +244,18 @@ function LevelSelect({ state, room, mySlot, myName, otherName, onBackToMenu }:
             </motion.p>
           )}
 
-          <motion.button whileTap={{ scale: 0.94 }} onClick={start} disabled={!match}
+          <motion.button whileTap={{ scale: match && mySlot === 1 ? 0.94 : 1 }} onClick={start}
+            disabled={!match || mySlot !== 1 || starting}
             style={{
-              width: "100%", padding: "16px", borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: match ? "pointer" : "not-allowed",
+              width: "100%", padding: "16px", borderRadius: 14, fontSize: 16, fontWeight: 700,
+              cursor: (match && mySlot === 1 && !starting) ? "pointer" : "not-allowed",
               border: match ? `1.5px solid ${VIOLET}99` : "1.5px solid rgba(255,255,255,0.1)",
               background: match ? `linear-gradient(135deg, ${VIOLET}33, ${VIOLET}11)` : "rgba(255,255,255,0.04)",
               color: match ? VIOLET : "rgba(255,255,255,0.3)",
               boxShadow: match ? `0 0 28px ${VIOLET}44` : "none",
               transition: "all 0.3s",
             }}>
-            {match ? "C'est parti ! 🎮" : "En attente…"}
+            {starting ? "Lancement…" : match ? (mySlot === 1 ? "C'est parti ! 🎮" : "En attente du lancement…") : "En attente…"}
           </motion.button>
         </div>
       </motion.div>
