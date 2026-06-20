@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext, createContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { supabase as _supabase } from "@/integrations/supabase/client";
@@ -92,8 +92,11 @@ type Props = {
   onDareDone: () => void;
 };
 
-const patch = (roomId: string, p: State) =>
+const dbPatch = (roomId: string, p: Partial<State>) =>
   supabase.rpc("minigame_patch", { _room_id: roomId, _patch: p });
+
+// Context for sync'd patch — provided by RPSExtreme root
+const PatchCtx = createContext<(p: Partial<State>) => void>(() => {});
 
 // ── Ambient orb
 function Orb({ x, y, color, size, delay }: { x: string; y: string; color: string; size: number; delay: number }) {
@@ -108,17 +111,49 @@ function Orb({ x, y, color, size, delay }: { x: string; y: string; color: string
 
 // ── Root
 export function RPSExtreme({ room, mySlot, myName, otherName, onBackToMenu, onDareDone }: Props) {
-  const s = (room.minigame_state ?? {}) as State;
+  const dbState = (room.minigame_state ?? {}) as State;
+
+  // ── Sync state: merge DB state + broadcast overrides for instant cross-player sync
+  const [syncState, setSyncState] = useState<State>(dbState);
+  const channelRef = useRef<any>(null);
+
+  // Keep syncState aligned with DB when postgres_changes fires
+  useEffect(() => {
+    setSyncState(prev => ({ ...prev, ...dbState }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.minigame_state]);
+
+  // Broadcast channel: send patches instantly to the other player
+  useEffect(() => {
+    const ch = supabase.channel(`rps-${room.id}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "rps_patch" }, ({ payload }: { payload: Partial<State> }) => {
+      setSyncState(prev => ({ ...prev, ...payload }));
+    });
+    ch.subscribe();
+    channelRef.current = ch;
+    return () => { supabase.removeChannel(ch); };
+  }, [room.id]);
+
+  // Unified patch: optimistic local → DB → broadcast to partner
+  const gamePatch = async (p: Partial<State>) => {
+    setSyncState(prev => ({ ...prev, ...p }));
+    await dbPatch(room.id, p);
+    channelRef.current?.send({ type: "broadcast", event: "rps_patch", payload: p });
+  };
+
+  const s = syncState;
   const phase = s.phase ?? "level_select";
 
+  // Initialize fresh game
   useEffect(() => {
-    if (Object.keys(s).length === 0 && mySlot === 1)
-      void patch(room.id, { phase: "level_select" });
-  }, [room.id, s, mySlot]);
+    if (Object.keys(dbState).length === 0 && mySlot === 1)
+      void dbPatch(room.id, { phase: "level_select" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id, mySlot]);
 
   const replayProps = {
     onReplay: async () => {
-      await patch(room.id, {
+      await gamePatch({
         phase: "level_select",
         level_1: null, level_2: null, level: null,
         choice_1: null, choice_2: null, sent_1: false, sent_2: false,
@@ -127,15 +162,16 @@ export function RPSExtreme({ room, mySlot, myName, otherName, onBackToMenu, onDa
     },
   };
 
-  if (phase === "level_select")
-    return <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onBackToMenu={onBackToMenu} />;
-  if (phase === "play")
-    return <PlayRound state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
-  if (phase === "reveal")
-    return <RevealView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />;
-  if (phase === "dare")
-    return <DareView state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onDareDone={onDareDone} />;
-  return <DoneView state={s} mySlot={mySlot} myName={myName} otherName={otherName} onBackToMenu={onBackToMenu} {...replayProps} />;
+  return (
+    <PatchCtx.Provider value={gamePatch}>
+      {phase === "level_select" && <LevelSelect state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onBackToMenu={onBackToMenu} />}
+      {phase === "play"         && <PlayRound   state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />}
+      {phase === "reveal"       && <RevealView  state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} />}
+      {phase === "dare"         && <DareView    state={s} room={room} mySlot={mySlot} myName={myName} otherName={otherName} onDareDone={onDareDone} />}
+      {(phase === "done" || (phase !== "level_select" && phase !== "play" && phase !== "reveal" && phase !== "dare")) &&
+        <DoneView state={s} mySlot={mySlot} myName={myName} otherName={otherName} onBackToMenu={onBackToMenu} {...replayProps} />}
+    </PatchCtx.Provider>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,20 +183,21 @@ function LevelSelect({ state, room, mySlot, myName, otherName, onBackToMenu }:
   const theirs = mySlot === 1 ? state.level_2 : state.level_1;
   const match  = state.level_1 && state.level_2 && state.level_1 === state.level_2;
 
-  // Optimistic local pick — mis à jour immédiatement au clic, sync serveur en fond
+  const gamePatch = useContext(PatchCtx);
+  // Optimistic local pick — mis à jour immédiatement au clic
   const [localPick, setLocalPick] = useState<Level | null>(mine ?? null);
   useEffect(() => { if (mine) setLocalPick(mine); }, [mine]);
 
   const choose = (l: Level) => {
     setLocalPick(l);
-    patch(room.id, mySlot === 1 ? { level_1: l } : { level_2: l });
+    gamePatch(mySlot === 1 ? { level_1: l } : { level_2: l });
   };
 
   const [starting, setStarting] = useState(false);
   const start = async () => {
     if (!match || mySlot !== 1 || starting) return;
     setStarting(true);
-    await patch(room.id, {
+    await gamePatch({
       phase: "play", level: state.level_1 ?? null,
       choice_1: null, choice_2: null, sent_1: false, sent_2: false,
       winner_slot: null, wheel_index: null, dare_text: null,
@@ -268,6 +305,7 @@ function LevelSelect({ state, room, mySlot, myName, otherName, onBackToMenu }:
 // ─────────────────────────────────────────────────────────────────────────────
 function PlayRound({ state, room, mySlot, myName, otherName }:
   { state: State; room: Room; mySlot: number; myName: string; otherName: string }) {
+  const gamePatch = useContext(PatchCtx);
   const myChoice    = (mySlot === 1 ? state.choice_1 : state.choice_2) ?? null;
   const otherChoice = (mySlot === 1 ? state.choice_2 : state.choice_1) ?? null;
   const mySent      = mySlot === 1 ? !!state.sent_1 : !!state.sent_2;
@@ -285,14 +323,14 @@ function PlayRound({ state, room, mySlot, myName, otherName }:
   const pick = async (c: Choice) => {
     if (mySent) return;
     setPicking(c);
-    await patch(room.id, mySlot === 1 ? { choice_1: c } : { choice_2: c });
+    await gamePatch( mySlot === 1 ? { choice_1: c } : { choice_2: c });
   };
 
   const send = async () => {
     if (mySent || !picking || sentRef.current) return;
     sentRef.current = true;
     const p = mySlot === 1 ? { choice_1: picking, sent_1: true } : { choice_2: picking, sent_2: true };
-    await patch(room.id, p);
+    await gamePatch( p);
   };
 
   // Host resolves when both sent
@@ -305,7 +343,7 @@ function PlayRound({ state, room, mySlot, myName, otherName }:
     const idx = w !== 0 ? Math.floor(Math.random() * GAGES_RPS[lvl].length) : null;
     const dare = idx !== null ? GAGES_RPS[lvl][idx] : null;
     const t = setTimeout(() => {
-      void patch(room.id, {
+      void gamePatch( {
         phase: "reveal",
         winner_slot: w,
         ...(idx !== null ? { wheel_index: idx, dare_text: dare } : {}),
@@ -327,7 +365,7 @@ function PlayRound({ state, room, mySlot, myName, otherName }:
         const lvl = (ms.level ?? "easy") as Level;
         const idx = w !== 0 ? Math.floor(Math.random() * GAGES_RPS[lvl].length) : null;
         const dare = idx !== null ? GAGES_RPS[lvl][idx] : null;
-        void patch(room.id, {
+        void gamePatch( {
           phase: "reveal", winner_slot: w,
           ...(idx !== null ? { wheel_index: idx, dare_text: dare } : {}),
         });
@@ -460,6 +498,7 @@ function PlayRound({ state, room, mySlot, myName, otherName }:
 // ─────────────────────────────────────────────────────────────────────────────
 function RevealView({ state, room, mySlot, myName, otherName }:
   { state: State; room: Room; mySlot: number; myName: string; otherName: string }) {
+  const gamePatch = useContext(PatchCtx);
   const c1       = state.choice_1 as Choice | null;
   const c2       = state.choice_2 as Choice | null;
   const winner   = state.winner_slot ?? 0;
@@ -497,7 +536,7 @@ function RevealView({ state, room, mySlot, myName, otherName }:
     if (step !== "reveal" || mySlot !== 1) return;
     if (isTie) {
       const t = setTimeout(() => {
-        void patch(room.id, {
+        void gamePatch( {
           phase: "play",
           choice_1: null, choice_2: null, sent_1: false, sent_2: false,
         });
@@ -505,7 +544,7 @@ function RevealView({ state, room, mySlot, myName, otherName }:
       return () => clearTimeout(t);
     } else {
       const t = setTimeout(() => {
-        void patch(room.id, { phase: "dare" });
+        void gamePatch( { phase: "dare" });
       }, 2800);
       return () => clearTimeout(t);
     }
@@ -599,6 +638,7 @@ function RevealView({ state, room, mySlot, myName, otherName }:
 // ─────────────────────────────────────────────────────────────────────────────
 function DareView({ state, room, mySlot, myName, otherName, onDareDone }:
   { state: State; room: Room; mySlot: number; myName: string; otherName: string; onDareDone: () => void }) {
+  const gamePatch = useContext(PatchCtx);
   const winner = state.winner_slot ?? 0;
   const loser  = winner === 1 ? 2 : 1;
   const iLost  = mySlot === loser;
@@ -608,7 +648,7 @@ function DareView({ state, room, mySlot, myName, otherName, onDareDone }:
 
   const validate = async () => {
     onDareDone();
-    await patch(room.id, { phase: "done" });
+    await gamePatch( { phase: "done" });
   };
 
   return (
