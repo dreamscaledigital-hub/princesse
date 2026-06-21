@@ -2,14 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const FALLBACK_QUESTIONS = [
-  "Quel est le moment où tu m'as trouvé(e) le plus craquant(e) cette semaine ?",
-  "Si on partait demain n'importe où, tu choisirais quel endroit et pourquoi ?",
-  "Qu'est-ce qui t'a fait sourire en pensant à moi aujourd'hui ?",
-  "Raconte-moi un souvenir de nous que tu repenses souvent.",
-  "Qu'est-ce que tu rêverais qu'on fasse ce week-end, juste tous les deux ?",
-  "Quel petit geste de moi te fait fondre à tous les coups ?",
-  "Si tu devais me décrire en 3 mots aujourd'hui, ce serait quoi ?",
-  "Quelle chanson te rappelle nous deux en ce moment ?",
+  "T'as pensé à moi aujourd'hui ? Quand ?",
+  "C'est quoi ton moment préféré de la journée ?",
+  "Dernier truc qui t'a fait sourire ?",
+  "Qu'est-ce qui te ferait du bien ce soir ?",
+  "Raconte-moi ta journée en 3 mots.",
+  "T'as envie de quoi là, maintenant ?",
+  "C'est quoi une chose qu'on n'a pas encore faite ensemble et que t'as envie de tester ?",
+  "C'est quoi ton truc préféré qu'on fait ensemble ?",
+  "Tu préfères qu'on passe la soirée comment ?",
+  "Un mot pour décrire comment tu te sens là ?",
 ];
 
 type Ambiance = "irl" | "distance" | string;
@@ -35,7 +37,7 @@ async function generateAiQuestion(ambiance: Ambiance): Promise<string | null> {
           {
             role: "system",
             content:
-              "Tu écris en FRANÇAIS une seule question quotidienne tendre et originale pour un couple adulte amoureux. Ton : romantique éditorial, doux, ni cliché ni mièvre. La question doit inviter à se révéler, à raconter, ou à projeter — pas une question fermée oui/non. Maximum 140 caractères. Pas de guillemets, pas de préambule.",
+              "Tu écris en FRANÇAIS une seule question courte et simple pour un couple. Ton : casual, direct, comme un SMS qu'on enverrait à son amour. La question doit être facile à comprendre et rapide à répondre — pas de mots compliqués, pas de poésie. Maximum 80 caractères. Pas de guillemets, pas de préambule.",
           },
           {
             role: "user",

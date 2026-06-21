@@ -95,8 +95,11 @@ export function DailyRitual({ myId, partnerId, partnerName }: Props) {
   }
 
   async function loadStreak(coupleId: string) {
-    const { data } = await supabase.rpc("couple_streak", { _couple_id: coupleId });
-    if (typeof data === "number") setStreak(data);
+    const { data, error } = await supabase.rpc("couple_streak", { _couple_id: coupleId });
+    if (error) { console.error("[streak]", error.message); return; }
+    // Supabase may return the integer as number or string depending on client version
+    const n = typeof data === "number" ? data : Number(data);
+    if (!isNaN(n)) setStreak(n);
   }
 
   // Realtime sur les entries du jour
@@ -173,10 +176,12 @@ export function DailyRitual({ myId, partnerId, partnerName }: Props) {
           <p className="text-[10px] uppercase tracking-[0.2em] text-primary/70">Rituel du jour</p>
           <p className="text-xs capitalize text-muted-foreground">{dateLabel}</p>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-          <Flame className="h-3.5 w-3.5" />
-          {streak} <span className="font-normal opacity-80">j</span>
-        </div>
+        {streak > 0 && (
+          <div className="flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+            <Flame className="h-3.5 w-3.5" />
+            {streak}&nbsp;<span className="font-normal opacity-80">{streak === 1 ? "jour" : "jours"}</span>
+          </div>
+        )}
       </div>
 
       <h2 className="mt-3 font-serif text-2xl leading-snug text-foreground">
