@@ -293,7 +293,7 @@ function HubPage() {
         <motion.div initial={{y:20,opacity:0}} animate={{y:0,opacity:1}} transition={{delay:0.2}} className="mt-4 space-y-4 px-5">
 
           {/* Coup de cœur */}
-          {me && partner && couple && (
+          {me && couple && (
             <motion.button
               onClick={sendLoveBomb}
               disabled={loveCooldown > 0 || loveSending}
@@ -329,7 +329,7 @@ function HubPage() {
                   ? "Envoi…"
                   : loveCooldown > 0
                   ? `Coup de cœur dans ${loveCooldown}s`
-                  : `Envoyer un coup de cœur à ${partner.display_name || "ton amour"}`}
+                  : `Envoyer un coup de cœur à ${partner?.display_name || "ton amour"}`}
               </span>
             </motion.button>
           )}
