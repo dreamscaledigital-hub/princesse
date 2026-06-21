@@ -15,6 +15,7 @@ import { MusicPlayer } from "../components/MusicPlayer";
 import { BottomNav } from "../components/BottomNav";
 import { Toaster } from "../components/ui/sonner";
 import { useNotificationSoundBridge } from "../lib/notification-sound";
+import { LoveBombReceiver } from "../components/LoveBombOverlay";
 import { AccessGate } from "../components/AccessGate";
 
 function NotFoundComponent() {
@@ -155,6 +156,7 @@ function RootComponent() {
         <MusicPlayer />
       </AccessGate>
       <Toaster richColors position="top-center" />
+      <LoveBombReceiver />
     </QueryClientProvider>
   );
 }

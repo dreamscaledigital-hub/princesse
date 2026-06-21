@@ -15,6 +15,7 @@ import {
   subscribeToPush, sendPensee, pushPermissionState, getNotifStatus, isIOS, isStandalonePWA,
 } from "@/lib/push-client";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import type { LoveBombPayload } from "@/components/LoveBombOverlay";
 
 export const Route = createFileRoute("/_authenticated/hub")({
   head: () => ({ meta: [{ title: "Notre nid 💕 — Princesse" }] }),
@@ -77,6 +78,8 @@ function HubPage() {
   const [loading, setLoading] = useState(true);
   const [perm, setPerm]       = useState<NotificationPermission | "unsupported">("default");
   const [justPaired, setJustPaired] = useState(false);
+  const [loveCooldown, setLoveCooldown] = useState(0);
+  const [loveSending, setLoveSending] = useState(false);
   const [myCode, setMyCode]   = useState<string | null>(null);
   const [enteredCode, setEnteredCode] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
@@ -199,6 +202,26 @@ function HubPage() {
     else toast.error(res.reason || "Échec");
   }
 
+  async function sendLoveBomb() {
+    if (!couple || !me || loveCooldown > 0 || loveSending) return;
+    setLoveSending(true);
+    const variant = Math.floor(Math.random() * 4);
+    const payload: LoveBombPayload = { sender_name: me.display_name || "Ton amour", variant };
+    try {
+      const ch = supabase.channel(`love-bomb-${couple.id}`, { config: { broadcast: { self: true } } });
+      await new Promise<void>((resolve) => ch.subscribe((status) => {
+        if (status === "SUBSCRIBED") resolve();
+      }));
+      await ch.send({ type: "broadcast", event: "love_bomb", payload });
+      await supabase.removeChannel(ch);
+    } catch { /* ignore */ }
+    setLoveSending(false);
+    setLoveCooldown(60);
+    const iv = setInterval(() => {
+      setLoveCooldown((p) => { if (p <= 1) { clearInterval(iv); return 0; } return p - 1; });
+    }, 1000);
+  }
+
   async function unpair() {
     if (!couple) return;
     if (!window.confirm("Se désappairer ?")) return;
@@ -268,6 +291,48 @@ function HubPage() {
         <PairUI myCode={myCode} onCreate={createPairingCode} enteredCode={enteredCode} setEnteredCode={setEnteredCode} onConsume={consumeCode} busy={pairBusy}/>
       ) : (
         <motion.div initial={{y:20,opacity:0}} animate={{y:0,opacity:1}} transition={{delay:0.2}} className="mt-4 space-y-4 px-5">
+
+          {/* Coup de cœur */}
+          {me && partner && couple && (
+            <motion.button
+              onClick={sendLoveBomb}
+              disabled={loveCooldown > 0 || loveSending}
+              whileTap={{ scale: 0.96 }}
+              style={{
+                width: "100%",
+                padding: "17px 24px",
+                borderRadius: 24,
+                border: "1px solid oklch(0.55 0.25 355 / 0.3)",
+                background: loveCooldown > 0
+                  ? "oklch(0.16 0.04 260)"
+                  : "linear-gradient(135deg, oklch(0.45 0.24 355) 0%, oklch(0.38 0.20 340) 100%)",
+                color: loveCooldown > 0 ? "oklch(0.55 0.05 260)" : "white",
+                fontSize: 17,
+                fontWeight: 700,
+                fontFamily: "inherit",
+                cursor: loveCooldown > 0 ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                boxShadow: loveCooldown > 0
+                  ? "none"
+                  : "0 8px 32px oklch(0.45 0.24 355 / 0.45)",
+                transition: "all 0.3s ease",
+              }}
+            >
+              <span style={{ fontSize: 22, lineHeight: 1 }}>
+                {loveCooldown > 0 ? "💤" : "💝"}
+              </span>
+              <span>
+                {loveSending
+                  ? "Envoi…"
+                  : loveCooldown > 0
+                  ? `Coup de cœur dans ${loveCooldown}s`
+                  : `Envoyer un coup de cœur à ${partner.display_name || "ton amour"}`}
+              </span>
+            </motion.button>
+          )}
 
           {/* DailyRitual */}
           {me && partner && (
