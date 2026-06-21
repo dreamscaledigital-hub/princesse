@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Heart, Lock } from "lucide-react";
 
-const KEY = "princesse-access-ok";
+const KEY = "princesse-access-ok-1608";
 const CODE = "1608";
 
 export function AccessGate({ children }: { children: ReactNode }) {
