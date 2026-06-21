@@ -1,0 +1,1 @@
+DELETE FROM public.push_subscriptions WHERE endpoint LIKE 'https://fcm.googleapis.com/fcm/send/%';
