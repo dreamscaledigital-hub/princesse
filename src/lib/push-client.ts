@@ -34,10 +34,52 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   const reg = await getSWRegistration();
   if (!reg) return { ok: false, reason: "Service worker indisponible" };
 
+  // Auth check up-front so helpers can use userId
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes.user?.id;
+  if (!userId) return { ok: false, reason: "Non connecté" };
+
+  // Helper — fetch VAPID key and create a fresh PushSubscription
+  async function createPushSub(): Promise<PushSubscription | { ok: false; reason: string }> {
+    let publicKey: string;
+    try { publicKey = await fetchVapidPublicKey(); }
+    catch (e) { return { ok: false, reason: (e as Error).message }; }
+    const keyBytes = urlBase64ToUint8Array(publicKey);
+    try {
+      return await reg!.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
+      });
+    } catch (e) {
+      return { ok: false, reason: `Impossible de créer l'abonnement push : ${(e as Error).message}` };
+    }
+  }
+
+  // Helper — save a PushSubscription to DB; returns true on success.
+  // The upsert uses onConflict:"endpoint" but RLS may silently block the update
+  // when the endpoint row belongs to a different user (shared device scenario).
+  // We verify ownership with a follow-up SELECT.
+  async function saveSub(s: PushSubscription): Promise<boolean> {
+    const j = s.toJSON() as { endpoint: string; keys?: { p256dh: string; auth: string } };
+    if (!j.endpoint || !j.keys) return false;
+    await supabase
+      .from("push_subscriptions")
+      .upsert(
+        { user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent },
+        { onConflict: "endpoint" }
+      );
+    const { data: row } = await supabase
+      .from("push_subscriptions")
+      .select("id")
+      .eq("endpoint", j.endpoint)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return !!row;
+  }
+
   let sub = await reg.pushManager.getSubscription();
 
-  // Détecte les abonnements obsolètes (ancien endpoint FCM /fcm/send/ désactivé
-  // par Google en juin 2024) ou expirés : on force la ré-inscription.
+  // Purge legacy FCM endpoints (disabled by Google June 2024) and expired subscriptions
   if (sub) {
     const endpoint = sub.endpoint || "";
     const isLegacyFcm = endpoint.includes("fcm.googleapis.com/fcm/send/");
@@ -52,40 +94,24 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
     }
   }
 
-  if (!sub) {
-    let publicKey: string;
-    try {
-      publicKey = await fetchVapidPublicKey();
-    } catch (e) {
-      return { ok: false, reason: (e as Error).message };
+  if (sub) {
+    // Existing browser subscription: try to save it.
+    // If it belongs to another account in the DB, unsubscribe and create a fresh one.
+    const saved = await saveSub(sub);
+    if (!saved) {
+      await sub.unsubscribe().catch(() => {});
+      sub = null;
     }
-    const keyBytes = urlBase64ToUint8Array(publicKey);
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
-    });
   }
 
-  const json = sub.toJSON() as { endpoint: string; keys?: { p256dh: string; auth: string } };
-  if (!json.endpoint || !json.keys) return { ok: false, reason: "Abonnement push invalide" };
+  if (!sub) {
+    const result = await createPushSub();
+    if ("ok" in result) return result; // error object
+    sub = result;
+    const saved = await saveSub(sub);
+    if (!saved) return { ok: false, reason: "Impossible d'enregistrer l'abonnement push en base" };
+  }
 
-  const { data: userRes } = await supabase.auth.getUser();
-  const userId = userRes.user?.id;
-  if (!userId) return { ok: false, reason: "Non connecté" };
-
-  const { error } = await supabase
-    .from("push_subscriptions")
-    .upsert(
-      {
-        user_id: userId,
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
-        user_agent: navigator.userAgent,
-      },
-      { onConflict: "endpoint" }
-    );
-  if (error) return { ok: false, reason: `Erreur DB : ${error.message}` };
   return { ok: true };
 }
 

@@ -131,6 +131,16 @@ function RootComponent() {
 
   useEffect(() => {
     import("../lib/sw-register").then((m) => m.registerServiceWorker());
+    // Silently refresh the push subscription on every app load.
+    // This self-heals expired/deleted subscriptions without requiring the user
+    // to visit hub or pensées specifically.
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      import("../lib/push-client").then((m) => m.subscribeToPush().catch(() => {}));
+    }
   }, []);
 
   useNotificationSoundBridge();
