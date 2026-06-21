@@ -35,6 +35,23 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   if (!reg) return { ok: false, reason: "Service worker indisponible" };
 
   let sub = await reg.pushManager.getSubscription();
+
+  // Détecte les abonnements obsolètes (ancien endpoint FCM /fcm/send/ désactivé
+  // par Google en juin 2024) ou expirés : on force la ré-inscription.
+  if (sub) {
+    const endpoint = sub.endpoint || "";
+    const isLegacyFcm = endpoint.includes("fcm.googleapis.com/fcm/send/");
+    const expired = typeof sub.expirationTime === "number" && sub.expirationTime < Date.now();
+    if (isLegacyFcm || expired) {
+      try {
+        const oldEndpoint = sub.endpoint;
+        await sub.unsubscribe();
+        await supabase.from("push_subscriptions").delete().eq("endpoint", oldEndpoint);
+      } catch { /* ignore */ }
+      sub = null;
+    }
+  }
+
   if (!sub) {
     let publicKey: string;
     try {
