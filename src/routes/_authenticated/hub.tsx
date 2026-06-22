@@ -66,55 +66,6 @@ function HeartLine() {
       <div className="h-px flex-1" style={{background:"linear-gradient(to right, transparent, oklch(0.75 0.13 355 / 0.4))"}}/>
       <Heart className="h-3.5 w-3.5 fill-primary/40 text-primary/40"/>
       <div className="h-px flex-1" style={{background:"linear-gradient(to left, transparent, oklch(0.75 0.13 355 / 0.4))"}}/>
-      {/* ── Floating love bomb button ───────────────────────────────────── */}
-      {me && couple && (
-        <motion.button
-          onClick={sendLoveBomb}
-          disabled={loveCooldown > 0 || loveSending}
-          whileTap={{ scale: 0.94 }}
-          style={{
-            position: "fixed",
-            bottom: "calc(env(safe-area-inset-bottom) + 88px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 40,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "14px 28px",
-            borderRadius: 999,
-            border: "none",
-            background: loveCooldown > 0
-              ? "oklch(0.16 0.04 260)"
-              : "linear-gradient(135deg, oklch(0.48 0.26 355) 0%, oklch(0.40 0.22 340) 100%)",
-            color: loveCooldown > 0 ? "oklch(0.50 0.05 260)" : "white",
-            fontSize: 15,
-            fontWeight: 700,
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-            cursor: loveCooldown > 0 ? "default" : "pointer",
-            boxShadow: loveCooldown > 0
-              ? "none"
-              : "0 6px 28px oklch(0.48 0.26 355 / 0.50), 0 2px 8px oklch(0.48 0.26 355 / 0.30)",
-            transition: "all 0.3s ease",
-          }}
-        >
-          <motion.span
-            animate={loveCooldown > 0 ? {} : { scale: [1, 1.2, 1] }}
-            transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
-            style={{ fontSize: 20, lineHeight: 1 }}
-          >
-            {loveCooldown > 0 ? "💤" : "💝"}
-          </motion.span>
-          <span>
-            {loveSending
-              ? "Envoi…"
-              : loveCooldown > 0
-              ? `Coup de cœur dans ${loveCooldown}s`
-              : `Coup de cœur pour ${partner?.display_name || "ton amour"}`}
-          </span>
-        </motion.button>
-      )}
     </div>
   );
 }
@@ -470,6 +421,56 @@ function HubPage() {
       )}
 
       <InstallPrompt/>
+
+      {/* ── Bouton flottant Coup de cœur ─────────────────────────── */}
+      {me && couple && (
+        <motion.button
+          onClick={sendLoveBomb}
+          disabled={loveCooldown > 0 || loveSending}
+          whileTap={{ scale: 0.94 }}
+          style={{
+            position: "fixed",
+            bottom: "calc(env(safe-area-inset-bottom) + 88px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "14px 28px",
+            borderRadius: 999,
+            border: "none",
+            background: loveCooldown > 0
+              ? "oklch(0.16 0.04 260)"
+              : "linear-gradient(135deg, oklch(0.48 0.26 355) 0%, oklch(0.40 0.22 340) 100%)",
+            color: loveCooldown > 0 ? "oklch(0.50 0.05 260)" : "white",
+            fontSize: 15,
+            fontWeight: 700,
+            fontFamily: "inherit",
+            whiteSpace: "nowrap",
+            cursor: loveCooldown > 0 ? "default" : "pointer",
+            boxShadow: loveCooldown > 0
+              ? "none"
+              : "0 6px 28px oklch(0.48 0.26 355 / 0.50), 0 2px 8px oklch(0.48 0.26 355 / 0.30)",
+            transition: "all 0.3s ease",
+          }}
+        >
+          <motion.span
+            animate={loveCooldown > 0 ? {} : { scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
+            style={{ fontSize: 20, lineHeight: 1 }}
+          >
+            {loveCooldown > 0 ? "💤" : "💝"}
+          </motion.span>
+          <span>
+            {loveSending
+              ? "Envoi…"
+              : loveCooldown > 0
+              ? `Coup de cœur dans ${loveCooldown}s`
+              : `Coup de cœur pour ${partner?.display_name || "ton amour"}`}
+          </span>
+        </motion.button>
+      )}
     </div>
   );
 }

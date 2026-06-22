@@ -36,8 +36,8 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
 
   // Auth check up-front so helpers can use userId
   const { data: userRes } = await supabase.auth.getUser();
-  const userId = userRes.user?.id;
-  if (!userId) return { ok: false, reason: "Non connecté" };
+  if (!userRes.user?.id) return { ok: false, reason: "Non connecté" };
+  const userId: string = userRes.user.id;
 
   // Helper — fetch VAPID key and create a fresh PushSubscription
   async function createPushSub(): Promise<PushSubscription | { ok: false; reason: string }> {
