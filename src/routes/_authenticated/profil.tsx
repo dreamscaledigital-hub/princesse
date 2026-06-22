@@ -11,6 +11,7 @@ import { cachePenseeSound } from "@/lib/notification-sound";
 import { generateAvatarFromPrompt } from "@/lib/avatar-ai.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { LoveBombPayload } from "@/components/LoveBombOverlay";
 import { Input } from "@/components/ui/input";
 import {
   Avatar, AVATAR_STYLES, BG_PALETTE, SEED_PRESETS,
@@ -111,6 +112,9 @@ function ProfilPage() {
   const navigate = useNavigate();
   const [me, setMe]           = useState<Profile | null>(null);
   const [partner, setPartner] = useState<Profile | null>(null);
+  const [coupleId, setCoupleId] = useState<string | null>(null);
+  const [loveCooldown, setLoveCooldown] = useState(0);
+  const [loveSending, setLoveSending]   = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving]   = useState(false);
@@ -141,9 +145,10 @@ function ProfilPage() {
       const s = isSoundId(p.pensee_sound) ? p.pensee_sound : "clochette";
       setPenseeSound(s); cachePenseeSound(s); resetDraft(p);
     }
-    const { data: c } = await supabase.from("couples").select("user_a,user_b")
+    const { data: c } = await supabase.from("couples").select("id,user_a,user_b")
       .or(`user_a.eq.${ures.user.id},user_b.eq.${ures.user.id}`).maybeSingle();
     if (c) {
+      setCoupleId(c.id);
       const pid = c.user_a === ures.user.id ? c.user_b : c.user_a;
       const { data: pp } = await supabase.from("profiles")
         .select("id,display_name,avatar_emoji,avatar_style,avatar_options").eq("id", pid).maybeSingle();
@@ -163,6 +168,25 @@ function ProfilPage() {
       }).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [partner?.id]);
+
+  async function sendLoveBomb() {
+    if (!coupleId || !me || loveCooldown > 0 || loveSending) return;
+    setLoveSending(true);
+    const variant = Math.floor(Math.random() * 4);
+    const payload: LoveBombPayload = { sender_name: me.display_name || "Ton amour", variant };
+    try {
+      const ch = supabase.channel(`love-bomb-${coupleId}`);
+      ch.subscribe();
+      await new Promise<void>((r) => setTimeout(r, 400));
+      await ch.send({ type: "broadcast", event: "love_bomb", payload });
+      setTimeout(() => supabase.removeChannel(ch), 1000);
+    } catch { /* ignore */ }
+    setLoveSending(false);
+    setLoveCooldown(60);
+    const iv = setInterval(() => {
+      setLoveCooldown((p) => { if (p <= 1) { clearInterval(iv); return 0; } return p - 1; });
+    }, 1000);
+  }
 
   function resetDraft(p: Profile) {
     setDraftName(p.display_name || "");
@@ -677,6 +701,88 @@ function ProfilPage() {
           </div>
         </LuxeCard>
       </div>
+
+      {/* ── COUP DE CŒUR ── */}
+      {coupleId && me && (
+        <div style={{ padding: "0 16px 24px" }}>
+          <div style={{
+            borderRadius: 28,
+            overflow: "hidden",
+            background: "linear-gradient(145deg, oklch(0.13 0.06 355 / 0.85), oklch(0.10 0.04 340 / 0.90))",
+            border: "1px solid oklch(0.48 0.26 355 / 0.35)",
+            boxShadow: "0 8px 32px oklch(0.48 0.26 355 / 0.20), inset 0 1px 0 oklch(0.80 0.10 355 / 0.15)",
+            padding: "24px 20px 20px",
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <motion.span
+                animate={{ scale: [1, 1.18, 1] }}
+                transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                style={{ fontSize: 28, lineHeight: 1 }}
+              >
+                💝
+              </motion.span>
+              <div>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "oklch(0.95 0.04 355)", letterSpacing: "-0.02em" }}>
+                  Coup de cœur
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: "oklch(0.65 0.10 355)", marginTop: 1 }}>
+                  Envoie un grand message d'amour à {partner?.display_name || "ton amour"} 🌸
+                </p>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: "oklch(0.48 0.26 355 / 0.20)", margin: "14px 0" }} />
+
+            {/* Button */}
+            <motion.button
+              onClick={sendLoveBomb}
+              disabled={loveCooldown > 0 || loveSending}
+              whileTap={loveCooldown > 0 ? {} : { scale: 0.96 }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                padding: "16px 24px",
+                borderRadius: 18,
+                border: "none",
+                background: loveCooldown > 0
+                  ? "oklch(0.18 0.04 260 / 0.80)"
+                  : "linear-gradient(135deg, oklch(0.52 0.28 355) 0%, oklch(0.42 0.24 340) 100%)",
+                color: loveCooldown > 0 ? "oklch(0.45 0.06 260)" : "white",
+                fontSize: 15,
+                fontWeight: 700,
+                fontFamily: "inherit",
+                cursor: loveCooldown > 0 ? "default" : "pointer",
+                boxShadow: loveCooldown > 0
+                  ? "none"
+                  : "0 6px 24px oklch(0.52 0.28 355 / 0.45)",
+                transition: "all 0.3s ease",
+              }}
+            >
+              <span style={{ fontSize: 20, lineHeight: 1 }}>
+                {loveCooldown > 0 ? "💤" : "💝"}
+              </span>
+              <span>
+                {loveSending
+                  ? "Envoi en cours…"
+                  : loveCooldown > 0
+                  ? `Disponible dans ${loveCooldown}s`
+                  : `Envoyer un coup de cœur`}
+              </span>
+            </motion.button>
+
+            {loveCooldown === 0 && !loveSending && (
+              <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 11, color: "oklch(0.50 0.08 355)" }}>
+                Ça déclenche une surprise sur l'écran de {partner?.display_name || "ton amour"} ✨
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── SAVE BAR ── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 flex justify-center px-4"

@@ -15,7 +15,6 @@ import {
   subscribeToPush, sendPensee, pushPermissionState, getNotifStatus, isIOS, isStandalonePWA,
 } from "@/lib/push-client";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import type { LoveBombPayload } from "@/components/LoveBombOverlay";
 
 export const Route = createFileRoute("/_authenticated/hub")({
   head: () => ({ meta: [{ title: "Notre nid 💕 — Princesse" }] }),
@@ -78,8 +77,6 @@ function HubPage() {
   const [loading, setLoading] = useState(true);
   const [perm, setPerm]       = useState<NotificationPermission | "unsupported">("default");
   const [justPaired, setJustPaired] = useState(false);
-  const [loveCooldown, setLoveCooldown] = useState(0);
-  const [loveSending, setLoveSending] = useState(false);
   const [myCode, setMyCode]   = useState<string | null>(null);
   const [enteredCode, setEnteredCode] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
@@ -200,26 +197,6 @@ function HubPage() {
     setSending(false);
     if (res.ok) { toast.success(`Envoyé à ${partner?.display_name || "ton amour"} 💌`); setMessage(""); }
     else toast.error(res.reason || "Échec");
-  }
-
-  async function sendLoveBomb() {
-    if (!couple || !me || loveCooldown > 0 || loveSending) return;
-    setLoveSending(true);
-    const variant = Math.floor(Math.random() * 4);
-    const payload: LoveBombPayload = { sender_name: me.display_name || "Ton amour", variant };
-    try {
-      // Subscribe without awaiting SUBSCRIBED — Supabase queues the send.
-      const ch = supabase.channel(`love-bomb-${couple.id}`);
-      ch.subscribe();
-      await new Promise<void>((r) => setTimeout(r, 400));
-      await ch.send({ type: "broadcast", event: "love_bomb", payload });
-      setTimeout(() => supabase.removeChannel(ch), 1000);
-    } catch { /* ignore */ }
-    setLoveSending(false);
-    setLoveCooldown(60);
-    const iv = setInterval(() => {
-      setLoveCooldown((p) => { if (p <= 1) { clearInterval(iv); return 0; } return p - 1; });
-    }, 1000);
   }
 
   async function unpair() {
@@ -422,55 +399,6 @@ function HubPage() {
 
       <InstallPrompt/>
 
-      {/* ── Bouton flottant Coup de cœur ─────────────────────────── */}
-      {me && couple && (
-        <motion.button
-          onClick={sendLoveBomb}
-          disabled={loveCooldown > 0 || loveSending}
-          whileTap={{ scale: 0.94 }}
-          style={{
-            position: "fixed",
-            bottom: "calc(env(safe-area-inset-bottom) + 88px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 40,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "14px 28px",
-            borderRadius: 999,
-            border: "none",
-            background: loveCooldown > 0
-              ? "oklch(0.16 0.04 260)"
-              : "linear-gradient(135deg, oklch(0.48 0.26 355) 0%, oklch(0.40 0.22 340) 100%)",
-            color: loveCooldown > 0 ? "oklch(0.50 0.05 260)" : "white",
-            fontSize: 15,
-            fontWeight: 700,
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-            cursor: loveCooldown > 0 ? "default" : "pointer",
-            boxShadow: loveCooldown > 0
-              ? "none"
-              : "0 6px 28px oklch(0.48 0.26 355 / 0.50), 0 2px 8px oklch(0.48 0.26 355 / 0.30)",
-            transition: "all 0.3s ease",
-          }}
-        >
-          <motion.span
-            animate={loveCooldown > 0 ? {} : { scale: [1, 1.2, 1] }}
-            transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
-            style={{ fontSize: 20, lineHeight: 1 }}
-          >
-            {loveCooldown > 0 ? "💤" : "💝"}
-          </motion.span>
-          <span>
-            {loveSending
-              ? "Envoi…"
-              : loveCooldown > 0
-              ? `Coup de cœur dans ${loveCooldown}s`
-              : `Coup de cœur pour ${partner?.display_name || "ton amour"}`}
-          </span>
-        </motion.button>
-      )}
     </div>
   );
 }
