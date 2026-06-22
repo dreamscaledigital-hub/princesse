@@ -455,6 +455,73 @@ function ProfilPage() {
           </LuxeCard>
         </motion.div>
 
+        {/* Coup de cœur */}
+        {coupleId && me && (
+          <motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.46 }}>
+            <div style={{
+              borderRadius: 28,
+              background: "linear-gradient(145deg, oklch(0.22 0.08 355 / 0.90), oklch(0.16 0.06 340 / 0.95))",
+              border: "1px solid oklch(0.48 0.26 355 / 0.35)",
+              boxShadow: "0 8px 32px oklch(0.48 0.26 355 / 0.22), inset 0 1px 0 oklch(0.80 0.10 355 / 0.15)",
+              padding: "22px 20px 20px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <motion.span
+                  animate={{ scale: [1, 1.18, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                  style={{ fontSize: 26, lineHeight: 1 }}
+                >💝</motion.span>
+                <div>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "oklch(0.95 0.04 355)", letterSpacing: "-0.02em" }}>
+                    Coup de cœur
+                  </p>
+                  <p style={{ margin: 0, fontSize: 11.5, color: "oklch(0.68 0.12 355)", marginTop: 2 }}>
+                    Envoie une surprise à {partner?.display_name || "ton amour"} 🌸
+                  </p>
+                </div>
+              </div>
+              <div style={{ height: 1, background: "oklch(0.48 0.26 355 / 0.18)", margin: "14px 0" }} />
+              <motion.button
+                onClick={sendLoveBomb}
+                disabled={loveCooldown > 0 || loveSending}
+                whileTap={loveCooldown > 0 ? {} : { scale: 0.96 }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  padding: "15px 24px",
+                  borderRadius: 18,
+                  border: "none",
+                  background: loveCooldown > 0
+                    ? "oklch(0.18 0.04 260 / 0.70)"
+                    : "linear-gradient(135deg, oklch(0.52 0.28 355) 0%, oklch(0.42 0.24 340) 100%)",
+                  color: loveCooldown > 0 ? "oklch(0.45 0.06 260)" : "white",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  fontFamily: "inherit",
+                  cursor: loveCooldown > 0 ? "default" : "pointer",
+                  boxShadow: loveCooldown > 0 ? "none" : "0 6px 24px oklch(0.52 0.28 355 / 0.45)",
+                  transition: "all 0.3s ease",
+                }}
+              >
+                <span style={{ fontSize: 20, lineHeight: 1 }}>
+                  {loveCooldown > 0 ? "💤" : "💝"}
+                </span>
+                <span>
+                  {loveSending ? "Envoi…" : loveCooldown > 0 ? `Disponible dans ${loveCooldown}s` : "Envoyer un coup de cœur"}
+                </span>
+              </motion.button>
+              {loveCooldown === 0 && !loveSending && (
+                <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 11, color: "oklch(0.55 0.10 355)" }}>
+                  Ça déclenche une surprise sur son écran ✨
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Footer */}
         <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.5 }}
           className="pb-4 pt-2 text-center font-serif text-xl"
