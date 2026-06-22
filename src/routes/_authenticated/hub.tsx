@@ -66,6 +66,55 @@ function HeartLine() {
       <div className="h-px flex-1" style={{background:"linear-gradient(to right, transparent, oklch(0.75 0.13 355 / 0.4))"}}/>
       <Heart className="h-3.5 w-3.5 fill-primary/40 text-primary/40"/>
       <div className="h-px flex-1" style={{background:"linear-gradient(to left, transparent, oklch(0.75 0.13 355 / 0.4))"}}/>
+      {/* ── Floating love bomb button ───────────────────────────────────── */}
+      {me && couple && (
+        <motion.button
+          onClick={sendLoveBomb}
+          disabled={loveCooldown > 0 || loveSending}
+          whileTap={{ scale: 0.94 }}
+          style={{
+            position: "fixed",
+            bottom: "calc(env(safe-area-inset-bottom) + 88px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "14px 28px",
+            borderRadius: 999,
+            border: "none",
+            background: loveCooldown > 0
+              ? "oklch(0.16 0.04 260)"
+              : "linear-gradient(135deg, oklch(0.48 0.26 355) 0%, oklch(0.40 0.22 340) 100%)",
+            color: loveCooldown > 0 ? "oklch(0.50 0.05 260)" : "white",
+            fontSize: 15,
+            fontWeight: 700,
+            fontFamily: "inherit",
+            whiteSpace: "nowrap",
+            cursor: loveCooldown > 0 ? "default" : "pointer",
+            boxShadow: loveCooldown > 0
+              ? "none"
+              : "0 6px 28px oklch(0.48 0.26 355 / 0.50), 0 2px 8px oklch(0.48 0.26 355 / 0.30)",
+            transition: "all 0.3s ease",
+          }}
+        >
+          <motion.span
+            animate={loveCooldown > 0 ? {} : { scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
+            style={{ fontSize: 20, lineHeight: 1 }}
+          >
+            {loveCooldown > 0 ? "💤" : "💝"}
+          </motion.span>
+          <span>
+            {loveSending
+              ? "Envoi…"
+              : loveCooldown > 0
+              ? `Coup de cœur dans ${loveCooldown}s`
+              : `Coup de cœur pour ${partner?.display_name || "ton amour"}`}
+          </span>
+        </motion.button>
+      )}
     </div>
   );
 }
@@ -208,12 +257,12 @@ function HubPage() {
     const variant = Math.floor(Math.random() * 4);
     const payload: LoveBombPayload = { sender_name: me.display_name || "Ton amour", variant };
     try {
-      const ch = supabase.channel(`love-bomb-${couple.id}`, { config: { broadcast: { self: true } } });
-      await new Promise<void>((resolve) => ch.subscribe((status) => {
-        if (status === "SUBSCRIBED") resolve();
-      }));
+      // Subscribe without awaiting SUBSCRIBED — Supabase queues the send.
+      const ch = supabase.channel(`love-bomb-${couple.id}`);
+      ch.subscribe();
+      await new Promise<void>((r) => setTimeout(r, 400));
       await ch.send({ type: "broadcast", event: "love_bomb", payload });
-      await supabase.removeChannel(ch);
+      setTimeout(() => supabase.removeChannel(ch), 1000);
     } catch { /* ignore */ }
     setLoveSending(false);
     setLoveCooldown(60);
@@ -291,48 +340,6 @@ function HubPage() {
         <PairUI myCode={myCode} onCreate={createPairingCode} enteredCode={enteredCode} setEnteredCode={setEnteredCode} onConsume={consumeCode} busy={pairBusy}/>
       ) : (
         <motion.div initial={{y:20,opacity:0}} animate={{y:0,opacity:1}} transition={{delay:0.2}} className="mt-4 space-y-4 px-5">
-
-          {/* Coup de cœur */}
-          {me && couple && (
-            <motion.button
-              onClick={sendLoveBomb}
-              disabled={loveCooldown > 0 || loveSending}
-              whileTap={{ scale: 0.96 }}
-              style={{
-                width: "100%",
-                padding: "17px 24px",
-                borderRadius: 24,
-                border: "1px solid oklch(0.55 0.25 355 / 0.3)",
-                background: loveCooldown > 0
-                  ? "oklch(0.16 0.04 260)"
-                  : "linear-gradient(135deg, oklch(0.45 0.24 355) 0%, oklch(0.38 0.20 340) 100%)",
-                color: loveCooldown > 0 ? "oklch(0.55 0.05 260)" : "white",
-                fontSize: 17,
-                fontWeight: 700,
-                fontFamily: "inherit",
-                cursor: loveCooldown > 0 ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                boxShadow: loveCooldown > 0
-                  ? "none"
-                  : "0 8px 32px oklch(0.45 0.24 355 / 0.45)",
-                transition: "all 0.3s ease",
-              }}
-            >
-              <span style={{ fontSize: 22, lineHeight: 1 }}>
-                {loveCooldown > 0 ? "💤" : "💝"}
-              </span>
-              <span>
-                {loveSending
-                  ? "Envoi…"
-                  : loveCooldown > 0
-                  ? `Coup de cœur dans ${loveCooldown}s`
-                  : `Envoyer un coup de cœur à ${partner?.display_name || "ton amour"}`}
-              </span>
-            </motion.button>
-          )}
 
           {/* DailyRitual */}
           {me && partner && (
