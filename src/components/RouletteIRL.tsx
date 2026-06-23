@@ -277,10 +277,11 @@ export interface RouletteIRLProps {
   player1: string; player2: string;
   mySlot: 1 | 2; coupleId: string;
   onBack: () => void;
+  soloMode?: boolean;
 }
 
-export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: RouletteIRLProps) {
-  const [phase,        setPhase]        = useState<Phase>("agreement");
+export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack, soloMode = false }: RouletteIRLProps) {
+  const [phase,        setPhase]        = useState<Phase>(soloMode ? "idle" : "agreement");
   const [turn,         setTurn]         = useState<1 | 2>(1);
   const [rotation,     setRotation]     = useState(0);
   const [cat,          setCat]          = useState<Category | null>(null);
@@ -297,7 +298,7 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   const queuesRef     = useRef<Record<string, string[]>>({});
   const processingRef = useRef(false);
 
-  const isMyTurn    = turn === mySlot;
+  const isMyTurn    = soloMode ? true : turn === mySlot;
   const currentName = turn === 1 ? player1 : player2;
   const otherName   = turn === 1 ? player2 : player1;
   const theirName   = mySlot === 1 ? player2 : player1;
@@ -360,7 +361,7 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
   function restart() {
     if (processingRef.current) return; processingRef.current = true;
     channelRef.current?.send({ type: "broadcast", event: "restart", payload: {} });
-    setScores([0,0]); setWinner(null); setTurn(1); setCat(null); setChallenge("");
+    setScores([0,0]); setWinner(null); setTurn(soloMode ? mySlot : 1); setCat(null); setChallenge("");
     setTimerDone(false); setSuccess(null); setPhase("idle");
     setTimeout(() => { processingRef.current = false; }, 500);
   }
@@ -404,6 +405,12 @@ export function RouletteIRL({ player1, player2, mySlot, coupleId, onBack }: Roul
 
   function next() {
     if (!isMyTurn) return;
+    if (soloMode) {
+      // Solo: keep same turn, just reset to idle
+      setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null); setPhase("idle");
+      channelRef.current?.send({ type: "broadcast", event: "next", payload: { nextTurn: mySlot } });
+      return;
+    }
     const nextTurn: 1|2 = turn === 1 ? 2 : 1;
     channelRef.current?.send({ type: "broadcast", event: "next", payload: { nextTurn } });
     setTurn(nextTurn); setCat(null); setChallenge(""); setTimerDone(false); setSuccess(null); setPhase("idle");
