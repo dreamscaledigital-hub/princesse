@@ -231,6 +231,26 @@ export function MenuScreen({ room, players, mySlot, onPick }: Props) {
                 </div>
               </Link>
             </motion.div>
+
+            {/* Devine mon Style */}
+            <motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ delay: 0.21 }}>
+              <Link to="/devine-mon-style"
+                className="relative block w-full overflow-hidden rounded-[24px] text-left transition active:scale-[0.97]"
+                style={{ background: "linear-gradient(145deg,#4a1080,#1a0040,#0a1540)", boxShadow: "0 12px 36px rgba(168,85,247,0.25)" }}>
+                <div className="absolute inset-0" style={{ background: "linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.02))" }}/>
+                <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full" style={{ background: "rgba(168,85,247,0.30)", filter: "blur(20px)" }}/>
+                <div className="relative flex items-center gap-4 px-5 py-5">
+                  <span className="text-4xl drop-shadow-sm">💅</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-serif text-2xl leading-tight text-white drop-shadow-sm">Devine mon Style</p>
+                    <p className="mt-0.5 text-xs font-medium text-white/75">5 catégories · mode, voitures, déco, voyages…</p>
+                  </div>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl" style={{ background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
+                    <span className="text-white text-base">→</span>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
           </div>
 
           {/* ── SECTION 2: Moments à deux ── */}
