@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Crown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+// ── Types ─────────────────────────────────────────────────────────────────
+interface PoolItem { url: string; label: string; }
+type CatId = "robes" | "chaussures" | "voitures" | "deco" | "destinations";
+type Phase = "category" | "picking" | "waiting_pick" | "guessing" | "waiting_guess" | "reveal";
+
 // ── Seeded PRNG (mulberry32) ───────────────────────────────────────────────
 function mulberry32(seed: number) {
   let s = seed >>> 0;
@@ -14,7 +19,7 @@ function mulberry32(seed: number) {
   };
 }
 
-function pickItems(pool: string[], seed: number, n = 8): string[] {
+function pickItems(pool: PoolItem[], seed: number, n = 8): PoolItem[] {
   const rand = mulberry32(seed);
   const arr = [...pool];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -24,124 +29,277 @@ function pickItems(pool: string[], seed: number, n = 8): string[] {
   return arr.slice(0, n);
 }
 
-// ── Image URL ─────────────────────────────────────────────────────────────
-const U = (id: string) =>
-  `https://images.unsplash.com/photo-${id}?w=480&h=480&fit=crop&q=80&auto=format`;
+// ── Image builder ─────────────────────────────────────────────────────────
+const U = (id: string, label: string): PoolItem => ({
+  url: `https://images.unsplash.com/photo-${id}?w=500&h=500&fit=crop&q=80&auto=format`,
+  label,
+});
 
 // ── Image pools ───────────────────────────────────────────────────────────
 const CATEGORIES = [
   {
-    id: "robes", label: "Robes & Mode", emoji: "👗",
+    id: "robes" as CatId, label: "Robes & Mode", emoji: "👗",
     color: "#ec4899", glow: "rgba(236,72,153,0.45)",
     dark: "linear-gradient(135deg,#4a0020 0%,#1a0010 100%)",
+    desc: "Mode, tendances, looks du moment",
     pool: [
-      "1515886657613-9f3515b0c78f","1539109136881-3be0616acf4b",
-      "1483985988355-763728e1802b","1496747611176-843222e1e57c",
-      "1469334031218-e382a71b716b","1487222477894-8943e31ef7b2",
-      "1509631179647-0177331693ae","1519751138087-5bf79df62d5b",
-      "1503342217505-b0a15ec3261c","1434389677669-e08b4cac3105",
-      "1518611012118-696072aa579a","1566174053879-31528523f8ae",
-      "1490481651871-ab68de25d43d","1558618666-fcd25c85cd64",
-      "1525507069-f58f46f2b6ee","1571786366434-4d4f5e0c0af5",
-      "1572635196237-14b3f281503f","1529635266994-2c8b5b5c3c7a",
-      "1581044777550-4cfa2d8f5e8f","1580587771525-4e54b4c29ce3",
-      "1546961342-ea5f62d7c2a7","1550614036-1a8a3a7e64e3",
-      "1603302576837-37561b2e2302","1600585154340-be6161a56a0c",
-    ].map(U),
+      U("1515886657613-9f3515b0c78f","Robe bohème fleurie"),
+      U("1483985988355-763728e1802b","Look shopping chic"),
+      U("1496747611176-843222e1e57c","Robe midi colorée"),
+      U("1539109136881-3be0616acf4b","Tenue street fashion"),
+      U("1469334031218-e382a71b716b","Ensemble élégant"),
+      U("1490481651871-ab68de25d43d","Robe pastel douce"),
+      U("1487222477894-8943e31ef7b2","Look casual chic"),
+      U("1509631179647-0177331693ae","Robe de cocktail"),
+      U("1519751138087-5bf79df62d5b","Tenue romantique"),
+      U("1503342217505-b0a15ec3261c","Style minimaliste"),
+      U("1434389677669-e08b4cac3105","Look bohème chic"),
+      U("1518611012118-696072aa579a","Robe de soirée"),
+      U("1566174053879-31528523f8ae","Combinaison luxe"),
+      U("1558618666-fcd25c85cd64","Mode colorée"),
+      U("1525507069-f58f46f2b6ee","Tenue décontractée"),
+      U("1571786366434-4d4f5e0c0af5","Style urban"),
+      U("1572635196237-14b3f281503f","Robe asymétrique"),
+      U("1581044777550-4cfa2d8f5e8f","Look festival"),
+      U("1580587771525-4e54b4c29ce3","Ensemble printanier"),
+      U("1546961342-ea5f62d7c2a7","Robe dos nu"),
+      U("1550614036-1a8a3a7e64e3","Style vintage"),
+      U("1603302576837-37561b2e2302","Look tendance"),
+      U("1600585154340-be6161a56a0c","Robe café au lait"),
+      U("1529635266994-2c8b5b5c3c7a","Mode automne"),
+    ],
   },
   {
-    id: "chaussures", label: "Chaussures", emoji: "👠",
+    id: "chaussures" as CatId, label: "Chaussures", emoji: "👠",
     color: "#a855f7", glow: "rgba(168,85,247,0.45)",
     dark: "linear-gradient(135deg,#2d0060 0%,#0f0025 100%)",
+    desc: "Sneakers, talons, boots et plus",
     pool: [
-      "1542291026-7eec264c27ff","1460353581641-37baddab0fa2",
-      "1491553895911-0055eca6402d","1525966222134-fcfa99b8ae77",
-      "1543163521-1bf539c55dd2","1518894781321-630e638d0742",
-      "1512374382149-233c42b6a83b","1584735175315-9d5df23be4a1",
-      "1600269452121-4f2416e55c28","1568702846914-96b305d2aaeb",
-      "1606107557195-0e29a4b5b4aa","1595950653106-bdbce3a45d9b",
-      "1514590734846-e7f67677dd7e","1547036967-23d11aacaee0",
-      "1563861826100-9cb868fdbe1c","1560769629-975ec94e6a86",
-      "1511556820780-d912e42b4980","1585386959984-a4155224a1ad",
-      "1539519942-9c11f6f34e53","1520219370-b1dc03d9a5d5",
-      "1578116963-0ad3af3d3f3e","1618260788-0cd7a9aea6f5",
-      "1630874058717-dc5d85e8fecd","1651407479093-f6b58f8bf8f8",
-    ].map(U),
+      U("1542291026-7eec264c27ff","Baskets Nike rouges"),
+      U("1460353581641-37baddab0fa2","Chaussures colorées"),
+      U("1491553895911-0055eca6402d","Running shoes"),
+      U("1525966222134-fcfa99b8ae77","Sneakers blanches"),
+      U("1543163521-1bf539c55dd2","Collection variée"),
+      U("1518894781321-630e638d0742","Escarpins noirs"),
+      U("1512374382149-233c42b6a83b","Baskets colorblock"),
+      U("1584735175315-9d5df23be4a1","Sandales élégantes"),
+      U("1600269452121-4f2416e55c28","Sneakers luxe"),
+      U("1568702846914-96b305d2aaeb","Bottes en cuir"),
+      U("1606107557195-0e29a4b5b4aa","Baskets streetwear"),
+      U("1595950653106-bdbce3a45d9b","Mules tendance"),
+      U("1514590734846-e7f67677dd7e","Chaussures de ville"),
+      U("1547036967-23d11aacaee0","Boots rangers"),
+      U("1563861826100-9cb868fdbe1c","Platforms chunky"),
+      U("1560769629-975ec94e6a86","Baskets rétro"),
+      U("1511556820780-d912e42b4980","Talons aiguilles"),
+      U("1585386959984-a4155224a1ad","Loafers chic"),
+      U("1539519942-9c11f6f34e53","Mocassins classiques"),
+      U("1520219370-b1dc03d9a5d5","Sandales gladiator"),
+      U("1578116963-0ad3af3d3f3e","Baskets mode"),
+      U("1618260788-0cd7a9aea6f5","Sneakers blanc pur"),
+      U("1630874058717-dc5d85e8fecd","Running coloré"),
+      U("1651407479093-f6b58f8bf8f8","Chaussures sport"),
+    ],
   },
   {
-    id: "voitures", label: "Voitures", emoji: "🚗",
+    id: "voitures" as CatId, label: "Voitures", emoji: "🚗",
     color: "#ef4444", glow: "rgba(239,68,68,0.45)",
     dark: "linear-gradient(135deg,#500000 0%,#1a0000 100%)",
+    desc: "Sportives, luxe, classiques et SUV",
     pool: [
-      "1492144534655-ae79c964c9d7","1544636331-e26879cd4d9b",
-      "1503736334956-4c8f8e4dc391","1552519507-da3b142c6e3d",
-      "1525609004556-c46c7d6cf023","1583121274602-3e2820c69888",
-      "1580273916550-e323be2ae537","1542362567-b07e54358753",
-      "1511919884226-fd3cad34687c","1502877338535-766e1452684a",
-      "1493238792000-8113da705763","1519245659620-e859806a8d3b",
-      "1449965408869-eaa3f722e40d","1520340974578-0e7ffa4de31d",
-      "1547189885-68e8e29d7c02","1590362891991-f776e747a588",
-      "1603386311-f1b37a28d9c5","1563720223-b9d47f5b8ac5",
-      "1554744296-6ed18cf8cac9","1589408820082-24e8b57b2d76",
-      "1604054923956-1cb3ef7414b7","1621274590947-2e31cc2b53f7",
-      "1485291571150-772bcfc10da5","1616422036-1af5d56e1e2f",
-    ].map(U),
+      U("1492144534655-ae79c964c9d7","Supercar blanche"),
+      U("1544636331-e26879cd4d9b","Lamborghini jaune"),
+      U("1503736334956-4c8f8e4dc391","Voiture classique"),
+      U("1552519507-da3b142c6e3d","Muscle car américaine"),
+      U("1525609004556-c46c7d6cf023","Ferrari rouge"),
+      U("1583121274602-3e2820c69888","Supercar moderne"),
+      U("1580273916550-e323be2ae537","Porsche élégante"),
+      U("1542362567-b07e54358753","Coupé sport nocturne"),
+      U("1511919884226-fd3cad34687c","Sportive en mouvement"),
+      U("1502877338535-766e1452684a","Route et paysage"),
+      U("1493238792000-8113da705763","BMW sportive"),
+      U("1519245659620-e859806a8d3b","Roadster décapotable"),
+      U("1449965408869-eaa3f722e40d","Route ouverte"),
+      U("1520340974578-0e7ffa4de31d","Berline luxe"),
+      U("1547189885-68e8e29d7c02","SUV premium"),
+      U("1590362891991-f776e747a588","Hypercar"),
+      U("1603386311-f1b37a28d9c5","GT coupé"),
+      U("1554744296-6ed18cf8cac9","Sportive de nuit"),
+      U("1589408820082-24e8b57b2d76","Voiture de course"),
+      U("1604054923956-1cb3ef7414b7","Concept car"),
+      U("1621274590947-2e31cc2b53f7","EV moderne"),
+      U("1485291571150-772bcfc10da5","Cabriolet plage"),
+      U("1616422036-1af5d56e1e2f","Sedan premium"),
+      U("1563720223-b9d47f5b8ac5","Sport nocturne"),
+    ],
   },
   {
-    id: "deco", label: "Déco & Maison", emoji: "🏠",
+    id: "deco" as CatId, label: "Déco & Maison", emoji: "🏠",
     color: "#10b981", glow: "rgba(16,185,129,0.45)",
     dark: "linear-gradient(135deg,#003028 0%,#000e0a 100%)",
+    desc: "Intérieurs, mobilier et ambiances",
     pool: [
-      "1555041469-a586c61ea9bc","1586023492125-27b2c045efd7",
-      "1567016432779-094069958ea5","1484101403633-562f891dc89a",
-      "1600210492486-724fe5c67fb3","1560185007-cde436f6a4d0",
-      "1524758631624-e2822e304c36","1556228453-efd6c1ff04f6",
-      "1600607687939-ce8a6c25118c","1618221195710-dd6b41faaea6",
-      "1598928506311-c55ded91a20c","1507089947368-19c1da9775ae",
-      "1505409628601-edc9af17fda6","1449824913935-59a10b8d2000",
-      "1493809950229-ab1a6e9ac77e","1538127520272-d93702a19867",
-      "1565182999561-18d7dc61c393","1502005229762-fd26c6e55e5c",
-      "1617104678098-de229db51b7c","1615873968403-89fff8b8c1a4",
-      "1616046386961-3ca14a2d2c67","1618160702438-9b02ab6515c9",
-      "1564078516393-cf04bd966897","1631679706909-1844bbd0223b",
-    ].map(U),
+      U("1555041469-a586c61ea9bc","Canapé gris minimaliste"),
+      U("1586023492125-27b2c045efd7","Salon moderne"),
+      U("1567016432779-094069958ea5","Chambre nordique"),
+      U("1484101403633-562f891dc89a","Chambre cosy"),
+      U("1600210492486-724fe5c67fb3","Cuisine design"),
+      U("1560185007-cde436f6a4d0","Table de repas"),
+      U("1524758631624-e2822e304c36","Chambre lumineuse"),
+      U("1556228453-efd6c1ff04f6","Salon chaleureux"),
+      U("1600607687939-ce8a6c25118c","Salon épuré"),
+      U("1618221195710-dd6b41faaea6","Décor bohème"),
+      U("1598928506311-c55ded91a20c","Salle de bain luxe"),
+      U("1507089947368-19c1da9775ae","Espace minimaliste"),
+      U("1505409628601-edc9af17fda6","Bureau design"),
+      U("1493809950229-ab1a6e9ac77e","Hall d'entrée"),
+      U("1538127520272-d93702a19867","Coin lecture"),
+      U("1565182999561-18d7dc61c393","Terrasse extérieure"),
+      U("1502005229762-fd26c6e55e5c","Pièce industrielle"),
+      U("1617104678098-de229db51b7c","Appart haussmannien"),
+      U("1615873968403-89fff8b8c1a4","Loft design"),
+      U("1616046386961-3ca14a2d2c67","Studio moderne"),
+      U("1618160702438-9b02ab6515c9","Cuisine ouverte"),
+      U("1564078516393-cf04bd966897","Salle à manger"),
+      U("1631679706909-1844bbd0223b","Chambre hôtel luxe"),
+      U("1449824913935-59a10b8d2000","Table basse design"),
+    ],
   },
   {
-    id: "destinations", label: "Destinations", emoji: "✈️",
+    id: "destinations" as CatId, label: "Destinations", emoji: "✈️",
     color: "#0ea5e9", glow: "rgba(14,165,233,0.45)",
     dark: "linear-gradient(135deg,#002040 0%,#00070f 100%)",
+    desc: "Plages, villes, montagne et aventure",
     pool: [
-      "1506905925346-21bda4d32df4","1499856871958-5b9627545d1a",
-      "1512453979798-5ea266f8880c","1539037116277-4db20889f2d4",
-      "1523906834658-6e24ef2386f9","1476514525535-07fb3b4ae5f1",
-      "1507525428034-b723cf961d3e","1534430480872-3498386e7856",
-      "1469854523086-cc02fe5d8800","1528360983277-13d401cdc186",
-      "1581351721010-8cf859cb14a4","1491555103944-7c647fd857e6",
-      "1530521954074-e64f4810b5ad","1552465011-b4e21bf6e79a",
-      "1473496169904-658ba7574f0a","1502635385003-6702a3197638",
-      "1552832230-c0197dd311b5","1501785888041-af3ef285b470",
-      "1519302959554-a75be0afc578","1548574505-7cce1a7e7a72",
-      "1568454537842-d933259bb258","1580541631950-7282082b53a7",
-      "1532274402911-5a369e4c4bb5","1614094082869-cd4e4b2905c7",
-    ].map(U),
+      U("1506905925346-21bda4d32df4","Alpes majestueuses"),
+      U("1499856871958-5b9627545d1a","Paris Tour Eiffel"),
+      U("1476514525535-07fb3b4ae5f1","Plage tropicale"),
+      U("1507525428034-b723cf961d3e","Plage paradisiaque"),
+      U("1523906834658-6e24ef2386f9","Bryce Canyon"),
+      U("1469854523086-cc02fe5d8800","Skyline urbain"),
+      U("1528360983277-13d401cdc186","Lagon turquoise"),
+      U("1581351721010-8cf859cb14a4","Dunes de sable"),
+      U("1491555103944-7c647fd857e6","Tokyo de nuit"),
+      U("1530521954074-e64f4810b5ad","Coucher de soleil"),
+      U("1534430480872-3498386e7856","Lac de montagne"),
+      U("1552465011-b4e21bf6e79a","Santorini Grèce"),
+      U("1473496169904-658ba7574f0a","Fjord Norvège"),
+      U("1512453979798-5ea266f8880c","Dubai moderne"),
+      U("1539037116277-4db20889f2d4","Toscane italienne"),
+      U("1568454537842-d933259bb258","Forêt enchantée"),
+      U("1580541631950-7282082b53a7","Météores Grèce"),
+      U("1548574505-7cce1a7e7a72","New York City"),
+      U("1519302959554-a75be0afc578","Mongolie steppe"),
+      U("1502635385003-6702a3197638","Maldives bungalow"),
+      U("1532274402911-5a369e4c4bb5","Bali rizières"),
+      U("1614094082869-cd4e4b2905c7","Kyoto automne"),
+      U("1501785888041-af3ef285b470","Route panoramique"),
+      U("1552832230-c0197dd311b5","Village coloré"),
+    ],
   },
 ] as const;
 
-type CatId = typeof CATEGORIES[number]["id"];
-type Phase = "category" | "picking" | "waiting_pick" | "guessing" | "waiting_guess" | "reveal";
+// ── Score messages ─────────────────────────────────────────────────────────
+function scoreMsg(n: number) {
+  if (n === 3) return { text: "Parfait ! Tu le connais par cœur 🔥", color: "#f59e0b" };
+  if (n === 2) return { text: "Bien joué ! Presque parfait 💕", color: "#10b981" };
+  if (n === 1) return { text: "Pas mal… encore un effort 🌱", color: "#0ea5e9" };
+  return { text: "Aïe ! Vous avez à découvrir l'un l'autre 😅", color: "#f43f5e" };
+}
 
-// ── Broadcast payload helpers ─────────────────────────────────────────────
+// ── Broadcast payload helpers ──────────────────────────────────────────────
 function extractPayload<T>(msg: unknown): T {
   const raw = (msg ?? {}) as Record<string, unknown>;
   return ((raw["payload"] ?? raw) as T);
 }
 
-// ── Score messages ────────────────────────────────────────────────────────
-function scoreMsg(n: number) {
-  if (n === 3) return { text: "Parfait ! Tu le connais par cœur 🔥", color: "#f59e0b" };
-  if (n === 2) return { text: "Bien joué ! Presque parfait 💕", color: "#10b981" };
-  if (n === 1) return { text: "Pas mal… encore un effort 🌱", color: "#0ea5e9" };
-  return { text: "Aïe ! Vous avez à apprendre l'un de l'autre 😅", color: "#f43f5e" };
+// ── ImageCell ─────────────────────────────────────────────────────────────
+interface ImageCellProps {
+  item: PoolItem;
+  catEmoji: string;
+  catColor: string;
+  catGlow: string;
+  selected: boolean;
+  dimmed: boolean;
+  locked: boolean;      // cannnot tap (max reached and not selected)
+  onClick?: () => void;
+}
+function ImageCell({ item, catEmoji, catColor, catGlow, selected, dimmed, locked, onClick }: ImageCellProps) {
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <motion.div
+      whileTap={onClick && !locked ? { scale: 0.93 } : {}}
+      onClick={locked ? undefined : onClick}
+      style={{
+        position: "relative", borderRadius: 14, overflow: "hidden",
+        border: selected ? `2.5px solid ${catColor}` : "2px solid rgba(255,255,255,0.08)",
+        boxShadow: selected ? `0 0 18px ${catGlow}` : "none",
+        cursor: onClick && !locked ? "pointer" : "default",
+        background: `${catColor}14`,
+        transition: "border 0.2s, box-shadow 0.2s",
+      }}
+    >
+      {/* Skeleton while loading */}
+      {!loaded && !failed && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 100%)",
+          backgroundSize: "200% 100%",
+          animation: "shimmer 1.4s infinite",
+        }}/>
+      )}
+      {/* Image or fallback */}
+      {failed ? (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: `linear-gradient(145deg, ${catColor}25, ${catColor}08)`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: "8px",
+        }}>
+          <span style={{ fontSize: 28, lineHeight: 1 }}>{catEmoji}</span>
+          <p style={{
+            margin: "6px 0 0", fontSize: 11, fontWeight: 700, color: catColor,
+            textAlign: "center", lineHeight: 1.3, letterSpacing: 0.2,
+          }}>{item.label}</p>
+        </div>
+      ) : (
+        <img
+          src={item.url}
+          alt={item.label}
+          onLoad={() => setLoaded(true)}
+          onError={() => { setFailed(true); setLoaded(true); }}
+          style={{
+            width: "100%", height: "100%", objectFit: "cover", display: "block",
+            filter: dimmed && !selected ? "brightness(0.35)" : "none",
+            opacity: loaded ? 1 : 0,
+            transition: "opacity 0.3s ease",
+          }}
+        />
+      )}
+      {/* Selected overlay */}
+      {selected && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "rgba(0,0,0,0.28)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: catColor, borderRadius: "50%",
+            width: 30, height: 30,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 0 12px ${catGlow}`,
+          }}>
+            <Check size={16} color="white" strokeWidth={3}/>
+          </div>
+        </div>
+      )}
+      {/* Locked overlay (max reached, not selected) */}
+      {locked && !selected && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.38)" }}/>
+      )}
+    </motion.div>
+  );
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────
@@ -151,29 +309,32 @@ interface Props {
   onBack: () => void;
 }
 
-// ── Main component ────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────
 export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: Props) {
-  const [phase, setPhase]           = useState<Phase>("category");
-  const [picker, setPicker]         = useState<1 | 2>(1);
-  const [catId, setCatId]           = useState<CatId | "">("");
-  const [items, setItems]           = useState<string[]>([]);
-  const [mySelections, setMySel]    = useState<number[]>([]);
-  const [pickerPicks, setPickerPicks] = useState<number[]>([]);
+  const [phase, setPhase]               = useState<Phase>("category");
+  const [picker, setPicker]             = useState<1 | 2>(1);
+  const [catId, setCatId]               = useState<CatId | "">("");
+  const [items, setItems]               = useState<PoolItem[]>([]);
+  const [mySelections, setMySel]        = useState<number[]>([]);
+  const [pickerPicks, setPickerPicks]   = useState<number[]>([]);
   const [guesserGuess, setGuesserGuess] = useState<number[]>([]);
-  const [scores, setScores]         = useState<[number, number]>([0, 0]);
-  const [roundScore, setRoundScore] = useState(0);
-  const [connected, setConnected]   = useState(false);
+  const [scores, setScores]             = useState<[number, number]>([0, 0]);
+  const [roundScore, setRoundScore]     = useState(0);
+  const [connected, setConnected]       = useState(false);
+  const [confirming, setConfirming]     = useState(false);   // anti double-tap
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const pickerRef  = useRef<1 | 2>(1);
 
-  const isPicker   = picker === mySlot;
-  const cat        = CATEGORIES.find(c => c.id === catId) ?? null;
-  const pickerName = picker === 1 ? player1 : player2;
+  const isPicker    = picker === mySlot;
+  const cat         = CATEGORIES.find(c => c.id === catId) ?? null;
+  const pickerName  = picker === 1 ? player1 : player2;
   const guesserName = picker === 1 ? player2 : player1;
   const guesserSlot: 1 | 2 = picker === 1 ? 2 : 1;
 
-  // ── Channel setup ───────────────────────────────────────────────────────
+  // reset confirming when phase changes
+  useEffect(() => { setConfirming(false); }, [phase]);
+
+  // ── Channel setup ────────────────────────────────────────────────────────
   useEffect(() => {
     const ch = supabase.channel(`devineStyle:${coupleId}`, {
       config: { broadcast: { self: false } },
@@ -186,7 +347,6 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
         const picked = pickItems([...found.pool], p.seed);
         setItems(picked); setCatId(p.catId);
         setMySel([]); setPickerPicks([]); setGuesserGuess([]);
-        // Receiver is always the guesser when this arrives
         setPhase("waiting_pick");
       })
       .on("broadcast", { event: "picks_done" }, (msg) => {
@@ -198,7 +358,6 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
       .on("broadcast", { event: "guess_done" }, (msg) => {
         const p = extractPayload<{ guesses: number[]; guesserSlot: 1 | 2 }>(msg);
         setGuesserGuess(p.guesses);
-        // Compute score for guesser
         setPickerPicks(prev => {
           const correct = prev.filter(i => p.guesses.includes(i)).length;
           setRoundScore(correct);
@@ -213,12 +372,12 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
       })
       .on("broadcast", { event: "next_round" }, (msg) => {
         const p = extractPayload<{ nextPicker: 1 | 2 }>(msg);
-        setPicker(p.nextPicker); pickerRef.current = p.nextPicker;
+        setPicker(p.nextPicker);
         setPhase("category"); setItems([]); setCatId(""); setMySel([]);
         setPickerPicks([]); setGuesserGuess([]);
       })
       .on("broadcast", { event: "restart" }, () => {
-        setPicker(1); pickerRef.current = 1;
+        setPicker(1);
         setPhase("category"); setItems([]); setCatId(""); setMySel([]);
         setPickerPicks([]); setGuesserGuess([]); setScores([0, 0]);
       })
@@ -227,9 +386,9 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
     return () => { supabase.removeChannel(ch); };
   }, [coupleId]);
 
-  // ── Actions ─────────────────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────
   function startRound(cId: CatId) {
-    const seed = Math.floor(Math.random() * 999983);
+    const seed  = Math.floor(Math.random() * 999983);
     const found = CATEGORIES.find(c => c.id === cId)!;
     const picked = pickItems([...found.pool], seed);
     channelRef.current?.send({ type: "broadcast", event: "round_start", payload: { catId: cId, seed } });
@@ -238,12 +397,16 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
   }
 
   function confirmPicks() {
+    if (confirming || mySelections.length < 3) return;
+    setConfirming(true);
     channelRef.current?.send({ type: "broadcast", event: "picks_done", payload: { picks: mySelections } });
     setPickerPicks(mySelections); setMySel([]);
     setPhase("waiting_guess");
   }
 
   function confirmGuess() {
+    if (confirming || mySelections.length < 3) return;
+    setConfirming(true);
     channelRef.current?.send({ type: "broadcast", event: "guess_done", payload: { guesses: mySelections, guesserSlot } });
     const correct = pickerPicks.filter(i => mySelections.includes(i)).length;
     setGuesserGuess(mySelections); setRoundScore(correct);
@@ -252,15 +415,19 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
   }
 
   function nextRound() {
+    if (confirming) return;
+    setConfirming(true);
     const nextPicker: 1 | 2 = picker === 1 ? 2 : 1;
     channelRef.current?.send({ type: "broadcast", event: "next_round", payload: { nextPicker } });
-    setPicker(nextPicker); pickerRef.current = nextPicker;
+    setPicker(nextPicker);
     setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPickerPicks([]); setGuesserGuess([]);
   }
 
   function restart() {
+    if (confirming) return;
+    setConfirming(true);
     channelRef.current?.send({ type: "broadcast", event: "restart", payload: {} });
-    setPicker(1); pickerRef.current = 1;
+    setPicker(1);
     setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPickerPicks([]); setGuesserGuess([]); setScores([0, 0]);
   }
 
@@ -271,18 +438,9 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
     );
   }
 
-  // ── Reveal data ─────────────────────────────────────────────────────────
+  // ── Reveal helpers ───────────────────────────────────────────────────────
   const correct = useMemo(() =>
-    pickerPicks.filter(i => guesserGuess.includes(i)),
-    [pickerPicks, guesserGuess]
-  );
-
-  // ── Placeholder for broken images ────────────────────────────────────────
-  function imgFallback(e: React.SyntheticEvent<HTMLImageElement>) {
-    const emoji = cat?.emoji ?? "🖼️";
-    (e.currentTarget).src =
-      `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480'><rect width='480' height='480' fill='%23160820'/><text x='240' y='270' font-size='96' text-anchor='middle' dominant-baseline='middle'>${emoji}</text></svg>`;
-  }
+    pickerPicks.filter(i => guesserGuess.includes(i)), [pickerPicks, guesserGuess]);
 
   // ── Shared styles ─────────────────────────────────────────────────────────
   const BG: React.CSSProperties = {
@@ -291,37 +449,72 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
     position: "relative", overflow: "hidden",
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  const GRID_2COL: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gridTemplateRows: "repeat(4, 1fr)",
+    gap: 6,
+    flex: 1,
+    minHeight: 0,
+  };
+
+  const GRID_4COL: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gridTemplateRows: "repeat(2, 1fr)",
+    gap: 5,
+    flex: 1,
+    minHeight: 0,
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={BG}>
+      {/* Shimmer keyframe */}
+      <style>{`
+        @keyframes shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position:  200% 0; }
+        }
+      `}</style>
+
       {/* Ambient orbs */}
       {cat && <>
-        <div style={{ position:"absolute", top:"-20%", left:"-15%", width:300, height:300, borderRadius:"50%",
+        <div style={{ position:"absolute", top:"-20%", left:"-15%", width:280, height:280, borderRadius:"50%",
           background:`radial-gradient(circle, ${cat.glow} 0%, transparent 70%)`, filter:"blur(60px)", pointerEvents:"none" }}/>
-        <div style={{ position:"absolute", bottom:"-20%", right:"-15%", width:280, height:280, borderRadius:"50%",
+        <div style={{ position:"absolute", bottom:"-20%", right:"-15%", width:260, height:260, borderRadius:"50%",
           background:`radial-gradient(circle, ${cat.glow} 0%, transparent 70%)`, filter:"blur(60px)", pointerEvents:"none" }}/>
       </>}
 
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"env(safe-area-inset-top) 16px 0", paddingTop:"calc(env(safe-area-inset-top) + 12px)",
-        position:"relative", zIndex:10 }}>
-        <button onClick={onBack} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:12,
-          width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+      <div style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"calc(env(safe-area-inset-top) + 10px) 14px 10px",
+        position:"relative", zIndex:10,
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+      }}>
+        <button onClick={onBack} style={{
+          background:"rgba(255,255,255,0.08)", border:"none", borderRadius:12,
+          width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+          flexShrink: 0,
+        }}>
           <ArrowLeft size={18} color="white"/>
         </button>
-        <div style={{ textAlign:"center" }}>
-          <p style={{ margin:0, fontSize:11, fontWeight:700, letterSpacing:2, color:"rgba(255,255,255,0.35)",
-            textTransform:"uppercase" }}>Devine mon Style</p>
-          {cat && <p style={{ margin:0, fontSize:13, color:cat.color, fontWeight:700 }}>{cat.emoji} {cat.label}</p>}
+        <div style={{ textAlign:"center", flex:1, padding:"0 8px" }}>
+          <p style={{ margin:0, fontSize:10, fontWeight:700, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase" }}>
+            Devine mon Style
+          </p>
+          {cat
+            ? <p style={{ margin:0, fontSize:14, color:cat.color, fontWeight:800 }}>{cat.emoji} {cat.label}</p>
+            : <p style={{ margin:0, fontSize:13, color:"rgba(255,255,255,0.45)", fontWeight:600 }}>Choisir une catégorie</p>
+          }
         </div>
         {/* Scores */}
-        <div style={{ display:"flex", gap:8 }}>
+        <div style={{ display:"flex", gap:10, flexShrink: 0 }}>
           {([1,2] as const).map(slot => (
-            <div key={slot} style={{ textAlign:"center",
-              opacity: picker === slot ? 1 : 0.45 }}>
-              <p style={{ margin:0, fontSize:15, fontWeight:800, color:"white", lineHeight:1 }}>{scores[slot-1]}</p>
-              <p style={{ margin:0, fontSize:9, color:"rgba(255,255,255,0.4)", lineHeight:1 }}>
+            <div key={slot} style={{ textAlign:"center", opacity: picker === slot ? 1 : 0.4, transition:"opacity 0.3s" }}>
+              <p style={{ margin:0, fontSize:16, fontWeight:900, color:"white", lineHeight:1 }}>{scores[slot-1]}</p>
+              <p style={{ margin:0, fontSize:9, color:"rgba(255,255,255,0.4)", lineHeight:1, marginTop:1 }}>
                 {slot===1 ? player1.split(" ")[0] : player2.split(" ")[0]}
               </p>
             </div>
@@ -331,246 +524,303 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
 
       <AnimatePresence mode="wait">
 
-        {/* ── CATEGORY SELECTION ─────────────────────────────────────────── */}
+        {/* ── CATEGORY SELECTION ──────────────────────────────────────────── */}
         {phase === "category" && (
-          <motion.div key="cat" initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-20 }}
-            style={{ flex:1, padding:"24px 16px", overflowY:"auto" }}>
+          <motion.div key="cat"
+            initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-16 }}
+            style={{ flex:1, padding:"20px 14px", overflowY:"auto" }}>
             {isPicker ? (
               <>
-                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.85)", fontSize:17, fontWeight:700, marginBottom:6 }}>
-                  Tu choisis d'abord, {pickerName.split(" ")[0]} 🎯
+                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.9)", fontSize:16, fontWeight:700, marginBottom:4 }}>
+                  C'est ton tour de choisir, {pickerName.split(" ")[0]} 🎯
                 </p>
-                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.38)", fontSize:13, marginBottom:24 }}>
-                  Sélectionne une catégorie
+                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.35)", fontSize:12, marginBottom:20 }}>
+                  {guesserName.split(" ")[0]} devra deviner tes 3 préférés
                 </p>
-                <div style={{ display:"flex", flexDirection:"column", gap:12, maxWidth:400, margin:"0 auto" }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:10, maxWidth:420, margin:"0 auto" }}>
                   {CATEGORIES.map((c, i) => (
                     <motion.button key={c.id}
-                      initial={{ opacity:0, x:-20 }} animate={{ opacity:1, x:0 }} transition={{ delay: i * 0.07 }}
+                      initial={{ opacity:0, x:-16 }} animate={{ opacity:1, x:0 }} transition={{ delay: i * 0.06 }}
                       onClick={() => startRound(c.id)}
                       whileTap={{ scale: 0.97 }}
-                      style={{ display:"flex", alignItems:"center", gap:16,
-                        background:"rgba(255,255,255,0.06)", border:`1px solid ${c.color}44`,
-                        borderRadius:20, padding:"18px 20px", cursor:"pointer", textAlign:"left",
-                        boxShadow:`0 4px 20px ${c.glow.replace("0.45","0.12")}` }}>
-                      <span style={{ fontSize:36, lineHeight:1 }}>{c.emoji}</span>
-                      <div>
-                        <p style={{ margin:0, fontSize:16, fontWeight:800, color:"white" }}>{c.label}</p>
-                        <p style={{ margin:0, fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:2 }}>
-                          24 images · sélection aléatoire
-                        </p>
+                      style={{
+                        display:"flex", alignItems:"center", gap:14,
+                        background:"rgba(255,255,255,0.05)", border:`1px solid ${c.color}40`,
+                        borderRadius:18, padding:"16px 18px", cursor:"pointer", textAlign:"left",
+                        boxShadow:`0 4px 20px ${c.color}15`,
+                      }}>
+                      <span style={{ fontSize:32, lineHeight:1, flexShrink:0 }}>{c.emoji}</span>
+                      <div style={{ flex:1 }}>
+                        <p style={{ margin:0, fontSize:15, fontWeight:800, color:"white" }}>{c.label}</p>
+                        <p style={{ margin:0, fontSize:11, color:"rgba(255,255,255,0.38)", marginTop:2 }}>{c.desc}</p>
                       </div>
-                      <div style={{ marginLeft:"auto", color:c.color, fontSize:18 }}>→</div>
+                      <span style={{ color:c.color, fontSize:16, flexShrink:0 }}>→</span>
                     </motion.button>
                   ))}
                 </div>
               </>
             ) : (
               <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", paddingTop:60 }}>
-                <motion.div animate={{ scale:[1,1.08,1] }} transition={{ duration:2, repeat:Infinity }}>
-                  <span style={{ fontSize:64 }}>🎯</span>
+                <motion.div animate={{ scale:[1,1.1,1] }} transition={{ duration:2, repeat:Infinity }}>
+                  <span style={{ fontSize:56 }}>🎯</span>
                 </motion.div>
                 <p style={{ color:"white", fontSize:18, fontWeight:700, marginTop:20, textAlign:"center" }}>
                   {pickerName.split(" ")[0]} choisit la catégorie…
                 </p>
-                <p style={{ color:"rgba(255,255,255,0.38)", fontSize:13, marginTop:8, textAlign:"center" }}>
-                  Patience, ça arrive vite !
+                <p style={{ color:"rgba(255,255,255,0.35)", fontSize:13, marginTop:8, textAlign:"center" }}>
+                  Prépare-toi à deviner ses goûts !
                 </p>
               </div>
             )}
           </motion.div>
         )}
 
-        {/* ── PICKING (picker selects 3) ─────────────────────────────────── */}
-        {phase === "picking" && (
-          <motion.div key="pick" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"20px 12px" }}>
-            <p style={{ textAlign:"center", color:"rgba(255,255,255,0.8)", fontSize:15, fontWeight:700, marginBottom:4 }}>
-              Choisis 3 que tu aimes ❤️
-            </p>
-            <p style={{ textAlign:"center", fontSize:12, color:"rgba(255,255,255,0.38)", marginBottom:16 }}>
-              {mySelections.length}/3 sélectionnés — {guesserName.split(" ")[0]} devra deviner
-            </p>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, flex:1 }}>
-              {items.map((url, i) => {
-                const sel = mySelections.includes(i);
-                return (
-                  <motion.button key={i} whileTap={{ scale:0.92 }} onClick={() => toggleItem(i, 3)}
-                    style={{ aspectRatio:"1", borderRadius:14, overflow:"hidden", position:"relative",
-                      border: sel ? `2.5px solid ${cat?.color ?? "#ec4899"}` : "2px solid rgba(255,255,255,0.08)",
-                      boxShadow: sel ? `0 0 16px ${cat?.glow ?? "rgba(236,72,153,0.4)"}` : "none",
-                      cursor: mySelections.length >= 3 && !sel ? "default" : "pointer" }}>
-                    <img src={url} alt="" onError={imgFallback}
-                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}/>
-                    {sel && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.3)",
-                        display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <div style={{ background: cat?.color ?? "#ec4899", borderRadius:"50%",
-                          width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <Check size={15} color="white" strokeWidth={3}/>
-                        </div>
-                      </div>
-                    )}
-                    {!sel && mySelections.length >= 3 && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.35)" }}/>
-                    )}
-                  </motion.button>
-                );
-              })}
+        {/* ── PICKING (picker selects 3) ───────────────────────────────────── */}
+        {phase === "picking" && cat && (
+          <motion.div key="pick"
+            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"12px 12px 0" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+              <p style={{ margin:0, color:"rgba(255,255,255,0.85)", fontSize:14, fontWeight:700 }}>
+                Choisis tes 3 préférés ❤️
+              </p>
+              <div style={{ display:"flex", gap:4 }}>
+                {[0,1,2].map(i => (
+                  <div key={i} style={{
+                    width:22, height:22, borderRadius:6, border:`2px solid ${cat.color}`,
+                    background: i < mySelections.length ? cat.color : "transparent",
+                    transition:"background 0.2s",
+                  }}/>
+                ))}
+              </div>
             </div>
-            <motion.button onClick={confirmPicks} disabled={mySelections.length < 3}
-              animate={mySelections.length === 3 ? { scale:[1,1.03,1] } : {}}
-              transition={{ duration:0.8, repeat: mySelections.length === 3 ? Infinity : 0 }}
-              style={{ marginTop:16, padding:"16px 32px", borderRadius:999, border:"none", cursor: mySelections.length < 3 ? "default" : "pointer",
-                background: mySelections.length === 3
-                  ? `linear-gradient(135deg, ${cat?.color ?? "#ec4899"}, #a855f7)`
-                  : "rgba(255,255,255,0.1)",
-                color: mySelections.length === 3 ? "white" : "rgba(255,255,255,0.3)",
-                fontSize:16, fontWeight:800,
-                boxShadow: mySelections.length === 3 ? `0 6px 24px ${cat?.glow ?? "rgba(236,72,153,0.4)"}` : "none",
-                transition:"all 0.3s ease" }}>
-              {mySelections.length < 3 ? `Encore ${3 - mySelections.length} à choisir` : "✓ Valider mes choix"}
+            <div style={GRID_2COL}>
+              {items.map((item, i) => (
+                <ImageCell key={i}
+                  item={item}
+                  catEmoji={cat.emoji} catColor={cat.color} catGlow={cat.glow}
+                  selected={mySelections.includes(i)}
+                  dimmed={false}
+                  locked={mySelections.length >= 3 && !mySelections.includes(i)}
+                  onClick={() => toggleItem(i, 3)}
+                />
+              ))}
+            </div>
+            <motion.button
+              onClick={confirmPicks}
+              disabled={mySelections.length < 3 || confirming}
+              animate={mySelections.length === 3 && !confirming ? { scale:[1,1.02,1] } : {}}
+              transition={{ duration:1, repeat: mySelections.length === 3 ? Infinity : 0 }}
+              style={{
+                margin:"10px 0 calc(env(safe-area-inset-bottom) + 10px)",
+                padding:"15px 32px", borderRadius:999, border:"none",
+                cursor: mySelections.length < 3 || confirming ? "default" : "pointer",
+                background: mySelections.length === 3 && !confirming
+                  ? `linear-gradient(135deg, ${cat.color}, #a855f7)`
+                  : "rgba(255,255,255,0.08)",
+                color: mySelections.length === 3 && !confirming ? "white" : "rgba(255,255,255,0.3)",
+                fontSize:15, fontWeight:800,
+                boxShadow: mySelections.length === 3 && !confirming ? `0 6px 24px ${cat.glow}` : "none",
+                transition:"all 0.3s ease", flexShrink:0,
+              }}>
+              {confirming ? "Envoi…" : mySelections.length < 3 ? `Encore ${3 - mySelections.length} à choisir` : "✓ Valider mes choix"}
             </motion.button>
           </motion.div>
         )}
 
-        {/* ── WAITING (picker waits for guesser) ────────────────────────── */}
-        {(phase === "waiting_pick" || phase === "waiting_guess") && (
-          <motion.div key="wait" initial={{ opacity:0, scale:0.95 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
-            <motion.div animate={{ rotate:360 }} transition={{ duration:3, repeat:Infinity, ease:"linear" }}>
-              <span style={{ fontSize:56 }}>{cat?.emoji ?? "🎯"}</span>
-            </motion.div>
-            <p style={{ color:"white", fontSize:18, fontWeight:700, marginTop:24, textAlign:"center" }}>
-              {phase === "waiting_pick"
-                ? `${pickerName.split(" ")[0]} est en train de choisir…`
-                : `${guesserName.split(" ")[0]} est en train de deviner…`}
-            </p>
-            <p style={{ color:"rgba(255,255,255,0.35)", fontSize:13, marginTop:8, textAlign:"center" }}>
-              Patience… la surprise arrive !
-            </p>
-            {/* Show dimmed grid as preview */}
+        {/* ── WAITING ─────────────────────────────────────────────────────── */}
+        {(phase === "waiting_pick" || phase === "waiting_guess") && cat && (
+          <motion.div key="wait"
+            initial={{ opacity:0, scale:0.96 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"20px 14px" }}>
+
+            {/* Dimmed grid in background */}
             {items.length > 0 && (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:4, marginTop:28, width:"100%", maxWidth:320, opacity:0.2 }}>
-                {items.map((url, i) => (
-                  <div key={i} style={{ aspectRatio:"1", borderRadius:10, overflow:"hidden" }}>
-                    <img src={url} alt="" onError={imgFallback} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                  </div>
+              <div style={{ ...GRID_2COL, opacity: 0.18, pointerEvents:"none", flex:1 }}>
+                {items.map((item, i) => (
+                  <ImageCell key={i}
+                    item={item}
+                    catEmoji={cat.emoji} catColor={cat.color} catGlow={cat.glow}
+                    selected={false} dimmed={false} locked={false}
+                  />
                 ))}
               </div>
             )}
+
+            {/* Overlay info */}
+            <div style={{
+              position:"absolute", inset:0, display:"flex",
+              flexDirection:"column", alignItems:"center", justifyContent:"center",
+              padding:24, pointerEvents:"none",
+            }}>
+              <motion.div
+                animate={{ rotate:[0, 10, -10, 0] }}
+                transition={{ duration:2.4, repeat:Infinity, ease:"easeInOut" }}>
+                <span style={{ fontSize:60 }}>{cat.emoji}</span>
+              </motion.div>
+              <p style={{ color:"white", fontSize:19, fontWeight:800, marginTop:20, textAlign:"center" }}>
+                {phase === "waiting_pick"
+                  ? `${pickerName.split(" ")[0]} est en train de choisir…`
+                  : `${guesserName.split(" ")[0]} est en train de deviner…`}
+              </p>
+              <div style={{ display:"flex", gap:6, marginTop:14 }}>
+                {[0,1,2].map(i => (
+                  <motion.div key={i}
+                    animate={{ scale:[1,1.4,1], opacity:[0.4,1,0.4] }}
+                    transition={{ duration:1.2, delay:i*0.2, repeat:Infinity }}
+                    style={{ width:8, height:8, borderRadius:"50%", background:cat.color }}/>
+                ))}
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* ── GUESSING (guesser picks 3) ────────────────────────────────── */}
-        {phase === "guessing" && (
-          <motion.div key="guess" initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"20px 12px" }}>
-            <p style={{ textAlign:"center", color:"rgba(255,255,255,0.85)", fontSize:15, fontWeight:700, marginBottom:4 }}>
-              Devine les 3 choix de {pickerName.split(" ")[0]} 🔍
-            </p>
-            <p style={{ textAlign:"center", fontSize:12, color:"rgba(255,255,255,0.38)", marginBottom:16 }}>
-              {mySelections.length}/3 sélectionnés
-            </p>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, flex:1 }}>
-              {items.map((url, i) => {
-                const sel = mySelections.includes(i);
-                return (
-                  <motion.button key={i} whileTap={{ scale:0.92 }} onClick={() => toggleItem(i, 3)}
-                    style={{ aspectRatio:"1", borderRadius:14, overflow:"hidden", position:"relative",
-                      border: sel ? "2.5px solid #a855f7" : "2px solid rgba(255,255,255,0.08)",
-                      boxShadow: sel ? "0 0 16px rgba(168,85,247,0.5)" : "none",
-                      cursor: mySelections.length >= 3 && !sel ? "default" : "pointer" }}>
-                    <img src={url} alt="" onError={imgFallback}
-                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}/>
-                    {sel && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(168,85,247,0.25)",
-                        display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <div style={{ background:"#a855f7", borderRadius:"50%", width:28, height:28,
-                          display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <Check size={15} color="white" strokeWidth={3}/>
-                        </div>
-                      </div>
-                    )}
-                    {!sel && mySelections.length >= 3 && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.35)" }}/>
-                    )}
-                  </motion.button>
-                );
-              })}
+        {/* ── GUESSING (guesser picks 3) ───────────────────────────────────── */}
+        {phase === "guessing" && cat && (
+          <motion.div key="guess"
+            initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"12px 12px 0" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+              <p style={{ margin:0, color:"rgba(255,255,255,0.85)", fontSize:14, fontWeight:700 }}>
+                Devine les 3 préférés de {pickerName.split(" ")[0]} 🔍
+              </p>
+              <div style={{ display:"flex", gap:4 }}>
+                {[0,1,2].map(i => (
+                  <div key={i} style={{
+                    width:22, height:22, borderRadius:6, border:`2px solid #a855f7`,
+                    background: i < mySelections.length ? "#a855f7" : "transparent",
+                    transition:"background 0.2s",
+                  }}/>
+                ))}
+              </div>
             </div>
-            <motion.button onClick={confirmGuess} disabled={mySelections.length < 3}
-              animate={mySelections.length === 3 ? { scale:[1,1.03,1] } : {}}
-              transition={{ duration:0.8, repeat: mySelections.length === 3 ? Infinity : 0 }}
-              style={{ marginTop:16, padding:"16px 32px", borderRadius:999, border:"none",
-                cursor: mySelections.length < 3 ? "default" : "pointer",
-                background: mySelections.length === 3
+            <div style={GRID_2COL}>
+              {items.map((item, i) => (
+                <ImageCell key={i}
+                  item={item}
+                  catEmoji={cat.emoji} catColor="#a855f7" catGlow="rgba(168,85,247,0.5)"
+                  selected={mySelections.includes(i)}
+                  dimmed={false}
+                  locked={mySelections.length >= 3 && !mySelections.includes(i)}
+                  onClick={() => toggleItem(i, 3)}
+                />
+              ))}
+            </div>
+            <motion.button
+              onClick={confirmGuess}
+              disabled={mySelections.length < 3 || confirming}
+              animate={mySelections.length === 3 && !confirming ? { scale:[1,1.02,1] } : {}}
+              transition={{ duration:1, repeat: mySelections.length === 3 ? Infinity : 0 }}
+              style={{
+                margin:"10px 0 calc(env(safe-area-inset-bottom) + 10px)",
+                padding:"15px 32px", borderRadius:999, border:"none",
+                cursor: mySelections.length < 3 || confirming ? "default" : "pointer",
+                background: mySelections.length === 3 && !confirming
                   ? "linear-gradient(135deg, #a855f7, #ec4899)"
-                  : "rgba(255,255,255,0.1)",
-                color: mySelections.length === 3 ? "white" : "rgba(255,255,255,0.3)",
-                fontSize:16, fontWeight:800,
-                boxShadow: mySelections.length === 3 ? "0 6px 24px rgba(168,85,247,0.45)" : "none",
-                transition:"all 0.3s ease" }}>
-              {mySelections.length < 3 ? `Encore ${3 - mySelections.length} à deviner` : "✓ Soumettre mes devinettes"}
+                  : "rgba(255,255,255,0.08)",
+                color: mySelections.length === 3 && !confirming ? "white" : "rgba(255,255,255,0.3)",
+                fontSize:15, fontWeight:800,
+                boxShadow: mySelections.length === 3 && !confirming ? "0 6px 24px rgba(168,85,247,0.45)" : "none",
+                transition:"all 0.3s ease", flexShrink:0,
+              }}>
+              {confirming ? "Envoi…" : mySelections.length < 3 ? `Encore ${3 - mySelections.length} à deviner` : "✓ Soumettre mes devinettes"}
             </motion.button>
           </motion.div>
         )}
 
-        {/* ── REVEAL ─────────────────────────────────────────────────────── */}
-        {phase === "reveal" && (
-          <motion.div key="reveal" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"20px 12px" }}>
+        {/* ── REVEAL ──────────────────────────────────────────────────────── */}
+        {phase === "reveal" && cat && (
+          <motion.div key="reveal"
+            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"14px 12px 0" }}>
 
             {/* Score banner */}
-            <motion.div initial={{ scale:0.8, opacity:0 }} animate={{ scale:1, opacity:1 }} transition={{ type:"spring", delay:0.2 }}
-              style={{ textAlign:"center", marginBottom:16 }}>
-              <p style={{ fontSize:40, fontWeight:900, color:"white", margin:0, lineHeight:1 }}>
-                {roundScore}<span style={{ fontSize:20, color:"rgba(255,255,255,0.4)", fontWeight:400 }}>/3</span>
+            <motion.div
+              initial={{ scale:0.7, opacity:0 }} animate={{ scale:1, opacity:1 }}
+              transition={{ type:"spring", bounce:0.5, delay:0.15 }}
+              style={{ textAlign:"center", marginBottom:12 }}>
+              <p style={{ fontSize:44, fontWeight:900, color:"white", margin:0, lineHeight:1 }}>
+                {roundScore}<span style={{ fontSize:18, color:"rgba(255,255,255,0.35)", fontWeight:400 }}>/3</span>
               </p>
-              <p style={{ fontSize:13, color: scoreMsg(roundScore).color, fontWeight:700, marginTop:4 }}>
+              <p style={{ fontSize:13, color:scoreMsg(roundScore).color, fontWeight:700, marginTop:4 }}>
                 {scoreMsg(roundScore).text}
               </p>
             </motion.div>
 
-            {/* Image grid with reveals */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, flex:1 }}>
-              {items.map((url, i) => {
+            {/* Legend */}
+            <div style={{ display:"flex", gap:14, justifyContent:"center", marginBottom:10 }}>
+              {[["✅","Trouvé"],["💛","Manqué"],["❌","Mauvais"]].map(([icon,lbl]) => (
+                <div key={icon} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                  <span style={{ fontSize:13 }}>{icon}</span>
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{lbl}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* 4-col reveal grid */}
+            <div style={GRID_4COL}>
+              {items.map((item, i) => {
                 const wasPicked    = pickerPicks.includes(i);
                 const wasGuessed   = guesserGuess.includes(i);
                 const isCorrect    = wasPicked && wasGuessed;
                 const isMissed     = wasPicked && !wasGuessed;
                 const isWrongGuess = !wasPicked && wasGuessed;
+                const isNeutral    = !wasPicked && !wasGuessed;
 
                 return (
                   <motion.div key={i}
-                    initial={{ opacity:0, scale:0.85 }} animate={{ opacity:1, scale:1 }}
-                    transition={{ delay: i * 0.04, type:"spring" }}
-                    style={{ aspectRatio:"1", borderRadius:14, overflow:"hidden", position:"relative",
-                      border: isCorrect ? "2.5px solid #10b981"
-                        : isMissed ? "2.5px solid #f59e0b"
+                    initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }}
+                    transition={{ delay: i * 0.04, type:"spring", bounce:0.3 }}
+                    style={{
+                      position:"relative", borderRadius:12, overflow:"hidden",
+                      border: isCorrect ? "2px solid #10b981"
+                        : isMissed ? "2px solid #f59e0b"
                         : isWrongGuess ? "2px solid #ef4444"
-                        : "2px solid rgba(255,255,255,0.06)",
-                      boxShadow: isCorrect ? "0 0 16px rgba(16,185,129,0.5)"
-                        : isMissed ? "0 0 12px rgba(245,158,11,0.4)" : "none" }}>
-                    <img src={url} alt="" onError={imgFallback}
-                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block",
-                        filter: (!wasPicked && !wasGuessed) ? "brightness(0.4)" : "none" }}/>
+                        : "2px solid rgba(255,255,255,0.05)",
+                      boxShadow: isCorrect ? "0 0 14px rgba(16,185,129,0.45)"
+                        : isMissed ? "0 0 10px rgba(245,158,11,0.35)" : "none",
+                    }}>
+                    {/* Image */}
+                    <img src={item.url} alt={item.label}
+                      onError={(e) => {
+                        const el = e.currentTarget as HTMLImageElement;
+                        el.style.display = "none";
+                        const fb = el.nextElementSibling as HTMLElement | null;
+                        if (fb) fb.style.display = "flex";
+                      }}
+                      style={{
+                        width:"100%", height:"100%", objectFit:"cover", display:"block",
+                        filter: isNeutral ? "brightness(0.35)" : "none",
+                      }}
+                    />
+                    {/* Fallback */}
+                    <div style={{
+                      display:"none", position:"absolute", inset:0,
+                      background:`${cat.color}18`, flexDirection:"column",
+                      alignItems:"center", justifyContent:"center", padding:4,
+                    }}>
+                      <span style={{ fontSize:18 }}>{cat.emoji}</span>
+                      <p style={{ margin:"3px 0 0", fontSize:9, color:cat.color, fontWeight:700, textAlign:"center", lineHeight:1.2 }}>
+                        {item.label}
+                      </p>
+                    </div>
+                    {/* Status overlay */}
                     {isCorrect && (
                       <div style={{ position:"absolute", inset:0, background:"rgba(16,185,129,0.2)",
                         display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:22 }}>✅</span>
+                        <span style={{ fontSize:20 }}>✅</span>
                       </div>
                     )}
                     {isMissed && (
                       <div style={{ position:"absolute", inset:0, background:"rgba(245,158,11,0.2)",
                         display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:22 }}>💛</span>
+                        <span style={{ fontSize:20 }}>💛</span>
                       </div>
                     )}
                     {isWrongGuess && (
                       <div style={{ position:"absolute", inset:0, background:"rgba(239,68,68,0.2)",
                         display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:22 }}>❌</span>
+                        <span style={{ fontSize:20 }}>❌</span>
                       </div>
                     )}
                   </motion.div>
@@ -578,54 +828,73 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
               })}
             </div>
 
-            {/* Legend */}
-            <div style={{ display:"flex", gap:12, justifyContent:"center", marginTop:12 }}>
-              {[["✅","Bonne réponse"],["💛","Raté"],["❌","Mauvaise guess"]].map(([icon,label]) => (
-                <div key={icon} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:12 }}>{icon}</span>
-                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{label}</span>
-                </div>
-              ))}
-            </div>
+            {/* Correct count badges */}
+            <p style={{ textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:8 }}>
+              {correct.length}/3 trouvé{correct.length > 1 ? "s" : ""} · {guesserName.split(" ")[0]} marque {roundScore} pt{roundScore > 1 ? "s" : ""}
+            </p>
 
             {/* Action buttons */}
-            <div style={{ display:"flex", gap:10, marginTop:16 }}>
-              <button onClick={restart} style={{ flex:1, padding:"13px 0", borderRadius:999, border:"1px solid rgba(255,255,255,0.15)",
-                background:"rgba(255,255,255,0.06)", color:"rgba(255,255,255,0.55)", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-                <RefreshCw size={13} style={{ display:"inline", marginRight:6 }}/>
-                Tout reset
+            <div style={{ display:"flex", gap:8, marginTop:10, flexShrink:0 }}>
+              <button onClick={restart} disabled={confirming}
+                style={{
+                  flex:1, padding:"13px 0", borderRadius:999,
+                  border:"1px solid rgba(255,255,255,0.12)",
+                  background:"rgba(255,255,255,0.05)",
+                  color:"rgba(255,255,255,0.5)", fontSize:13, fontWeight:700,
+                  cursor: confirming ? "default" : "pointer",
+                }}>
+                <RefreshCw size={12} style={{ display:"inline", marginRight:5, verticalAlign:"middle" }}/>
+                Reset
               </button>
-              <motion.button onClick={nextRound} whileTap={{ scale:0.97 }}
-                style={{ flex:2, padding:"13px 0", borderRadius:999, border:"none",
-                  background:"linear-gradient(135deg,#ec4899,#a855f7)",
-                  color:"white", fontSize:14, fontWeight:800, cursor:"pointer",
-                  boxShadow:"0 6px 20px rgba(168,85,247,0.35)" }}>
-                Tour suivant →
+              <motion.button onClick={nextRound} disabled={confirming}
+                whileTap={{ scale: confirming ? 1 : 0.97 }}
+                style={{
+                  flex:2.5, padding:"13px 0", borderRadius:999, border:"none",
+                  background: confirming ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#ec4899,#a855f7)",
+                  color: confirming ? "rgba(255,255,255,0.4)" : "white",
+                  fontSize:14, fontWeight:800, cursor: confirming ? "default" : "pointer",
+                  boxShadow: confirming ? "none" : "0 6px 20px rgba(168,85,247,0.35)",
+                }}>
+                {confirming ? "…" : "Tour suivant →"}
               </motion.button>
             </div>
 
             {/* Total scores */}
-            <div style={{ display:"flex", gap:12, justifyContent:"center", marginTop:14 }}>
-              {([1,2] as const).map(slot => (
-                <div key={slot} style={{ textAlign:"center",
-                  background:"rgba(255,255,255,0.06)", borderRadius:14, padding:"10px 20px" }}>
-                  {scores[slot-1] === Math.max(...scores) && scores[0] !== scores[1] &&
-                    <Crown size={14} color="#f59e0b" style={{ display:"block", margin:"0 auto 4px" }}/>}
-                  <p style={{ margin:0, fontSize:22, fontWeight:900, color:"white" }}>{scores[slot-1]}</p>
-                  <p style={{ margin:0, fontSize:11, color:"rgba(255,255,255,0.4)" }}>
-                    {slot===1 ? player1.split(" ")[0] : player2.split(" ")[0]}
-                  </p>
-                </div>
-              ))}
+            <div style={{
+              display:"flex", gap:10, justifyContent:"center",
+              margin:"12px 0 calc(env(safe-area-inset-bottom) + 12px)",
+            }}>
+              {([1,2] as const).map(slot => {
+                const isLeader = scores[slot-1] === Math.max(...scores) && scores[0] !== scores[1];
+                return (
+                  <div key={slot} style={{
+                    textAlign:"center",
+                    background: isLeader ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.05)",
+                    border: isLeader ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                    borderRadius:14, padding:"10px 22px",
+                    transition:"all 0.3s",
+                  }}>
+                    {isLeader && <Crown size={14} color="#f59e0b" style={{ display:"block", margin:"0 auto 4px" }}/>}
+                    <p style={{ margin:0, fontSize:24, fontWeight:900, color:"white" }}>{scores[slot-1]}</p>
+                    <p style={{ margin:0, fontSize:11, color:"rgba(255,255,255,0.4)" }}>
+                      {slot===1 ? player1.split(" ")[0] : player2.split(" ")[0]}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
+
           </motion.div>
         )}
 
       </AnimatePresence>
 
       {/* Connection dot */}
-      <div style={{ position:"fixed", bottom:8, right:8, width:6, height:6, borderRadius:"50%",
-        background: connected ? "#10b981" : "#ef4444", opacity:0.6 }}/>
+      <div style={{
+        position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 6px)", right:10,
+        width:6, height:6, borderRadius:"50%",
+        background: connected ? "#10b981" : "#ef4444", opacity:0.55,
+      }}/>
     </div>
   );
 }
