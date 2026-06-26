@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Crown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 interface PoolItem { url: string; label: string; }
 type CatId = "robes" | "chaussures" | "voitures" | "deco" | "destinations";
 type Phase = "category" | "picking" | "waiting_pick" | "guessing" | "waiting_guess" | "reveal";
+type RevealStatus = "correct" | "missed" | "wrong" | "neutral";
 
-// ── Seeded PRNG (mulberry32) ───────────────────────────────────────────────
+// ── Seeded PRNG ────────────────────────────────────────────────────────────
 function mulberry32(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -18,8 +19,7 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-function pickItems(pool: PoolItem[], seed: number, n = 8): PoolItem[] {
+function pickItems(pool: readonly PoolItem[], seed: number, n = 8): PoolItem[] {
   const rand = mulberry32(seed);
   const arr = [...pool];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -29,18 +29,17 @@ function pickItems(pool: PoolItem[], seed: number, n = 8): PoolItem[] {
   return arr.slice(0, n);
 }
 
-// ── Image builder ─────────────────────────────────────────────────────────
+// ── Image builder ──────────────────────────────────────────────────────────
 const U = (id: string, label: string): PoolItem => ({
-  url: `https://images.unsplash.com/photo-${id}?w=500&h=500&fit=crop&q=80&auto=format`,
+  url: `https://images.unsplash.com/photo-${id}?w=600&h=600&fit=crop&q=80&auto=format`,
   label,
 });
 
-// ── Image pools ───────────────────────────────────────────────────────────
+// ── Categories ─────────────────────────────────────────────────────────────
 const CATEGORIES = [
   {
     id: "robes" as CatId, label: "Robes & Mode", emoji: "👗",
-    color: "#ec4899", glow: "rgba(236,72,153,0.45)",
-    dark: "linear-gradient(135deg,#4a0020 0%,#1a0010 100%)",
+    color: "#ec4899", glow: "rgba(236,72,153,0.5)",
     desc: "Mode, tendances, looks du moment",
     pool: [
       U("1515886657613-9f3515b0c78f","Robe bohème fleurie"),
@@ -58,7 +57,7 @@ const CATEGORIES = [
       U("1566174053879-31528523f8ae","Combinaison luxe"),
       U("1558618666-fcd25c85cd64","Mode colorée"),
       U("1525507069-f58f46f2b6ee","Tenue décontractée"),
-      U("1571786366434-4d4f5e0c0af5","Style urban"),
+      U("1571786366434-4d4f5e0c0af5","Style urbain"),
       U("1572635196237-14b3f281503f","Robe asymétrique"),
       U("1581044777550-4cfa2d8f5e8f","Look festival"),
       U("1580587771525-4e54b4c29ce3","Ensemble printanier"),
@@ -67,12 +66,11 @@ const CATEGORIES = [
       U("1603302576837-37561b2e2302","Look tendance"),
       U("1600585154340-be6161a56a0c","Robe café au lait"),
       U("1529635266994-2c8b5b5c3c7a","Mode automne"),
-    ],
+    ] as const,
   },
   {
     id: "chaussures" as CatId, label: "Chaussures", emoji: "👠",
-    color: "#a855f7", glow: "rgba(168,85,247,0.45)",
-    dark: "linear-gradient(135deg,#2d0060 0%,#0f0025 100%)",
+    color: "#a855f7", glow: "rgba(168,85,247,0.5)",
     desc: "Sneakers, talons, boots et plus",
     pool: [
       U("1542291026-7eec264c27ff","Baskets Nike rouges"),
@@ -99,12 +97,11 @@ const CATEGORIES = [
       U("1618260788-0cd7a9aea6f5","Sneakers blanc pur"),
       U("1630874058717-dc5d85e8fecd","Running coloré"),
       U("1651407479093-f6b58f8bf8f8","Chaussures sport"),
-    ],
+    ] as const,
   },
   {
     id: "voitures" as CatId, label: "Voitures", emoji: "🚗",
-    color: "#ef4444", glow: "rgba(239,68,68,0.45)",
-    dark: "linear-gradient(135deg,#500000 0%,#1a0000 100%)",
+    color: "#ef4444", glow: "rgba(239,68,68,0.5)",
     desc: "Sportives, luxe, classiques et SUV",
     pool: [
       U("1492144534655-ae79c964c9d7","Supercar blanche"),
@@ -131,12 +128,11 @@ const CATEGORIES = [
       U("1485291571150-772bcfc10da5","Cabriolet plage"),
       U("1616422036-1af5d56e1e2f","Sedan premium"),
       U("1563720223-b9d47f5b8ac5","Sport nocturne"),
-    ],
+    ] as const,
   },
   {
     id: "deco" as CatId, label: "Déco & Maison", emoji: "🏠",
-    color: "#10b981", glow: "rgba(16,185,129,0.45)",
-    dark: "linear-gradient(135deg,#003028 0%,#000e0a 100%)",
+    color: "#10b981", glow: "rgba(16,185,129,0.5)",
     desc: "Intérieurs, mobilier et ambiances",
     pool: [
       U("1555041469-a586c61ea9bc","Canapé gris minimaliste"),
@@ -163,12 +159,11 @@ const CATEGORIES = [
       U("1564078516393-cf04bd966897","Salle à manger"),
       U("1631679706909-1844bbd0223b","Chambre hôtel luxe"),
       U("1449824913935-59a10b8d2000","Table basse design"),
-    ],
+    ] as const,
   },
   {
     id: "destinations" as CatId, label: "Destinations", emoji: "✈️",
-    color: "#0ea5e9", glow: "rgba(14,165,233,0.45)",
-    dark: "linear-gradient(135deg,#002040 0%,#00070f 100%)",
+    color: "#0ea5e9", glow: "rgba(14,165,233,0.5)",
     desc: "Plages, villes, montagne et aventure",
     pool: [
       U("1506905925346-21bda4d32df4","Alpes majestueuses"),
@@ -195,94 +190,142 @@ const CATEGORIES = [
       U("1614094082869-cd4e4b2905c7","Kyoto automne"),
       U("1501785888041-af3ef285b470","Route panoramique"),
       U("1552832230-c0197dd311b5","Village coloré"),
-    ],
+    ] as const,
   },
 ] as const;
 
-// ── Score messages ─────────────────────────────────────────────────────────
 function scoreMsg(n: number) {
   if (n === 3) return { text: "Parfait ! Tu le connais par cœur 🔥", color: "#f59e0b" };
   if (n === 2) return { text: "Bien joué ! Presque parfait 💕", color: "#10b981" };
   if (n === 1) return { text: "Pas mal… encore un effort 🌱", color: "#0ea5e9" };
-  return { text: "Aïe ! Vous avez à découvrir l'un l'autre 😅", color: "#f43f5e" };
+  return { text: "Aïe ! Encore à découvrir 😅", color: "#f43f5e" };
 }
 
-// ── Broadcast payload helpers ──────────────────────────────────────────────
 function extractPayload<T>(msg: unknown): T {
   const raw = (msg ?? {}) as Record<string, unknown>;
-  return ((raw["payload"] ?? raw) as T);
+  return (raw["payload"] ?? raw) as T;
 }
 
-// ── ImageCell ─────────────────────────────────────────────────────────────
-interface ImageCellProps {
-  item: PoolItem;
-  catEmoji: string;
-  catColor: string;
-  catGlow: string;
-  selected: boolean;
-  dimmed: boolean;
-  locked: boolean;      // cannnot tap (max reached and not selected)
+// ── ImageCell ──────────────────────────────────────────────────────────────
+// KEY: uses aspectRatio:"1" on the wrapper so height is ALWAYS defined.
+// All inner content uses position:absolute inset:0 to fill reliably.
+function ImageCell({
+  item, catEmoji, catColor, catGlow,
+  selected, locked, revealStatus, onClick,
+}: {
+  item: PoolItem; catEmoji: string; catColor: string; catGlow: string;
+  selected: boolean; locked: boolean;
+  revealStatus?: RevealStatus;
   onClick?: () => void;
-}
-function ImageCell({ item, catEmoji, catColor, catGlow, selected, dimmed, locked, onClick }: ImageCellProps) {
+}) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+  const border =
+    revealStatus === "correct" ? "2.5px solid #10b981"
+    : revealStatus === "missed" ? "2.5px solid #f59e0b"
+    : revealStatus === "wrong"  ? "2px solid #ef4444"
+    : selected                   ? `2.5px solid ${catColor}`
+    : "2px solid rgba(255,255,255,0.09)";
+
+  const shadow =
+    revealStatus === "correct" ? "0 0 16px rgba(16,185,129,0.55)"
+    : revealStatus === "missed" ? "0 0 10px rgba(245,158,11,0.45)"
+    : selected                   ? `0 0 18px ${catGlow}`
+    : "none";
+
   return (
     <motion.div
-      whileTap={onClick && !locked ? { scale: 0.93 } : {}}
+      whileTap={onClick && !locked ? { scale: 0.90 } : {}}
       onClick={locked ? undefined : onClick}
       style={{
-        position: "relative", borderRadius: 14, overflow: "hidden",
-        border: selected ? `2.5px solid ${catColor}` : "2px solid rgba(255,255,255,0.08)",
-        boxShadow: selected ? `0 0 18px ${catGlow}` : "none",
+        aspectRatio: "1",           /* ← gives the cell a definite height */
+        position: "relative",
+        borderRadius: 12,
+        overflow: "hidden",
+        border, boxShadow: shadow,
         cursor: onClick && !locked ? "pointer" : "default",
-        background: `${catColor}14`,
-        transition: "border 0.2s, box-shadow 0.2s",
+        background: `${catColor}10`,
+        transition: "border 0.15s, box-shadow 0.15s",
       }}
     >
-      {/* Skeleton while loading */}
-      {!loaded && !failed && (
+      {/* Shimmer skeleton */}
+      {!loaded && (
         <div style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 100%)",
+          background: "linear-gradient(90deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.11) 50%,rgba(255,255,255,0.04) 100%)",
           backgroundSize: "200% 100%",
-          animation: "shimmer 1.4s infinite",
+          animation: "ds-shimmer 1.4s ease-in-out infinite",
         }}/>
       )}
-      {/* Image or fallback */}
-      {failed ? (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: `linear-gradient(145deg, ${catColor}25, ${catColor}08)`,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          padding: "8px",
-        }}>
-          <span style={{ fontSize: 28, lineHeight: 1 }}>{catEmoji}</span>
-          <p style={{
-            margin: "6px 0 0", fontSize: 11, fontWeight: 700, color: catColor,
-            textAlign: "center", lineHeight: 1.3, letterSpacing: 0.2,
-          }}>{item.label}</p>
-        </div>
-      ) : (
+
+      {/* Photo — position absolute so it fills the aspect-ratio square */}
+      {!failed && (
         <img
           src={item.url}
           alt={item.label}
           onLoad={() => setLoaded(true)}
           onError={() => { setFailed(true); setLoaded(true); }}
           style={{
-            width: "100%", height: "100%", objectFit: "cover", display: "block",
-            filter: dimmed && !selected ? "brightness(0.35)" : "none",
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            objectFit: "cover", display: "block",
             opacity: loaded ? 1 : 0,
             transition: "opacity 0.3s ease",
           }}
         />
       )}
-      {/* Selected overlay */}
-      {selected && (
+
+      {/* Fallback gradient card — always visible when image 404s */}
+      {failed && (
         <div style={{
           position: "absolute", inset: 0,
-          background: "rgba(0,0,0,0.28)",
-          display: "flex", alignItems: "center", justifyContent: "center",
+          background: `linear-gradient(145deg, ${catColor}28, ${catColor}06)`,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: "8px 6px",
+        }}>
+          <span style={{ fontSize: 26, lineHeight: 1 }}>{catEmoji}</span>
+          <p style={{
+            margin: "5px 0 0", fontSize: 10, fontWeight: 700,
+            color: catColor, textAlign: "center", lineHeight: 1.3,
+          }}>{item.label}</p>
+        </div>
+      )}
+
+      {/* Locked dimming */}
+      {locked && !selected && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.48)" }}/>
+      )}
+
+      {/* Reveal overlays */}
+      {revealStatus === "correct" && (
+        <div style={{ position:"absolute", inset:0, background:"rgba(16,185,129,0.22)",
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <span style={{ fontSize:22 }}>✅</span>
+        </div>
+      )}
+      {revealStatus === "missed" && (
+        <div style={{ position:"absolute", inset:0, background:"rgba(245,158,11,0.22)",
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <span style={{ fontSize:22 }}>💛</span>
+        </div>
+      )}
+      {revealStatus === "wrong" && (
+        <div style={{ position:"absolute", inset:0, background:"rgba(239,68,68,0.22)",
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <span style={{ fontSize:22 }}>❌</span>
+        </div>
+      )}
+      {revealStatus === "neutral" && (
+        <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.55)" }}/>
+      )}
+
+      {/* Selected checkmark */}
+      {selected && (
+        <div style={{
+          position:"absolute", inset:0, background:"rgba(0,0,0,0.26)",
+          display:"flex", alignItems:"center", justifyContent:"center",
         }}>
           <div style={{
             background: catColor, borderRadius: "50%",
@@ -294,280 +337,276 @@ function ImageCell({ item, catEmoji, catColor, catGlow, selected, dimmed, locked
           </div>
         </div>
       )}
-      {/* Locked overlay (max reached, not selected) */}
-      {locked && !selected && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.38)" }}/>
-      )}
     </motion.div>
   );
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────
+// ── Dot counter ────────────────────────────────────────────────────────────
+function Dots({ count, color }: { count: number; color: string }) {
+  return (
+    <div style={{ display:"flex", gap:5 }}>
+      {[0,1,2].map(i => (
+        <motion.div key={i}
+          animate={i < count ? { scale:[1,1.25,1] } : {}}
+          transition={{ duration:0.25 }}
+          style={{
+            width:18, height:18, borderRadius:5,
+            border:`2px solid ${color}`,
+            background: i < count ? color : "transparent",
+            transition:"background 0.18s",
+          }}/>
+      ))}
+    </div>
+  );
+}
+
+// ── Props ──────────────────────────────────────────────────────────────────
 interface Props {
   player1: string; player2: string;
-  mySlot: 1 | 2; coupleId: string;
+  mySlot: 1|2; coupleId: string;
   onBack: () => void;
 }
 
-// ── Main component ─────────────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────
 export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: Props) {
-  const [phase, setPhase]               = useState<Phase>("category");
-  const [picker, setPicker]             = useState<1 | 2>(1);
-  const [catId, setCatId]               = useState<CatId | "">("");
-  const [items, setItems]               = useState<PoolItem[]>([]);
-  const [mySelections, setMySel]        = useState<number[]>([]);
-  const [pickerPicks, setPickerPicks]   = useState<number[]>([]);
-  const [guesserGuess, setGuesserGuess] = useState<number[]>([]);
-  const [scores, setScores]             = useState<[number, number]>([0, 0]);
-  const [roundScore, setRoundScore]     = useState(0);
-  const [connected, setConnected]       = useState(false);
-  const [confirming, setConfirming]     = useState(false);   // anti double-tap
+  const [phase, setPhase]           = useState<Phase>("category");
+  const [picker, setPicker]         = useState<1|2>(1);
+  const [catId, setCatId]           = useState<CatId|"">("");
+  const [items, setItems]           = useState<PoolItem[]>([]);
+  const [mySelections, setMySel]    = useState<number[]>([]);
+  const [pickerPicks, setPP]        = useState<number[]>([]);
+  const [guesserGuess, setGG]       = useState<number[]>([]);
+  const [scores, setScores]         = useState<[number,number]>([0,0]);
+  const [roundScore, setRS]         = useState(0);
+  const [connected, setConnected]   = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const chRef = useRef<ReturnType<typeof supabase.channel>|null>(null);
 
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  const isPicker    = picker === mySlot;
   const cat         = CATEGORIES.find(c => c.id === catId) ?? null;
-  const pickerName  = picker === 1 ? player1 : player2;
-  const guesserName = picker === 1 ? player2 : player1;
-  const guesserSlot: 1 | 2 = picker === 1 ? 2 : 1;
+  const isPicker    = picker === mySlot;
+  const guesserSlot: 1|2 = picker === 1 ? 2 : 1;
+  const pName = (picker===1 ? player1 : player2).split(" ")[0];
+  const gName = (picker===1 ? player2 : player1).split(" ")[0];
+  const mName = (mySlot===1 ? player1 : player2).split(" ")[0];
 
-  // reset confirming when phase changes
   useEffect(() => { setConfirming(false); }, [phase]);
 
-  // ── Channel setup ────────────────────────────────────────────────────────
+  // ── Channel ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const ch = supabase.channel(`devineStyle:${coupleId}`, {
-      config: { broadcast: { self: false } },
-    });
+    const ch = supabase.channel(`ds2:${coupleId}`, { config:{ broadcast:{ self:false } } });
     ch
-      .on("broadcast", { event: "round_start" }, (msg) => {
-        const p = extractPayload<{ catId: CatId; seed: number }>(msg);
+      .on("broadcast", { event:"round_start" }, msg => {
+        const p = extractPayload<{ catId:CatId; seed:number }>(msg);
         const found = CATEGORIES.find(c => c.id === p.catId);
         if (!found) return;
-        const picked = pickItems([...found.pool], p.seed);
-        setItems(picked); setCatId(p.catId);
-        setMySel([]); setPickerPicks([]); setGuesserGuess([]);
+        setItems(pickItems(found.pool, p.seed));
+        setCatId(p.catId);
+        setMySel([]); setPP([]); setGG([]);
         setPhase("waiting_pick");
       })
-      .on("broadcast", { event: "picks_done" }, (msg) => {
-        const p = extractPayload<{ picks: number[] }>(msg);
-        setPickerPicks(p.picks);
-        setMySel([]);
+      .on("broadcast", { event:"picks_done" }, msg => {
+        const p = extractPayload<{ picks:number[] }>(msg);
+        setPP(p.picks); setMySel([]);
         setPhase("guessing");
       })
-      .on("broadcast", { event: "guess_done" }, (msg) => {
-        const p = extractPayload<{ guesses: number[]; guesserSlot: 1 | 2 }>(msg);
-        setGuesserGuess(p.guesses);
-        setPickerPicks(prev => {
-          const correct = prev.filter(i => p.guesses.includes(i)).length;
-          setRoundScore(correct);
-          setScores(s => {
-            const n: [number, number] = [s[0], s[1]];
-            n[p.guesserSlot - 1] += correct;
-            return n;
-          });
+      .on("broadcast", { event:"guess_done" }, msg => {
+        const p = extractPayload<{ guesses:number[]; gs:1|2 }>(msg);
+        setGG(p.guesses);
+        setPP(prev => {
+          const n = prev.filter(i => p.guesses.includes(i)).length;
+          setRS(n);
+          setScores(s => { const a:[number,number]=[...s]; a[p.gs-1]+=n; return a; });
           return prev;
         });
         setPhase("reveal");
       })
-      .on("broadcast", { event: "next_round" }, (msg) => {
-        const p = extractPayload<{ nextPicker: 1 | 2 }>(msg);
-        setPicker(p.nextPicker);
-        setPhase("category"); setItems([]); setCatId(""); setMySel([]);
-        setPickerPicks([]); setGuesserGuess([]);
+      .on("broadcast", { event:"next_round" }, msg => {
+        const p = extractPayload<{ np:1|2 }>(msg);
+        setPicker(p.np);
+        setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPP([]); setGG([]);
       })
-      .on("broadcast", { event: "restart" }, () => {
+      .on("broadcast", { event:"restart" }, () => {
         setPicker(1);
-        setPhase("category"); setItems([]); setCatId(""); setMySel([]);
-        setPickerPicks([]); setGuesserGuess([]); setScores([0, 0]);
+        setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPP([]); setGG([]); setScores([0,0]);
       })
-      .subscribe((s) => setConnected(s === "SUBSCRIBED"));
-    channelRef.current = ch;
+      .subscribe(s => setConnected(s==="SUBSCRIBED"));
+    chRef.current = ch;
     return () => { supabase.removeChannel(ch); };
   }, [coupleId]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // ── Actions ────────────────────────────────────────────────────────────
   function startRound(cId: CatId) {
-    const seed  = Math.floor(Math.random() * 999983);
+    const seed = Math.floor(Math.random() * 999983);
     const found = CATEGORIES.find(c => c.id === cId)!;
-    const picked = pickItems([...found.pool], seed);
-    channelRef.current?.send({ type: "broadcast", event: "round_start", payload: { catId: cId, seed } });
-    setItems(picked); setCatId(cId); setMySel([]); setPickerPicks([]); setGuesserGuess([]);
+    chRef.current?.send({ type:"broadcast", event:"round_start", payload:{ catId:cId, seed } });
+    setItems(pickItems(found.pool, seed));
+    setCatId(cId); setMySel([]); setPP([]); setGG([]);
     setPhase("picking");
   }
-
   function confirmPicks() {
     if (confirming || mySelections.length < 3) return;
     setConfirming(true);
-    channelRef.current?.send({ type: "broadcast", event: "picks_done", payload: { picks: mySelections } });
-    setPickerPicks(mySelections); setMySel([]);
+    chRef.current?.send({ type:"broadcast", event:"picks_done", payload:{ picks:mySelections } });
+    setPP(mySelections); setMySel([]);
     setPhase("waiting_guess");
   }
-
   function confirmGuess() {
     if (confirming || mySelections.length < 3) return;
     setConfirming(true);
-    channelRef.current?.send({ type: "broadcast", event: "guess_done", payload: { guesses: mySelections, guesserSlot } });
-    const correct = pickerPicks.filter(i => mySelections.includes(i)).length;
-    setGuesserGuess(mySelections); setRoundScore(correct);
-    setScores(s => { const n: [number, number] = [s[0], s[1]]; n[guesserSlot - 1] += correct; return n; });
+    chRef.current?.send({ type:"broadcast", event:"guess_done",
+      payload:{ guesses:mySelections, gs:guesserSlot } });
+    const n = pickerPicks.filter(i => mySelections.includes(i)).length;
+    setGG(mySelections); setRS(n);
+    setScores(s => { const a:[number,number]=[...s]; a[guesserSlot-1]+=n; return a; });
     setPhase("reveal");
   }
-
   function nextRound() {
-    if (confirming) return;
-    setConfirming(true);
-    const nextPicker: 1 | 2 = picker === 1 ? 2 : 1;
-    channelRef.current?.send({ type: "broadcast", event: "next_round", payload: { nextPicker } });
-    setPicker(nextPicker);
-    setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPickerPicks([]); setGuesserGuess([]);
+    if (confirming) return; setConfirming(true);
+    const np:1|2 = picker===1 ? 2 : 1;
+    chRef.current?.send({ type:"broadcast", event:"next_round", payload:{ np } });
+    setPicker(np);
+    setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPP([]); setGG([]);
   }
-
   function restart() {
-    if (confirming) return;
-    setConfirming(true);
-    channelRef.current?.send({ type: "broadcast", event: "restart", payload: {} });
+    if (confirming) return; setConfirming(true);
+    chRef.current?.send({ type:"broadcast", event:"restart", payload:{} });
     setPicker(1);
-    setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPickerPicks([]); setGuesserGuess([]); setScores([0, 0]);
+    setPhase("category"); setItems([]); setCatId(""); setMySel([]); setPP([]); setGG([]); setScores([0,0]);
+  }
+  function toggle(idx: number) {
+    setMySel(prev => prev.includes(idx) ? prev.filter(i=>i!==idx) : prev.length<3 ? [...prev,idx] : prev);
   }
 
-  function toggleItem(idx: number, max: number) {
-    setMySel(prev =>
-      prev.includes(idx) ? prev.filter(i => i !== idx)
-      : prev.length < max ? [...prev, idx] : prev
+  // ── Shared confirm button ──────────────────────────────────────────────
+  function ConfirmBtn({ onPress, isGuess=false }: { onPress:()=>void; isGuess?:boolean }) {
+    const ac = isGuess ? "#a855f7" : (cat?.color ?? "#ec4899");
+    const ag = isGuess ? "rgba(168,85,247,0.5)" : (cat?.glow ?? "rgba(236,72,153,0.5)");
+    const ac2 = isGuess ? "#ec4899" : "#a855f7";
+    const ready = mySelections.length === 3 && !confirming;
+    return (
+      <motion.button
+        onClick={onPress}
+        disabled={!ready}
+        animate={ready ? { scale:[1,1.025,1] } : {}}
+        transition={{ duration:0.9, repeat: ready ? Infinity : 0 }}
+        style={{
+          margin:"10px 0 calc(env(safe-area-inset-bottom) + 8px)",
+          padding:"16px 24px", borderRadius:999, border:"none",
+          flexShrink:0, width:"100%",
+          cursor: ready ? "pointer" : "default",
+          background: ready ? `linear-gradient(135deg,${ac},${ac2})` : "rgba(255,255,255,0.07)",
+          color: ready ? "white" : "rgba(255,255,255,0.25)",
+          fontSize:15, fontWeight:800,
+          boxShadow: ready ? `0 6px 24px ${ag}` : "none",
+          transition:"all 0.3s ease",
+        }}>
+        {confirming
+          ? "Envoi…"
+          : mySelections.length < 3
+            ? `${3 - mySelections.length} de plus à choisir`
+            : isGuess ? "✓ Soumettre mes devinettes" : "✓ Valider mes choix"}
+      </motion.button>
     );
   }
 
-  // ── Reveal helpers ───────────────────────────────────────────────────────
-  const correct = useMemo(() =>
-    pickerPicks.filter(i => guesserGuess.includes(i)), [pickerPicks, guesserGuess]);
-
-  // ── Shared styles ─────────────────────────────────────────────────────────
-  const BG: React.CSSProperties = {
-    minHeight: "100dvh", background: "#0b0114",
-    display: "flex", flexDirection: "column",
-    position: "relative", overflow: "hidden",
-  };
-
-  const GRID_2COL: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gridTemplateRows: "repeat(4, 1fr)",
-    gap: 6,
-    flex: 1,
-    minHeight: 0,
-  };
-
-  const GRID_4COL: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gridTemplateRows: "repeat(2, 1fr)",
-    gap: 5,
-    flex: 1,
-    minHeight: 0,
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div style={BG}>
-      {/* Shimmer keyframe */}
-      <style>{`
-        @keyframes shimmer {
-          0%   { background-position: -200% 0; }
-          100% { background-position:  200% 0; }
-        }
-      `}</style>
+    <div style={{
+      height:"100dvh", background:"#0b0114",
+      display:"flex", flexDirection:"column",
+      overflow:"hidden", position:"relative",
+    }}>
 
-      {/* Ambient orbs */}
+      <style>{`@keyframes ds-shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}`}</style>
+
+      {/* Orbs */}
       {cat && <>
-        <div style={{ position:"absolute", top:"-20%", left:"-15%", width:280, height:280, borderRadius:"50%",
-          background:`radial-gradient(circle, ${cat.glow} 0%, transparent 70%)`, filter:"blur(60px)", pointerEvents:"none" }}/>
-        <div style={{ position:"absolute", bottom:"-20%", right:"-15%", width:260, height:260, borderRadius:"50%",
-          background:`radial-gradient(circle, ${cat.glow} 0%, transparent 70%)`, filter:"blur(60px)", pointerEvents:"none" }}/>
+        <div style={{ position:"absolute", top:"-15%", left:"-10%", width:220, height:220, borderRadius:"50%",
+          background:`radial-gradient(circle,${cat.glow} 0%,transparent 70%)`, filter:"blur(55px)", pointerEvents:"none" }}/>
+        <div style={{ position:"absolute", bottom:"-15%", right:"-10%", width:200, height:200, borderRadius:"50%",
+          background:`radial-gradient(circle,${cat.glow} 0%,transparent 70%)`, filter:"blur(55px)", pointerEvents:"none" }}/>
       </>}
 
-      {/* Header */}
+      {/* HEADER */}
       <div style={{
         display:"flex", alignItems:"center", justifyContent:"space-between",
         padding:"calc(env(safe-area-inset-top) + 10px) 14px 10px",
-        position:"relative", zIndex:10,
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        borderBottom:"1px solid rgba(255,255,255,0.06)",
+        flexShrink:0, zIndex:10, position:"relative",
       }}>
         <button onClick={onBack} style={{
           background:"rgba(255,255,255,0.08)", border:"none", borderRadius:12,
-          width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-          flexShrink: 0,
+          width:36, height:36, display:"flex", alignItems:"center",
+          justifyContent:"center", cursor:"pointer", flexShrink:0,
         }}>
           <ArrowLeft size={18} color="white"/>
         </button>
-        <div style={{ textAlign:"center", flex:1, padding:"0 8px" }}>
-          <p style={{ margin:0, fontSize:10, fontWeight:700, letterSpacing:2, color:"rgba(255,255,255,0.3)", textTransform:"uppercase" }}>
-            Devine mon Style
-          </p>
+        <div style={{ flex:1, textAlign:"center", padding:"0 8px" }}>
+          <p style={{ margin:0, fontSize:10, fontWeight:700, letterSpacing:2,
+            color:"rgba(255,255,255,0.28)", textTransform:"uppercase" }}>Devine mon Style</p>
           {cat
             ? <p style={{ margin:0, fontSize:14, color:cat.color, fontWeight:800 }}>{cat.emoji} {cat.label}</p>
-            : <p style={{ margin:0, fontSize:13, color:"rgba(255,255,255,0.45)", fontWeight:600 }}>Choisir une catégorie</p>
-          }
+            : <p style={{ margin:0, fontSize:12, color:"rgba(255,255,255,0.4)" }}>Choisir une catégorie</p>}
         </div>
-        {/* Scores */}
-        <div style={{ display:"flex", gap:10, flexShrink: 0 }}>
+        <div style={{ display:"flex", gap:12, flexShrink:0 }}>
           {([1,2] as const).map(slot => (
-            <div key={slot} style={{ textAlign:"center", opacity: picker === slot ? 1 : 0.4, transition:"opacity 0.3s" }}>
-              <p style={{ margin:0, fontSize:16, fontWeight:900, color:"white", lineHeight:1 }}>{scores[slot-1]}</p>
-              <p style={{ margin:0, fontSize:9, color:"rgba(255,255,255,0.4)", lineHeight:1, marginTop:1 }}>
-                {slot===1 ? player1.split(" ")[0] : player2.split(" ")[0]}
+            <div key={slot} style={{ textAlign:"center", opacity: picker===slot?1:0.38, transition:"opacity 0.3s" }}>
+              <p style={{ margin:0, fontSize:17, fontWeight:900, color:"white", lineHeight:1 }}>{scores[slot-1]}</p>
+              <p style={{ margin:0, fontSize:9, color:"rgba(255,255,255,0.38)", lineHeight:1, marginTop:1 }}>
+                {(slot===1?player1:player2).split(" ")[0]}
               </p>
             </div>
           ))}
         </div>
       </div>
 
+      {/* SCREENS */}
       <AnimatePresence mode="wait">
 
-        {/* ── CATEGORY SELECTION ──────────────────────────────────────────── */}
-        {phase === "category" && (
+        {/* ── CATEGORY ─────────────────────────────────────────────────── */}
+        {phase==="category" && (
           <motion.div key="cat"
-            initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-16 }}
-            style={{ flex:1, padding:"20px 14px", overflowY:"auto" }}>
+            initial={{opacity:0,y:18}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-18}}
+            style={{ flex:1, overflowY:"auto", padding:"18px 14px", zIndex:1, position:"relative" }}>
             {isPicker ? (
               <>
-                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.9)", fontSize:16, fontWeight:700, marginBottom:4 }}>
-                  C'est ton tour de choisir, {pickerName.split(" ")[0]} 🎯
+                <p style={{ textAlign:"center", color:"white", fontSize:17, fontWeight:800, marginBottom:4 }}>
+                  C'est ton tour, {mName} 🎯
                 </p>
-                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.35)", fontSize:12, marginBottom:20 }}>
-                  {guesserName.split(" ")[0]} devra deviner tes 3 préférés
+                <p style={{ textAlign:"center", color:"rgba(255,255,255,0.38)", fontSize:12, marginBottom:20 }}>
+                  {gName} devra deviner tes 3 préférés
                 </p>
-                <div style={{ display:"flex", flexDirection:"column", gap:10, maxWidth:420, margin:"0 auto" }}>
-                  {CATEGORIES.map((c, i) => (
+                <div style={{ display:"flex", flexDirection:"column", gap:10, maxWidth:440, margin:"0 auto",
+                  paddingBottom:"env(safe-area-inset-bottom)" }}>
+                  {CATEGORIES.map((c,i) => (
                     <motion.button key={c.id}
-                      initial={{ opacity:0, x:-16 }} animate={{ opacity:1, x:0 }} transition={{ delay: i * 0.06 }}
-                      onClick={() => startRound(c.id)}
-                      whileTap={{ scale: 0.97 }}
+                      initial={{opacity:0,x:-14}} animate={{opacity:1,x:0}} transition={{delay:i*0.055}}
+                      whileTap={{scale:0.97}} onClick={()=>startRound(c.id)}
                       style={{
                         display:"flex", alignItems:"center", gap:14,
-                        background:"rgba(255,255,255,0.05)", border:`1px solid ${c.color}40`,
-                        borderRadius:18, padding:"16px 18px", cursor:"pointer", textAlign:"left",
-                        boxShadow:`0 4px 20px ${c.color}15`,
+                        background:"rgba(255,255,255,0.05)", border:`1px solid ${c.color}35`,
+                        borderRadius:18, padding:"15px 18px", cursor:"pointer", textAlign:"left",
+                        boxShadow:`0 4px 22px ${c.color}10`,
                       }}>
-                      <span style={{ fontSize:32, lineHeight:1, flexShrink:0 }}>{c.emoji}</span>
+                      <span style={{ fontSize:30, lineHeight:1, flexShrink:0 }}>{c.emoji}</span>
                       <div style={{ flex:1 }}>
                         <p style={{ margin:0, fontSize:15, fontWeight:800, color:"white" }}>{c.label}</p>
-                        <p style={{ margin:0, fontSize:11, color:"rgba(255,255,255,0.38)", marginTop:2 }}>{c.desc}</p>
+                        <p style={{ margin:0, fontSize:11, color:"rgba(255,255,255,0.35)", marginTop:2 }}>{c.desc}</p>
                       </div>
-                      <span style={{ color:c.color, fontSize:16, flexShrink:0 }}>→</span>
+                      <span style={{ color:c.color, fontSize:18, flexShrink:0 }}>›</span>
                     </motion.button>
                   ))}
                 </div>
               </>
             ) : (
-              <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", paddingTop:60 }}>
-                <motion.div animate={{ scale:[1,1.1,1] }} transition={{ duration:2, repeat:Infinity }}>
-                  <span style={{ fontSize:56 }}>🎯</span>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"60vh" }}>
+                <motion.div animate={{scale:[1,1.1,1]}} transition={{duration:2,repeat:Infinity}}>
+                  <span style={{fontSize:58}}>🎯</span>
                 </motion.div>
-                <p style={{ color:"white", fontSize:18, fontWeight:700, marginTop:20, textAlign:"center" }}>
-                  {pickerName.split(" ")[0]} choisit la catégorie…
+                <p style={{color:"white",fontSize:18,fontWeight:800,marginTop:20,textAlign:"center"}}>
+                  {pName} choisit la catégorie…
                 </p>
-                <p style={{ color:"rgba(255,255,255,0.35)", fontSize:13, marginTop:8, textAlign:"center" }}>
+                <p style={{color:"rgba(255,255,255,0.38)",fontSize:13,marginTop:8,textAlign:"center"}}>
                   Prépare-toi à deviner ses goûts !
                 </p>
               </div>
@@ -575,325 +614,216 @@ export function DevineMonStyle({ player1, player2, mySlot, coupleId, onBack }: P
           </motion.div>
         )}
 
-        {/* ── PICKING (picker selects 3) ───────────────────────────────────── */}
-        {phase === "picking" && cat && (
+        {/* ── PICKING ──────────────────────────────────────────────────── */}
+        {phase==="picking" && cat && (
           <motion.div key="pick"
-            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"12px 12px 0" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-              <p style={{ margin:0, color:"rgba(255,255,255,0.85)", fontSize:14, fontWeight:700 }}>
-                Choisis tes 3 préférés ❤️
+            initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"10px 12px 0",
+              overflow:"hidden", zIndex:1, position:"relative" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexShrink:0 }}>
+              <p style={{ margin:0, color:"rgba(255,255,255,0.9)", fontSize:14, fontWeight:700 }}>
+                Tes 3 préférés ❤️
               </p>
-              <div style={{ display:"flex", gap:4 }}>
-                {[0,1,2].map(i => (
-                  <div key={i} style={{
-                    width:22, height:22, borderRadius:6, border:`2px solid ${cat.color}`,
-                    background: i < mySelections.length ? cat.color : "transparent",
-                    transition:"background 0.2s",
-                  }}/>
+              <Dots count={mySelections.length} color={cat.color}/>
+            </div>
+            {/* Grid in scrollable area */}
+            <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" as never }}>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+                {items.map((item,i) => (
+                  <ImageCell key={i} item={item}
+                    catEmoji={cat.emoji} catColor={cat.color} catGlow={cat.glow}
+                    selected={mySelections.includes(i)}
+                    locked={mySelections.length>=3 && !mySelections.includes(i)}
+                    onClick={()=>toggle(i)}/>
                 ))}
               </div>
             </div>
-            <div style={GRID_2COL}>
-              {items.map((item, i) => (
-                <ImageCell key={i}
-                  item={item}
-                  catEmoji={cat.emoji} catColor={cat.color} catGlow={cat.glow}
-                  selected={mySelections.includes(i)}
-                  dimmed={false}
-                  locked={mySelections.length >= 3 && !mySelections.includes(i)}
-                  onClick={() => toggleItem(i, 3)}
-                />
-              ))}
-            </div>
-            <motion.button
-              onClick={confirmPicks}
-              disabled={mySelections.length < 3 || confirming}
-              animate={mySelections.length === 3 && !confirming ? { scale:[1,1.02,1] } : {}}
-              transition={{ duration:1, repeat: mySelections.length === 3 ? Infinity : 0 }}
-              style={{
-                margin:"10px 0 calc(env(safe-area-inset-bottom) + 10px)",
-                padding:"15px 32px", borderRadius:999, border:"none",
-                cursor: mySelections.length < 3 || confirming ? "default" : "pointer",
-                background: mySelections.length === 3 && !confirming
-                  ? `linear-gradient(135deg, ${cat.color}, #a855f7)`
-                  : "rgba(255,255,255,0.08)",
-                color: mySelections.length === 3 && !confirming ? "white" : "rgba(255,255,255,0.3)",
-                fontSize:15, fontWeight:800,
-                boxShadow: mySelections.length === 3 && !confirming ? `0 6px 24px ${cat.glow}` : "none",
-                transition:"all 0.3s ease", flexShrink:0,
-              }}>
-              {confirming ? "Envoi…" : mySelections.length < 3 ? `Encore ${3 - mySelections.length} à choisir` : "✓ Valider mes choix"}
-            </motion.button>
+            <ConfirmBtn onPress={confirmPicks}/>
           </motion.div>
         )}
 
-        {/* ── WAITING ─────────────────────────────────────────────────────── */}
-        {(phase === "waiting_pick" || phase === "waiting_guess") && cat && (
+        {/* ── WAITING ──────────────────────────────────────────────────── */}
+        {(phase==="waiting_pick"||phase==="waiting_guess") && cat && (
           <motion.div key="wait"
-            initial={{ opacity:0, scale:0.96 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"20px 14px" }}>
-
-            {/* Dimmed grid in background */}
-            {items.length > 0 && (
-              <div style={{ ...GRID_2COL, opacity: 0.18, pointerEvents:"none", flex:1 }}>
-                {items.map((item, i) => (
-                  <ImageCell key={i}
-                    item={item}
-                    catEmoji={cat.emoji} catColor={cat.color} catGlow={cat.glow}
-                    selected={false} dimmed={false} locked={false}
-                  />
+            initial={{opacity:0,scale:0.96}} animate={{opacity:1,scale:1}} exit={{opacity:0}}
+            style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", padding:"24px 20px", zIndex:1, position:"relative" }}>
+            <motion.div
+              animate={{rotate:[0,12,-12,0],scale:[1,1.07,1]}}
+              transition={{duration:2.8,repeat:Infinity,ease:"easeInOut"}}>
+              <span style={{fontSize:62}}>{cat.emoji}</span>
+            </motion.div>
+            <p style={{color:"white",fontSize:19,fontWeight:800,marginTop:22,textAlign:"center"}}>
+              {phase==="waiting_pick"
+                ? `${pName} choisit ses préférés…`
+                : `${gName} est en train de deviner…`}
+            </p>
+            <p style={{color:"rgba(255,255,255,0.38)",fontSize:13,marginTop:8,textAlign:"center"}}>
+              {phase==="waiting_pick" ? "Patiente, ça arrive vite !" : "Suspense total…"}
+            </p>
+            <div style={{display:"flex",gap:8,marginTop:18}}>
+              {[0,1,2].map(i=>(
+                <motion.div key={i}
+                  animate={{scale:[1,1.5,1],opacity:[0.35,1,0.35]}}
+                  transition={{duration:1.1,delay:i*0.18,repeat:Infinity}}
+                  style={{width:8,height:8,borderRadius:"50%",background:cat.color}}/>
+              ))}
+            </div>
+            {/* Mini dimmed preview */}
+            {items.length>0 && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5,
+                marginTop:28,width:"100%",maxWidth:280,opacity:0.14,pointerEvents:"none"}}>
+                {items.map((item,i)=>(
+                  <div key={i} style={{aspectRatio:"1",borderRadius:7,overflow:"hidden",background:`${cat.color}20`}}>
+                    <img src={item.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  </div>
                 ))}
               </div>
             )}
-
-            {/* Overlay info */}
-            <div style={{
-              position:"absolute", inset:0, display:"flex",
-              flexDirection:"column", alignItems:"center", justifyContent:"center",
-              padding:24, pointerEvents:"none",
-            }}>
-              <motion.div
-                animate={{ rotate:[0, 10, -10, 0] }}
-                transition={{ duration:2.4, repeat:Infinity, ease:"easeInOut" }}>
-                <span style={{ fontSize:60 }}>{cat.emoji}</span>
-              </motion.div>
-              <p style={{ color:"white", fontSize:19, fontWeight:800, marginTop:20, textAlign:"center" }}>
-                {phase === "waiting_pick"
-                  ? `${pickerName.split(" ")[0]} est en train de choisir…`
-                  : `${guesserName.split(" ")[0]} est en train de deviner…`}
-              </p>
-              <div style={{ display:"flex", gap:6, marginTop:14 }}>
-                {[0,1,2].map(i => (
-                  <motion.div key={i}
-                    animate={{ scale:[1,1.4,1], opacity:[0.4,1,0.4] }}
-                    transition={{ duration:1.2, delay:i*0.2, repeat:Infinity }}
-                    style={{ width:8, height:8, borderRadius:"50%", background:cat.color }}/>
-                ))}
-              </div>
-            </div>
           </motion.div>
         )}
 
-        {/* ── GUESSING (guesser picks 3) ───────────────────────────────────── */}
-        {phase === "guessing" && cat && (
+        {/* ── GUESSING ─────────────────────────────────────────────────── */}
+        {phase==="guessing" && cat && (
           <motion.div key="guess"
-            initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"12px 12px 0" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-              <p style={{ margin:0, color:"rgba(255,255,255,0.85)", fontSize:14, fontWeight:700 }}>
-                Devine les 3 préférés de {pickerName.split(" ")[0]} 🔍
+            initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"10px 12px 0",
+              overflow:"hidden", zIndex:1, position:"relative" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexShrink:0 }}>
+              <p style={{margin:0,color:"rgba(255,255,255,0.9)",fontSize:14,fontWeight:700}}>
+                Devine les 3 préférés de {pName} 🔍
               </p>
-              <div style={{ display:"flex", gap:4 }}>
-                {[0,1,2].map(i => (
-                  <div key={i} style={{
-                    width:22, height:22, borderRadius:6, border:`2px solid #a855f7`,
-                    background: i < mySelections.length ? "#a855f7" : "transparent",
-                    transition:"background 0.2s",
-                  }}/>
+              <Dots count={mySelections.length} color="#a855f7"/>
+            </div>
+            <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" as never }}>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+                {items.map((item,i) => (
+                  <ImageCell key={i} item={item}
+                    catEmoji={cat.emoji} catColor="#a855f7" catGlow="rgba(168,85,247,0.5)"
+                    selected={mySelections.includes(i)}
+                    locked={mySelections.length>=3 && !mySelections.includes(i)}
+                    onClick={()=>toggle(i)}/>
                 ))}
               </div>
             </div>
-            <div style={GRID_2COL}>
-              {items.map((item, i) => (
-                <ImageCell key={i}
-                  item={item}
-                  catEmoji={cat.emoji} catColor="#a855f7" catGlow="rgba(168,85,247,0.5)"
-                  selected={mySelections.includes(i)}
-                  dimmed={false}
-                  locked={mySelections.length >= 3 && !mySelections.includes(i)}
-                  onClick={() => toggleItem(i, 3)}
-                />
-              ))}
-            </div>
-            <motion.button
-              onClick={confirmGuess}
-              disabled={mySelections.length < 3 || confirming}
-              animate={mySelections.length === 3 && !confirming ? { scale:[1,1.02,1] } : {}}
-              transition={{ duration:1, repeat: mySelections.length === 3 ? Infinity : 0 }}
-              style={{
-                margin:"10px 0 calc(env(safe-area-inset-bottom) + 10px)",
-                padding:"15px 32px", borderRadius:999, border:"none",
-                cursor: mySelections.length < 3 || confirming ? "default" : "pointer",
-                background: mySelections.length === 3 && !confirming
-                  ? "linear-gradient(135deg, #a855f7, #ec4899)"
-                  : "rgba(255,255,255,0.08)",
-                color: mySelections.length === 3 && !confirming ? "white" : "rgba(255,255,255,0.3)",
-                fontSize:15, fontWeight:800,
-                boxShadow: mySelections.length === 3 && !confirming ? "0 6px 24px rgba(168,85,247,0.45)" : "none",
-                transition:"all 0.3s ease", flexShrink:0,
-              }}>
-              {confirming ? "Envoi…" : mySelections.length < 3 ? `Encore ${3 - mySelections.length} à deviner` : "✓ Soumettre mes devinettes"}
-            </motion.button>
+            <ConfirmBtn onPress={confirmGuess} isGuess/>
           </motion.div>
         )}
 
-        {/* ── REVEAL ──────────────────────────────────────────────────────── */}
-        {phase === "reveal" && cat && (
+        {/* ── REVEAL ───────────────────────────────────────────────────── */}
+        {phase==="reveal" && cat && (
           <motion.div key="reveal"
-            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            style={{ flex:1, display:"flex", flexDirection:"column", padding:"14px 12px 0" }}>
+            initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+            style={{ flex:1, display:"flex", flexDirection:"column", padding:"12px 12px 0",
+              overflow:"hidden", zIndex:1, position:"relative" }}>
 
-            {/* Score banner */}
+            {/* Score */}
             <motion.div
-              initial={{ scale:0.7, opacity:0 }} animate={{ scale:1, opacity:1 }}
-              transition={{ type:"spring", bounce:0.5, delay:0.15 }}
-              style={{ textAlign:"center", marginBottom:12 }}>
-              <p style={{ fontSize:44, fontWeight:900, color:"white", margin:0, lineHeight:1 }}>
-                {roundScore}<span style={{ fontSize:18, color:"rgba(255,255,255,0.35)", fontWeight:400 }}>/3</span>
+              initial={{scale:0.65,opacity:0}} animate={{scale:1,opacity:1}}
+              transition={{type:"spring",bounce:0.55,delay:0.1}}
+              style={{textAlign:"center",marginBottom:8,flexShrink:0}}>
+              <p style={{fontSize:46,fontWeight:900,color:"white",margin:0,lineHeight:1}}>
+                {roundScore}<span style={{fontSize:18,color:"rgba(255,255,255,0.3)",fontWeight:400}}>/3</span>
               </p>
-              <p style={{ fontSize:13, color:scoreMsg(roundScore).color, fontWeight:700, marginTop:4 }}>
+              <p style={{fontSize:13,color:scoreMsg(roundScore).color,fontWeight:700,marginTop:3}}>
                 {scoreMsg(roundScore).text}
               </p>
             </motion.div>
 
             {/* Legend */}
-            <div style={{ display:"flex", gap:14, justifyContent:"center", marginBottom:10 }}>
-              {[["✅","Trouvé"],["💛","Manqué"],["❌","Mauvais"]].map(([icon,lbl]) => (
-                <div key={icon} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:13 }}>{icon}</span>
-                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>{lbl}</span>
+            <div style={{display:"flex",gap:14,justifyContent:"center",marginBottom:8,flexShrink:0}}>
+              {[["✅","Trouvé"],["💛","Manqué"],["❌","Mauvais"]].map(([icon,lbl])=>(
+                <div key={icon} style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{fontSize:13}}>{icon}</span>
+                  <span style={{fontSize:10,color:"rgba(255,255,255,0.38)"}}>{lbl}</span>
                 </div>
               ))}
             </div>
 
-            {/* 4-col reveal grid */}
-            <div style={GRID_4COL}>
-              {items.map((item, i) => {
-                const wasPicked    = pickerPicks.includes(i);
-                const wasGuessed   = guesserGuess.includes(i);
-                const isCorrect    = wasPicked && wasGuessed;
-                const isMissed     = wasPicked && !wasGuessed;
-                const isWrongGuess = !wasPicked && wasGuessed;
-                const isNeutral    = !wasPicked && !wasGuessed;
-
-                return (
-                  <motion.div key={i}
-                    initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }}
-                    transition={{ delay: i * 0.04, type:"spring", bounce:0.3 }}
-                    style={{
-                      position:"relative", borderRadius:12, overflow:"hidden",
-                      border: isCorrect ? "2px solid #10b981"
-                        : isMissed ? "2px solid #f59e0b"
-                        : isWrongGuess ? "2px solid #ef4444"
-                        : "2px solid rgba(255,255,255,0.05)",
-                      boxShadow: isCorrect ? "0 0 14px rgba(16,185,129,0.45)"
-                        : isMissed ? "0 0 10px rgba(245,158,11,0.35)" : "none",
-                    }}>
-                    {/* Image */}
-                    <img src={item.url} alt={item.label}
-                      onError={(e) => {
-                        const el = e.currentTarget as HTMLImageElement;
-                        el.style.display = "none";
-                        const fb = el.nextElementSibling as HTMLElement | null;
-                        if (fb) fb.style.display = "flex";
-                      }}
-                      style={{
-                        width:"100%", height:"100%", objectFit:"cover", display:"block",
-                        filter: isNeutral ? "brightness(0.35)" : "none",
-                      }}
-                    />
-                    {/* Fallback */}
-                    <div style={{
-                      display:"none", position:"absolute", inset:0,
-                      background:`${cat.color}18`, flexDirection:"column",
-                      alignItems:"center", justifyContent:"center", padding:4,
-                    }}>
-                      <span style={{ fontSize:18 }}>{cat.emoji}</span>
-                      <p style={{ margin:"3px 0 0", fontSize:9, color:cat.color, fontWeight:700, textAlign:"center", lineHeight:1.2 }}>
-                        {item.label}
-                      </p>
-                    </div>
-                    {/* Status overlay */}
-                    {isCorrect && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(16,185,129,0.2)",
-                        display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:20 }}>✅</span>
-                      </div>
-                    )}
-                    {isMissed && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(245,158,11,0.2)",
-                        display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:20 }}>💛</span>
-                      </div>
-                    )}
-                    {isWrongGuess && (
-                      <div style={{ position:"absolute", inset:0, background:"rgba(239,68,68,0.2)",
-                        display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:20 }}>❌</span>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
+            {/* 4-col grid */}
+            <div style={{flex:1,overflowY:"auto"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,padding:"0 2px 4px"}}>
+                {items.map((item,i)=>{
+                  const wp=pickerPicks.includes(i), wg=guesserGuess.includes(i);
+                  const rs:RevealStatus = wp&&wg?"correct":wp&&!wg?"missed":!wp&&wg?"wrong":"neutral";
+                  return (
+                    <motion.div key={i}
+                      initial={{opacity:0,scale:0.75}} animate={{opacity:1,scale:1}}
+                      transition={{delay:i*0.04,type:"spring",bounce:0.3}}>
+                      <ImageCell item={item}
+                        catEmoji={cat.emoji} catColor={cat.color} catGlow={cat.glow}
+                        selected={false} locked={false} revealStatus={rs}/>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Correct count badges */}
-            <p style={{ textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:8 }}>
-              {correct.length}/3 trouvé{correct.length > 1 ? "s" : ""} · {guesserName.split(" ")[0]} marque {roundScore} pt{roundScore > 1 ? "s" : ""}
+            <p style={{textAlign:"center",fontSize:11,color:"rgba(255,255,255,0.32)",
+              marginTop:6,flexShrink:0}}>
+              {gName} marque {roundScore} pt{roundScore!==1?"s":""} ce tour
             </p>
 
-            {/* Action buttons */}
-            <div style={{ display:"flex", gap:8, marginTop:10, flexShrink:0 }}>
+            {/* Buttons */}
+            <div style={{display:"flex",gap:8,marginTop:8,flexShrink:0}}>
               <button onClick={restart} disabled={confirming}
                 style={{
-                  flex:1, padding:"13px 0", borderRadius:999,
+                  flex:1, padding:"12px 0", borderRadius:999,
                   border:"1px solid rgba(255,255,255,0.12)",
                   background:"rgba(255,255,255,0.05)",
-                  color:"rgba(255,255,255,0.5)", fontSize:13, fontWeight:700,
-                  cursor: confirming ? "default" : "pointer",
+                  color:"rgba(255,255,255,0.45)", fontSize:13, fontWeight:700,
+                  cursor:confirming?"default":"pointer",
                 }}>
-                <RefreshCw size={12} style={{ display:"inline", marginRight:5, verticalAlign:"middle" }}/>
+                <RefreshCw size={12} style={{display:"inline",marginRight:5,verticalAlign:"middle"}}/>
                 Reset
               </button>
               <motion.button onClick={nextRound} disabled={confirming}
-                whileTap={{ scale: confirming ? 1 : 0.97 }}
+                whileTap={{scale:confirming?1:0.97}}
                 style={{
-                  flex:2.5, padding:"13px 0", borderRadius:999, border:"none",
-                  background: confirming ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#ec4899,#a855f7)",
-                  color: confirming ? "rgba(255,255,255,0.4)" : "white",
-                  fontSize:14, fontWeight:800, cursor: confirming ? "default" : "pointer",
-                  boxShadow: confirming ? "none" : "0 6px 20px rgba(168,85,247,0.35)",
+                  flex:2.5, padding:"12px 0", borderRadius:999, border:"none",
+                  background:confirming?"rgba(255,255,255,0.08)":"linear-gradient(135deg,#ec4899,#a855f7)",
+                  color:confirming?"rgba(255,255,255,0.3)":"white",
+                  fontSize:14, fontWeight:800,
+                  cursor:confirming?"default":"pointer",
+                  boxShadow:confirming?"none":"0 6px 20px rgba(168,85,247,0.38)",
                 }}>
-                {confirming ? "…" : "Tour suivant →"}
+                {confirming?"…":"Tour suivant →"}
               </motion.button>
             </div>
 
-            {/* Total scores */}
-            <div style={{
-              display:"flex", gap:10, justifyContent:"center",
-              margin:"12px 0 calc(env(safe-area-inset-bottom) + 12px)",
-            }}>
-              {([1,2] as const).map(slot => {
-                const isLeader = scores[slot-1] === Math.max(...scores) && scores[0] !== scores[1];
+            {/* Scores */}
+            <div style={{display:"flex",gap:10,justifyContent:"center",
+              margin:"10px 0 calc(env(safe-area-inset-bottom) + 10px)",flexShrink:0}}>
+              {([1,2] as const).map(slot=>{
+                const lead=scores[slot-1]===Math.max(...scores)&&scores[0]!==scores[1];
                 return (
                   <div key={slot} style={{
                     textAlign:"center",
-                    background: isLeader ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.05)",
-                    border: isLeader ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                    borderRadius:14, padding:"10px 22px",
-                    transition:"all 0.3s",
+                    background:lead?"rgba(245,158,11,0.12)":"rgba(255,255,255,0.05)",
+                    border:lead?"1px solid rgba(245,158,11,0.3)":"1px solid rgba(255,255,255,0.06)",
+                    borderRadius:14,padding:"8px 20px",transition:"all 0.3s",
                   }}>
-                    {isLeader && <Crown size={14} color="#f59e0b" style={{ display:"block", margin:"0 auto 4px" }}/>}
-                    <p style={{ margin:0, fontSize:24, fontWeight:900, color:"white" }}>{scores[slot-1]}</p>
-                    <p style={{ margin:0, fontSize:11, color:"rgba(255,255,255,0.4)" }}>
-                      {slot===1 ? player1.split(" ")[0] : player2.split(" ")[0]}
+                    {lead&&<Crown size={13} color="#f59e0b" style={{display:"block",margin:"0 auto 3px"}}/>}
+                    <p style={{margin:0,fontSize:22,fontWeight:900,color:"white"}}>{scores[slot-1]}</p>
+                    <p style={{margin:0,fontSize:10,color:"rgba(255,255,255,0.38)"}}>
+                      {(slot===1?player1:player2).split(" ")[0]}
                     </p>
                   </div>
                 );
               })}
             </div>
-
           </motion.div>
         )}
 
       </AnimatePresence>
 
-      {/* Connection dot */}
+      {/* Dot connexion */}
       <div style={{
-        position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 6px)", right:10,
+        position:"fixed",
+        bottom:"calc(env(safe-area-inset-bottom) + 6px)", right:10,
         width:6, height:6, borderRadius:"50%",
-        background: connected ? "#10b981" : "#ef4444", opacity:0.55,
+        background:connected?"#10b981":"#ef4444",
+        opacity:0.5, zIndex:100,
       }}/>
     </div>
   );
