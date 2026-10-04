@@ -75,6 +75,16 @@ import { toast } from "sonner";
 const supabase = _supabase as any;
 
 export const Route = createFileRoute("/room/$code")({
+  head: () => ({
+    meta: [
+      { title: "Partie à deux — Princesse" },
+      { name: "description", content: "Rejoignez votre partie privée et choisissez un jeu à partager à deux." },
+      { property: "og:title", content: "Partie à deux — Princesse" },
+      { property: "og:description", content: "Rejoignez votre partie privée et choisissez un jeu à partager à deux." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: GamePage,
   errorComponent: ({ error }) => (
     <div className="flex min-h-screen items-center justify-center p-6 pb-28 text-center">
