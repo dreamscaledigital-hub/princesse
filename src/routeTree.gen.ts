@@ -9,28 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WidgetRouteImport } from './routes/widget'
-import { Route as DuelRouteImport } from './routes/duel'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RoomCodeRouteImport } from './routes/room.$code'
-import { Route as DuelCodeRouteImport } from './routes/duel.$code'
-import { Route as AuthenticatedRouletteIrlRouteImport } from './routes/_authenticated/roulette-irl'
-import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated/profil'
-import { Route as AuthenticatedPenseesRouteImport } from './routes/_authenticated/pensees'
-import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
-import { Route as AuthenticatedHubRouteImport } from './routes/_authenticated/hub'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DuelRouteImport } from './routes/duel'
+import { Route as WidgetRouteImport } from './routes/widget'
 import { Route as AuthenticatedDevineMonStyleRouteImport } from './routes/_authenticated/devine-mon-style'
+import { Route as AuthenticatedHubRouteImport } from './routes/_authenticated/hub'
+import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
+import { Route as AuthenticatedPenseesRouteImport } from './routes/_authenticated/pensees'
+import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated/profil'
+import { Route as AuthenticatedRouletteIrlRouteImport } from './routes/_authenticated/roulette-irl'
+import { Route as DuelCodeRouteImport } from './routes/duel.$code'
+import { Route as RoomCodeRouteImport } from './routes/room.$code'
 
-const WidgetRoute = WidgetRouteImport.update({
-  id: '/widget',
-  path: '/widget',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DuelRoute = DuelRouteImport.update({
-  id: '/duel',
-  path: '/duel',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -38,50 +37,15 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const DuelRoute = DuelRouteImport.update({
+  id: '/duel',
+  path: '/duel',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const WidgetRoute = WidgetRouteImport.update({
+  id: '/widget',
+  path: '/widget',
   getParentRoute: () => rootRouteImport,
-} as any)
-const RoomCodeRoute = RoomCodeRouteImport.update({
-  id: '/room/$code',
-  path: '/room/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DuelCodeRoute = DuelCodeRouteImport.update({
-  id: '/$code',
-  path: '/$code',
-  getParentRoute: () => DuelRoute,
-} as any)
-const AuthenticatedRouletteIrlRoute =
-  AuthenticatedRouletteIrlRouteImport.update({
-    id: '/roulette-irl',
-    path: '/roulette-irl',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedProfilRoute = AuthenticatedProfilRouteImport.update({
-  id: '/profil',
-  path: '/profil',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPenseesRoute = AuthenticatedPenseesRouteImport.update({
-  id: '/pensees',
-  path: '/pensees',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
-  id: '/messages',
-  path: '/messages',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedHubRoute = AuthenticatedHubRouteImport.update({
-  id: '/hub',
-  path: '/hub',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDevineMonStyleRoute =
   AuthenticatedDevineMonStyleRouteImport.update({
@@ -89,6 +53,42 @@ const AuthenticatedDevineMonStyleRoute =
     path: '/devine-mon-style',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHubRoute = AuthenticatedHubRouteImport.update({
+  id: '/hub',
+  path: '/hub',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPenseesRoute = AuthenticatedPenseesRouteImport.update({
+  id: '/pensees',
+  path: '/pensees',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProfilRoute = AuthenticatedProfilRouteImport.update({
+  id: '/profil',
+  path: '/profil',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRouletteIrlRoute =
+  AuthenticatedRouletteIrlRouteImport.update({
+    id: '/roulette-irl',
+    path: '/roulette-irl',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const DuelCodeRoute = DuelCodeRouteImport.update({
+  id: '/$code',
+  path: '/$code',
+  getParentRoute: () => DuelRoute,
+} as any)
+const RoomCodeRoute = RoomCodeRouteImport.update({
+  id: '/room/$code',
+  path: '/room/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -191,25 +191,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/widget': {
-      id: '/widget'
-      path: '/widget'
-      fullPath: '/widget'
-      preLoaderRoute: typeof WidgetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/duel': {
-      id: '/duel'
-      path: '/duel'
-      fullPath: '/duel'
-      preLoaderRoute: typeof DuelRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -219,53 +205,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/room/$code': {
-      id: '/room/$code'
-      path: '/room/$code'
-      fullPath: '/room/$code'
-      preLoaderRoute: typeof RoomCodeRouteImport
+    '/duel': {
+      id: '/duel'
+      path: '/duel'
+      fullPath: '/duel'
+      preLoaderRoute: typeof DuelRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/duel/$code': {
-      id: '/duel/$code'
-      path: '/$code'
-      fullPath: '/duel/$code'
-      preLoaderRoute: typeof DuelCodeRouteImport
-      parentRoute: typeof DuelRoute
+    '/widget': {
+      id: '/widget'
+      path: '/widget'
+      fullPath: '/widget'
+      preLoaderRoute: typeof WidgetRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/roulette-irl': {
-      id: '/_authenticated/roulette-irl'
-      path: '/roulette-irl'
-      fullPath: '/roulette-irl'
-      preLoaderRoute: typeof AuthenticatedRouletteIrlRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/profil': {
-      id: '/_authenticated/profil'
-      path: '/profil'
-      fullPath: '/profil'
-      preLoaderRoute: typeof AuthenticatedProfilRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/pensees': {
-      id: '/_authenticated/pensees'
-      path: '/pensees'
-      fullPath: '/pensees'
-      preLoaderRoute: typeof AuthenticatedPenseesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/messages': {
-      id: '/_authenticated/messages'
-      path: '/messages'
-      fullPath: '/messages'
-      preLoaderRoute: typeof AuthenticatedMessagesRouteImport
+    '/_authenticated/devine-mon-style': {
+      id: '/_authenticated/devine-mon-style'
+      path: '/devine-mon-style'
+      fullPath: '/devine-mon-style'
+      preLoaderRoute: typeof AuthenticatedDevineMonStyleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/hub': {
@@ -275,12 +240,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHubRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/devine-mon-style': {
-      id: '/_authenticated/devine-mon-style'
-      path: '/devine-mon-style'
-      fullPath: '/devine-mon-style'
-      preLoaderRoute: typeof AuthenticatedDevineMonStyleRouteImport
+    '/_authenticated/messages': {
+      id: '/_authenticated/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof AuthenticatedMessagesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pensees': {
+      id: '/_authenticated/pensees'
+      path: '/pensees'
+      fullPath: '/pensees'
+      preLoaderRoute: typeof AuthenticatedPenseesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profil': {
+      id: '/_authenticated/profil'
+      path: '/profil'
+      fullPath: '/profil'
+      preLoaderRoute: typeof AuthenticatedProfilRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/roulette-irl': {
+      id: '/_authenticated/roulette-irl'
+      path: '/roulette-irl'
+      fullPath: '/roulette-irl'
+      preLoaderRoute: typeof AuthenticatedRouletteIrlRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/duel/$code': {
+      id: '/duel/$code'
+      path: '/$code'
+      fullPath: '/duel/$code'
+      preLoaderRoute: typeof DuelCodeRouteImport
+      parentRoute: typeof DuelRoute
+    }
+    '/room/$code': {
+      id: '/room/$code'
+      path: '/room/$code'
+      fullPath: '/room/$code'
+      preLoaderRoute: typeof RoomCodeRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
