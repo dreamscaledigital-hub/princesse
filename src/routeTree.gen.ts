@@ -21,6 +21,7 @@ import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedPenseesRouteImport } from './routes/_authenticated/pensees'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedHubRouteImport } from './routes/_authenticated/hub'
+import { Route as AuthenticatedDevineMonStyleRouteImport } from './routes/_authenticated/devine-mon-style'
 
 const WidgetRoute = WidgetRouteImport.update({
   id: '/widget',
@@ -82,12 +83,19 @@ const AuthenticatedHubRoute = AuthenticatedHubRouteImport.update({
   path: '/hub',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDevineMonStyleRoute =
+  AuthenticatedDevineMonStyleRouteImport.update({
+    id: '/devine-mon-style',
+    path: '/devine-mon-style',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/duel': typeof DuelRouteWithChildren
   '/widget': typeof WidgetRoute
+  '/devine-mon-style': typeof AuthenticatedDevineMonStyleRoute
   '/hub': typeof AuthenticatedHubRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/pensees': typeof AuthenticatedPenseesRoute
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/duel': typeof DuelRouteWithChildren
   '/widget': typeof WidgetRoute
+  '/devine-mon-style': typeof AuthenticatedDevineMonStyleRoute
   '/hub': typeof AuthenticatedHubRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/pensees': typeof AuthenticatedPenseesRoute
@@ -116,6 +125,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/duel': typeof DuelRouteWithChildren
   '/widget': typeof WidgetRoute
+  '/_authenticated/devine-mon-style': typeof AuthenticatedDevineMonStyleRoute
   '/_authenticated/hub': typeof AuthenticatedHubRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/pensees': typeof AuthenticatedPenseesRoute
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/duel'
     | '/widget'
+    | '/devine-mon-style'
     | '/hub'
     | '/messages'
     | '/pensees'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/duel'
     | '/widget'
+    | '/devine-mon-style'
     | '/hub'
     | '/messages'
     | '/pensees'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/duel'
     | '/widget'
+    | '/_authenticated/devine-mon-style'
     | '/_authenticated/hub'
     | '/_authenticated/messages'
     | '/_authenticated/pensees'
@@ -262,10 +275,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHubRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/devine-mon-style': {
+      id: '/_authenticated/devine-mon-style'
+      path: '/devine-mon-style'
+      fullPath: '/devine-mon-style'
+      preLoaderRoute: typeof AuthenticatedDevineMonStyleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDevineMonStyleRoute: typeof AuthenticatedDevineMonStyleRoute
   AuthenticatedHubRoute: typeof AuthenticatedHubRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedPenseesRoute: typeof AuthenticatedPenseesRoute
@@ -274,6 +295,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDevineMonStyleRoute: AuthenticatedDevineMonStyleRoute,
   AuthenticatedHubRoute: AuthenticatedHubRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedPenseesRoute: AuthenticatedPenseesRoute,
@@ -305,3 +327,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
