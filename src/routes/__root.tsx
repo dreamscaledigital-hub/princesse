@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "Princesse" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { title: "Princesse 💕 — Notre nid à deux" },
-      { name: "description", content: "Quiz, jeux et pensées tendres pour Eloise et toi." },
+      { name: "description", content: "Quiz, jeux et pensées tendres à partager en couple." },
       { property: "og:title", content: "Princesse 💕" },
       { property: "og:description", content: "Notre nid à deux : jeux, listes et pensées tendres." },
       { property: "og:type", content: "website" },

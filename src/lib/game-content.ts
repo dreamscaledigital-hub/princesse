@@ -1,6 +1,6 @@
 // 💕 Contenu du jeu — modifiable facilement ici 💕
 
-export const DEFAULT_NAMES = ["Toi", "Eloise"] as const;
+export const DEFAULT_NAMES = ["Joueur 1", "Joueur 2"] as const;
 
 // ── Menu / Modes de jeu ──
 export type ModeId = "quiz" | "minigames" | "mastermind" | "hangman" | "wouldyou" | "cupidon" | "paysville" | "mostlikely" | "riddles" | "tower" | "bounce" | "tap" | "draw" | "p4" | "wheel" | "full" | "edit_secrets" | "wishlist" | "airhockey";
