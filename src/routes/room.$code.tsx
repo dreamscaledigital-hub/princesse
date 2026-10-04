@@ -88,7 +88,7 @@ export const Route = createFileRoute("/room/$code")({
   component: GamePage,
   errorComponent: ({ error }) => (
     <div className="flex min-h-screen items-center justify-center p-6 pb-28 text-center">
-      <p className="text-muted-foreground">Oups : {error.message}</p>
+      <p className="text-muted-foreground">Oups : {error instanceof Error ? error.message : String(error)}</p>
     </div>
   ),
   notFoundComponent: () => <div className="p-6">Partie introuvable</div>,
