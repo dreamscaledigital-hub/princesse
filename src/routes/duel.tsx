@@ -4,6 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { getClientId } from "@/lib/player-id";
 
 export const Route = createFileRoute("/duel")({
+  head: () => ({
+    meta: [
+      { title: "Créer un duel — Princesse" },
+      { name: "description", content: "Créez un duel privé à partager avec votre partenaire." },
+      { property: "og:title", content: "Créer un duel — Princesse" },
+      { property: "og:description", content: "Créez un duel privé à partager avec votre partenaire." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: DuelCreatePage,
 });
 

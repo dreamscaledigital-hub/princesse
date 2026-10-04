@@ -9,6 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/duel/$code")({
+  head: () => ({
+    meta: [
+      { title: "Duel en duo — Princesse" },
+      { name: "description", content: "Rejoignez un duel privé et jouez ensemble en temps réel." },
+      { property: "og:title", content: "Duel en duo — Princesse" },
+      { property: "og:description", content: "Rejoignez un duel privé et jouez ensemble en temps réel." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: DuelPage,
 });
 

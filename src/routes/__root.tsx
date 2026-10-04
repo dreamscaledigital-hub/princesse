@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -40,12 +41,13 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const normalizedError = error instanceof Error ? error : new Error(String(error));
+  console.error(normalizedError);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+    reportLovableError(normalizedError, { boundary: "tanstack_root_error_component" });
+  }, [normalizedError]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -88,7 +90,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "Princesse" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { title: "Princesse 💕 — Notre nid à deux" },
-      { name: "description", content: "Quiz, jeux et pensées tendres pour Eloise et toi." },
+      { name: "description", content: "Quiz, jeux et pensées tendres à partager en couple." },
       { property: "og:title", content: "Princesse 💕" },
       { property: "og:description", content: "Notre nid à deux : jeux, listes et pensées tendres." },
       { property: "og:type", content: "website" },

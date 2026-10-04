@@ -5,6 +5,7 @@ Palette Cherry Blossom (#fef0f5 / #f8c8d8 / #e88aab / #c45c7c). Toujours via tok
 Typo: Instrument Serif (titres, italique pour accents) + Work Sans (corps). Pas de Quicksand/Inter.
 DA romantique éditoriale, layout card-grid (2 colonnes), aspect-square pour les cartes de menu.
 App mobile-first pour couple adulte. Tout en français.
+Contenu universel : aucun prénom personnel écrit en dur ; utiliser des libellés neutres hors noms de profils.
 Ambiance partagée 'irl'|'distance' (rooms.ambiance) change DA (CSS body[data-ambiance]) + banque de gages.
 
 ## Memories
