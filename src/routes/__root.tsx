@@ -17,7 +17,6 @@ import { BottomNav } from "../components/BottomNav";
 import { Toaster } from "../components/ui/sonner";
 import { useNotificationSoundBridge } from "../lib/notification-sound";
 import { LoveBombReceiver } from "../components/LoveBombOverlay";
-import { AccessGate } from "../components/AccessGate";
 
 function NotFoundComponent() {
   return (
@@ -151,12 +150,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AccessGate>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <BottomNav />
-        <MusicPlayer />
-      </AccessGate>
+      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+      <Outlet />
+      <BottomNav />
+      <MusicPlayer />
       <Toaster richColors position="top-center" />
       <LoveBombReceiver />
     </QueryClientProvider>
